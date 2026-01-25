@@ -1,0 +1,231 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Sports-inspired green theme with gold accents */
+    --background: 150 10% 98%;
+    --foreground: 150 30% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 150 30% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 150 30% 10%;
+
+    /* Deep emerald green - main brand */
+    --primary: 158 64% 32%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Light sage for secondary elements */
+    --secondary: 150 20% 94%;
+    --secondary-foreground: 150 30% 15%;
+
+    --muted: 150 15% 92%;
+    --muted-foreground: 150 10% 45%;
+
+    /* Gold accent for highlights and points */
+    --accent: 43 96% 56%;
+    --accent-foreground: 43 90% 15%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Success green for correct predictions */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+
+    /* Warning amber */
+    --warning: 38 92% 50%;
+    --warning-foreground: 38 92% 10%;
+
+    --border: 150 20% 88%;
+    --input: 150 20% 88%;
+    --ring: 158 64% 32%;
+
+    --radius: 0.75rem;
+
+    /* Custom gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(158, 64%, 32%) 0%, hsl(158, 70%, 22%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(43, 96%, 56%) 0%, hsl(38, 92%, 50%) 100%);
+    --gradient-hero: linear-gradient(180deg, hsl(150, 10%, 98%) 0%, hsl(150, 20%, 94%) 100%);
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(150 30% 10% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(150 30% 10% / 0.1), 0 2px 4px -2px hsl(150 30% 10% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(150 30% 10% / 0.1), 0 4px 6px -4px hsl(150 30% 10% / 0.1);
+    --shadow-xl: 0 20px 25px -5px hsl(150 30% 10% / 0.1), 0 8px 10px -6px hsl(150 30% 10% / 0.1);
+    --shadow-glow: 0 0 20px hsl(158 64% 32% / 0.3);
+    --shadow-accent: 0 4px 14px 0 hsl(43 96% 56% / 0.4);
+
+    --sidebar-background: 150 15% 97%;
+    --sidebar-foreground: 150 30% 15%;
+    --sidebar-primary: 158 64% 32%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 150 20% 92%;
+    --sidebar-accent-foreground: 150 30% 15%;
+    --sidebar-border: 150 20% 88%;
+    --sidebar-ring: 158 64% 32%;
+  }
+
+  .dark {
+    --background: 160 20% 8%;
+    --foreground: 150 10% 95%;
+
+    --card: 160 18% 12%;
+    --card-foreground: 150 10% 95%;
+
+    --popover: 160 18% 12%;
+    --popover-foreground: 150 10% 95%;
+
+    --primary: 158 64% 45%;
+    --primary-foreground: 160 30% 5%;
+
+    --secondary: 160 15% 18%;
+    --secondary-foreground: 150 10% 90%;
+
+    --muted: 160 15% 18%;
+    --muted-foreground: 150 10% 60%;
+
+    --accent: 43 96% 56%;
+    --accent-foreground: 43 90% 10%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 70% 45%;
+    --success-foreground: 142 70% 5%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 38 92% 10%;
+
+    --border: 160 15% 20%;
+    --input: 160 15% 20%;
+    --ring: 158 64% 45%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(158, 64%, 45%) 0%, hsl(158, 70%, 35%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(43, 96%, 56%) 0%, hsl(38, 92%, 50%) 100%);
+    --gradient-hero: linear-gradient(180deg, hsl(160, 20%, 8%) 0%, hsl(160, 18%, 12%) 100%);
+
+    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.3);
+    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.4), 0 2px 4px -2px hsl(0 0% 0% / 0.3);
+    --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.4), 0 4px 6px -4px hsl(0 0% 0% / 0.3);
+    --shadow-xl: 0 20px 25px -5px hsl(0 0% 0% / 0.4), 0 8px 10px -6px hsl(0 0% 0% / 0.3);
+    --shadow-glow: 0 0 30px hsl(158 64% 45% / 0.4);
+    --shadow-accent: 0 4px 14px 0 hsl(43 96% 56% / 0.3);
+
+    --sidebar-background: 160 18% 10%;
+    --sidebar-foreground: 150 10% 90%;
+    --sidebar-primary: 158 64% 45%;
+    --sidebar-primary-foreground: 160 30% 5%;
+    --sidebar-accent: 160 15% 16%;
+    --sidebar-accent-foreground: 150 10% 90%;
+    --sidebar-border: 160 15% 18%;
+    --sidebar-ring: 158 64% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold tracking-tight;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-sm border border-border/50 shadow-lg;
+  }
+
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+
+  .gradient-accent {
+    background: var(--gradient-accent);
+  }
+
+  .text-gradient-primary {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .shadow-accent-glow {
+    box-shadow: var(--shadow-accent);
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.5s ease-out;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: var(--shadow-glow);
+  }
+  50% {
+    box-shadow: 0 0 40px hsl(158 64% 32% / 0.5);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
