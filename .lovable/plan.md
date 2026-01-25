@@ -1,207 +1,89 @@
 
 
-## Plano: Campo de Pesquisa Inline para Convidar Usuario
+## Plano: Usar Limite da Rodada como Padrao para Numero de Jogos
 
-### Objetivo
+### Problema Identificado
 
-Substituir o botao "Convidar Usuario" (que requer um clique para abrir o modal) por um campo de pesquisa inline que aparece diretamente na interface, eliminando um clique desnecessario.
+Ao clicar em "Adicionar Jogos", o sistema mostra **10 slots** de jogos mesmo quando a rodada esta configurada para **4 jogos** (como "Quartas de Final").
 
----
-
-### Situacao Atual
-
-```text
-+---------------------------+   +------------------+
-| 👤+ Convidar Usuario     |   | 🔗 Copiar Link   |
-+---------------------------+   +------------------+
-            |
-            v (clique abre modal)
-     +-----------------------------+
-     |       Modal Dialog          |
-     |  +------------------------+ |
-     |  | 🔍 Buscar usuario...  | |
-     |  +------------------------+ |
-     |       [Resultado]          |
-     +-----------------------------+
-```
-
-**Problemas:**
-- Requer clique adicional para ver o campo de pesquisa
-- Quebra o fluxo de trabalho do administrador
-
----
-
-### Solucao Proposta
-
-Substituir por um campo de pesquisa inline com Popover para resultados:
-
-```text
-+----------------------------------------+   +------------------+
-| 🔍 Buscar usuario (ID ou @username)... |   | 🔗 Copiar Link   |
-+----------------------------------------+   +------------------+
-            |
-            v (resultados aparecem em popover)
-     +-----------------------------+
-     |   Popover com Resultado     |
-     |   [Avatar] @usuario #12345  |
-     |   [👤+ Enviar Convite]      |
-     +-----------------------------+
-```
-
----
-
-### Mudancas Tecnicas
-
-#### 1. Criar Novo Componente: `InviteUserInline.tsx`
-
-Novo componente que combina a funcionalidade do `InviteUserDialog.tsx` em formato inline:
-
-**Estrutura:**
+**Causa:**
+No `AddGamesScreen.tsx`, linha 128:
 ```typescript
-interface InviteUserInlineProps {
-  poolId: string;
-}
-
-export function InviteUserInline({ poolId }: InviteUserInlineProps) {
-  // Reutiliza hook existente
-  const { searchUser, searchingUser, sendInvitation } = usePoolInvitations(poolId);
-  
-  // Estados locais
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchedUser, setSearchedUser] = useState<SearchedUser | null>(null);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [popoverOpen, setPopoverOpen] = useState(false);
-  
-  // Logica de busca igual ao dialog atual
-}
+const totalSlots = Math.max(matchesPerRound, maxMatches);
 ```
 
-**UI:**
-- Input de pesquisa sempre visivel com icone de lupa
-- Popover que abre automaticamente ao encontrar resultado
-- Mostra avatar, nome, username e botao de enviar convite
-- Fecha automaticamente apos enviar convite com sucesso
+- `matchesPerRound` vem do pool (`pool.matches_per_round || 10`)
+- `maxMatches` vem da rodada (`round.match_limit + extra_matches_allowed`)
+
+O sistema esta usando o **maior valor** entre os dois, quando deveria usar apenas o limite especifico da rodada.
 
 ---
 
-#### 2. Atualizar `PoolManage.tsx`
+### Solucao
 
-**Remover:**
-- Estado `inviteDialogOpen`
-- Componente `InviteUserDialog`
-- Botao que abre o dialog
-
-**Substituir por:**
-```tsx
-{canManagePool() && (
-  <div className="flex items-center gap-2">
-    <InviteUserInline poolId={id!} />
-    <ShareInviteLink poolId={id!} />
-  </div>
-)}
-```
-
----
-
-### Fluxo de Interacao
-
-```text
-1. Usuario ve campo de pesquisa inline
-   +----------------------------------------+
-   | 🔍 Buscar usuario (ID ou @username)... |
-   +----------------------------------------+
-
-2. Usuario digita e pressiona Enter ou clica na lupa
-   +----------------------------------------+
-   | joao123                            [🔍]|
-   +----------------------------------------+
-
-3. Popover abre com resultado
-   +----------------------------------------+
-   | joao123                            [🔍]|
-   +----------------------------------------+
-   | +----------------------------------+ |
-   | | [😀] Joao Silva                  | |
-   | |      @joao123  #00045            | |
-   | | +----------------------------+   | |
-   | | | 👤+ Enviar Convite        |   | |
-   | | +----------------------------+   | |
-   | +----------------------------------+ |
-
-4. Apos enviar, popover fecha e input limpa
-   +----------------------------------------+
-   | 🔍 Buscar usuario (ID ou @username)... |
-   +----------------------------------------+
-   ✅ Toast: "Convite enviado!"
-```
-
----
-
-### Estados do Resultado
-
-| Estado | Visual |
-|--------|--------|
-| Buscando | Spinner no botao de busca |
-| Nao encontrado | Popover com icone de alerta |
-| Ja participa | Badge "Ja participa" |
-| Convite pendente | Badge "Convite pendente" |
-| Disponivel | Botao "Enviar Convite" |
+Alterar a logica para usar o limite da rodada (`maxMatches`) como fonte primaria, ignorando o `matchesPerRound` do pool.
 
 ---
 
 ### Arquivos a Modificar
 
-| Arquivo | Acao |
-|---------|------|
-| `src/components/pools/InviteUserInline.tsx` | **Criar** - Novo componente inline |
-| `src/pages/PoolManage.tsx` | **Modificar** - Substituir dialog por inline |
-| `src/components/pools/InviteUserDialog.tsx` | **Manter** - Pode ser util em outros contextos |
+| Arquivo | Alteracao |
+|---------|-----------|
+| `src/components/matches/AddGamesScreen.tsx` | Usar `maxMatches` em vez de `Math.max(matchesPerRound, maxMatches)` |
+| `src/components/admin/SuggestedPoolMatchesScreen.tsx` | Ja usa `pool.matches_per_round` corretamente, verificar se precisa ajuste |
 
 ---
 
-### Detalhes do Componente InviteUserInline
+### Mudancas Tecnicas
 
+#### 1. AddGamesScreen.tsx (Linha 128)
+
+**De:**
 ```typescript
-// Imports
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search, UserPlus, Loader2, UserCheck, Clock, AlertCircle } from 'lucide-react';
-import { usePoolInvitations } from '@/hooks/use-pool-invitations';
-
-// Estrutura JSX principal
-<div className="relative">
-  <div className="flex gap-2">
-    <Input
-      placeholder="Buscar usuario (ID ou @username)..."
-      value={searchQuery}
-      onChange={(e) => setSearchQuery(e.target.value)}
-      onKeyDown={handleKeyDown}
-      className="w-64"
-    />
-    <Button onClick={handleSearch} disabled={searchingUser} size="icon">
-      {searchingUser ? <Loader2 className="animate-spin" /> : <Search />}
-    </Button>
-  </div>
-  
-  <Popover open={popoverOpen && hasSearched} onOpenChange={setPopoverOpen}>
-    <PopoverTrigger asChild>
-      <span /> {/* Trigger invisivel ancorado no input */}
-    </PopoverTrigger>
-    <PopoverContent align="start" className="w-80">
-      {/* Resultado da busca */}
-    </PopoverContent>
-  </Popover>
-</div>
+const totalSlots = Math.max(matchesPerRound, maxMatches);
 ```
 
+**Para:**
+```typescript
+const totalSlots = maxMatches;
+```
+
+Isso garante que o numero de slots corresponda exatamente ao limite configurado para aquela rodada especifica.
+
 ---
 
-### Beneficios
+#### 2. Opcional: Remover prop `matchesPerRound`
 
-- **1 clique a menos**: Usuario ve campo de pesquisa imediatamente
-- **Fluxo mais rapido**: Nao precisa esperar modal abrir/fechar
-- **UX moderna**: Padrao comum em aplicacoes modernas
-- **Mantém funcionalidade**: Mesmas features do dialog (busca, validacao, envio)
+Se a prop `matchesPerRound` nao for mais utilizada para calcular slots, ela pode ser removida da interface do componente. Porem, ela ainda pode ser util para outras finalidades (como referencia ou logs), entao avaliaremos durante a implementacao.
+
+---
+
+### Comportamento Esperado
+
+**Antes:**
+- Quartas de Final (4 jogos configurados) → Abre com 10 slots
+
+**Depois:**
+- Quartas de Final (4 jogos configurados) → Abre com 4 slots
+- Oitavas de Final (8 jogos configurados) → Abre com 8 slots
+- Final (1 jogo configurado) → Abre com 1 slot
+
+---
+
+### Impacto
+
+| Contexto | Afetado |
+|----------|---------|
+| Boloes normais (PoolManage) | Sim |
+| Sugestoes Zapions (Admin) | Verificar se precisa ajuste similar |
+| Boloes de formato copa/knockout | Sim, ja usam `match_limit` por fase |
+
+---
+
+### Validacao
+
+1. Abrir uma rodada de "Quartas de Final" configurada para 4 jogos
+2. Verificar que aparecem exatamente 4 slots
+3. Abrir uma rodada de "Oitavas" configurada para 8 jogos
+4. Verificar que aparecem exatamente 8 slots
 
