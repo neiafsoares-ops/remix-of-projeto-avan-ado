@@ -49,6 +49,7 @@ import { EditKnockoutMatchupsScreen } from '@/components/matches/EditKnockoutMat
 import { InviteUserInline } from '@/components/pools/InviteUserInline';
 import { ShareInviteLink } from '@/components/pools/ShareInviteLink';
 import { PendingInvitations } from '@/components/pools/PendingInvitations';
+import { PoolStructureConfigTab } from '@/components/pools/PoolStructureConfigTab';
 import { 
   ArrowLeft, 
   Plus, 
@@ -1331,8 +1332,9 @@ export default function PoolManage() {
           />
         ) : (
           <Tabs defaultValue="rounds" className="space-y-6">
-            <TabsList>
+            <TabsList className="flex-wrap">
               <TabsTrigger value="rounds">Rodadas</TabsTrigger>
+              <TabsTrigger value="config">Configurações</TabsTrigger>
               <TabsTrigger value="participants">Participantes</TabsTrigger>
               <TabsTrigger value="predictions">Palpites</TabsTrigger>
             </TabsList>
@@ -1343,6 +1345,21 @@ export default function PoolManage() {
                 onEditRound={handleEditRound} 
                 canManagePool={canManagePool()}
                 onLaunchScores={handleLaunchScores}
+              />
+            </TabsContent>
+
+            <TabsContent value="config">
+              <PoolStructureConfigTab
+                poolId={id!}
+                pool={pool}
+                rounds={rounds}
+                matches={matches}
+                userId={user!.id}
+                isPrivilegedUser={userRoles.includes('admin') || userRoles.includes('moderator')}
+                onConfigUpdated={() => {
+                  fetchData();
+                  fetchRounds();
+                }}
               />
             </TabsContent>
 
