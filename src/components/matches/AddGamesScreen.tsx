@@ -359,7 +359,6 @@ export function AddGamesScreen({
         away_team_image: slot.away_team_image || null,
         match_date: new Date(slot.match_date).toISOString(),
         prediction_deadline: new Date(slot.prediction_deadline).toISOString(),
-        created_by: user.id,
       };
       
       if (slot.match?.id) {
@@ -429,7 +428,6 @@ export function AddGamesScreen({
         away_team_image: slot.away_team_image || null,
         match_date: new Date(slot.match_date).toISOString(),
         prediction_deadline: new Date(slot.prediction_deadline).toISOString(),
-        created_by: user.id,
       };
       
       if (slot.match?.id) {
@@ -695,7 +693,6 @@ export function AddGamesScreen({
         away_team_image: slot.away_team_image || null,
         match_date: new Date(slot.match_date).toISOString(),
         prediction_deadline: new Date(slot.prediction_deadline).toISOString(),
-        created_by: user.id,
       };
       
       if (slot.match?.id) {
@@ -780,7 +777,6 @@ export function AddGamesScreen({
         away_team_image: slot.away_team_image || null,
         match_date: new Date(slot.match_date).toISOString(),
         prediction_deadline: new Date(slot.prediction_deadline).toISOString(),
-        created_by: user.id,
       };
       
       if (slot.match?.id) {
