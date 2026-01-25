@@ -185,6 +185,51 @@ export type Database = {
         }
         Relationships: []
       }
+      mestre_pool_instances: {
+        Row: {
+          created_at: string | null
+          id: string
+          matches_per_round: number
+          mestre_user_id: string
+          pool_id: string
+          rounds_consumed: number
+          suggested_pool_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          matches_per_round: number
+          mestre_user_id: string
+          pool_id: string
+          rounds_consumed: number
+          suggested_pool_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          matches_per_round?: number
+          mestre_user_id?: string
+          pool_id?: string
+          rounds_consumed?: number
+          suggested_pool_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mestre_pool_instances_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "pools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mestre_pool_instances_suggested_pool_id_fkey"
+            columns: ["suggested_pool_id"]
+            isOneToOne: false
+            referencedRelation: "suggested_pools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pool_invitations: {
         Row: {
           created_at: string
@@ -503,33 +548,75 @@ export type Database = {
       }
       suggested_pool_matches: {
         Row: {
+          away_club_id: string | null
+          away_score: number | null
           away_team: string
-          created_at: string
+          created_at: string | null
+          home_club_id: string | null
+          home_score: number | null
           home_team: string
           id: string
-          match_date: string | null
-          round_number: number | null
+          is_finished: boolean | null
+          match_date: string
+          prediction_deadline: string
+          round_id: string
           suggested_pool_id: string
+          updated_at: string | null
         }
         Insert: {
+          away_club_id?: string | null
+          away_score?: number | null
           away_team: string
-          created_at?: string
+          created_at?: string | null
+          home_club_id?: string | null
+          home_score?: number | null
           home_team: string
           id?: string
-          match_date?: string | null
-          round_number?: number | null
+          is_finished?: boolean | null
+          match_date: string
+          prediction_deadline: string
+          round_id: string
           suggested_pool_id: string
+          updated_at?: string | null
         }
         Update: {
+          away_club_id?: string | null
+          away_score?: number | null
           away_team?: string
-          created_at?: string
+          created_at?: string | null
+          home_club_id?: string | null
+          home_score?: number | null
           home_team?: string
           id?: string
-          match_date?: string | null
-          round_number?: number | null
+          is_finished?: boolean | null
+          match_date?: string
+          prediction_deadline?: string
+          round_id?: string
           suggested_pool_id?: string
+          updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "suggested_pool_matches_away_club_id_fkey"
+            columns: ["away_club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suggested_pool_matches_home_club_id_fkey"
+            columns: ["home_club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suggested_pool_matches_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "suggested_pool_rounds"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "suggested_pool_matches_suggested_pool_id_fkey"
             columns: ["suggested_pool_id"]
@@ -539,36 +626,109 @@ export type Database = {
           },
         ]
       }
-      suggested_pools: {
+      suggested_pool_moderators: {
         Row: {
-          approved_by: string | null
-          competition_type: string | null
-          created_at: string
-          description: string | null
+          created_at: string | null
+          created_by: string | null
           id: string
-          name: string
-          status: string | null
-          suggested_by: string | null
+          suggested_pool_id: string
+          user_id: string
         }
         Insert: {
-          approved_by?: string | null
-          competition_type?: string | null
-          created_at?: string
-          description?: string | null
+          created_at?: string | null
+          created_by?: string | null
           id?: string
-          name: string
-          status?: string | null
-          suggested_by?: string | null
+          suggested_pool_id: string
+          user_id: string
         }
         Update: {
-          approved_by?: string | null
-          competition_type?: string | null
-          created_at?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          suggested_pool_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suggested_pool_moderators_suggested_pool_id_fkey"
+            columns: ["suggested_pool_id"]
+            isOneToOne: false
+            referencedRelation: "suggested_pools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suggested_pool_rounds: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string | null
+          round_number: number
+          suggested_pool_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name?: string | null
+          round_number: number
+          suggested_pool_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string | null
+          round_number?: number
+          suggested_pool_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suggested_pool_rounds_suggested_pool_id_fkey"
+            columns: ["suggested_pool_id"]
+            isOneToOne: false
+            referencedRelation: "suggested_pools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suggested_pools: {
+        Row: {
+          cover_image: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          matches_per_round: number
+          name: string
+          total_rounds: number
+          updated_at: string | null
+        }
+        Insert: {
+          cover_image?: string | null
+          created_at?: string | null
+          created_by?: string | null
           description?: string | null
           id?: string
+          is_active?: boolean | null
+          matches_per_round?: number
           name?: string
-          status?: string | null
-          suggested_by?: string | null
+          total_rounds?: number
+          updated_at?: string | null
+        }
+        Update: {
+          cover_image?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          matches_per_round?: number
+          name?: string
+          total_rounds?: number
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -595,6 +755,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_edit_suggested_pool_matches: {
+        Args: { _pool_id: string; _user_id: string }
+        Returns: boolean
+      }
       count_user_rounds: { Args: { user_uuid: string }; Returns: number }
       has_role: {
         Args: {
@@ -612,6 +776,10 @@ export type Database = {
           p_table_name: string
         }
         Returns: string
+      }
+      is_suggested_pool_moderator: {
+        Args: { _pool_id: string; _user_id: string }
+        Returns: boolean
       }
     }
     Enums: {
