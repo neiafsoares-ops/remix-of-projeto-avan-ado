@@ -125,7 +125,7 @@ export function AddGamesScreen({
     
     const roundMatches = matches.filter(m => m.round_id === currentRound.id);
     const maxMatches = currentRound.match_limit + (currentRound.extra_matches_allowed || 0);
-    const totalSlots = Math.max(matchesPerRound, maxMatches);
+    const totalSlots = maxMatches;
     
     const slots: MatchSlot[] = [];
     
