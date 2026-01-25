@@ -22,7 +22,7 @@ import { Badge } from '@/components/ui/badge';
 const MEMBER_LIMITS = {
   maxTeams: 8,
   maxGroups: 2,
-  maxMatches: 8,
+  maxMatches: 15,
 };
 
 interface CreatePoolWizardProps {

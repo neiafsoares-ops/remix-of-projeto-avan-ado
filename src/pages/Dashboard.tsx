@@ -184,7 +184,7 @@ export default function Dashboard() {
                     Crie seu primeiro bolão e convide seus amigos!
                     {!isPrivilegedUser && (
                       <span className="block text-sm mt-2 text-muted-foreground/80">
-                        Membros podem criar bolões com até 8 equipes, 2 grupos e 8 partidas. Se torne um Mestre dos Bolões e tenha liberdade para criar bolões ilimitados!
+                        Membros podem criar bolões com até 8 equipes, 2 grupos e 15 partidas. Se torne um Mestre dos Bolões e tenha liberdade para criar bolões ilimitados!
                       </span>
                     )}
                   </p>

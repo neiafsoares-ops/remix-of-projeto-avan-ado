@@ -38,7 +38,7 @@ import type { SuggestedPool, SuggestedPoolRound, SuggestedPoolMatch } from '@/ty
 const MEMBER_LIMITS = {
   maxTeams: 8,
   maxGroups: 2,
-  maxMatches: 8,
+  maxMatches: 15,
 };
 
 interface SuggestedPoolWithDetails extends SuggestedPool {
