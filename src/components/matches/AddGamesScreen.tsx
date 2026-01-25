@@ -144,6 +144,7 @@ export function AddGamesScreen({
       matchesByRound: Record<string, Match[]>;
       teamCount: number;
       matchesPerRound: number;
+      totalRoundsNeeded: number; // n-1 rounds for n teams (round robin)
     }> = {};
     
     uniqueGroups.forEach(groupName => {
@@ -166,12 +167,15 @@ export function AddGamesScreen({
       });
       
       const teamCount = Math.max(teamsInGroup.size, 4); // Minimum 4 teams
+      // For round robin: n teams need n-1 rounds (each team plays every other team once)
+      const totalRoundsNeeded = teamCount - 1;
       
       byGroup[groupName] = {
         rounds: groupRoundsList,
         matchesByRound: matchesByRoundMap,
         teamCount,
-        matchesPerRound: calculateMatchesPerRound(teamCount)
+        matchesPerRound: calculateMatchesPerRound(teamCount),
+        totalRoundsNeeded
       };
     });
     
@@ -868,7 +872,9 @@ export function AddGamesScreen({
             const groupData = matchesByGroup[groupName];
             const selectedRoundIndex = getSelectedRound(groupName);
             const currentGroupRound = groupData.rounds[selectedRoundIndex];
-            const totalGroupRounds = groupData.rounds.length;
+            // Use calculated rounds needed (n-1 for n teams) instead of existing rounds count
+            const totalGroupRounds = groupData.totalRoundsNeeded;
+            const existingRoundsCount = groupData.rounds.length;
             const matchesPerRoundGroup = groupData.matchesPerRound;
             
             const key = currentGroupRound ? `${groupName}-${currentGroupRound.id}` : '';
@@ -905,7 +911,7 @@ export function AddGamesScreen({
                           size="icon"
                           className="h-7 w-7"
                           onClick={() => setSelectedRound(groupName, selectedRoundIndex + 1)}
-                          disabled={selectedRoundIndex >= totalGroupRounds - 1}
+                          disabled={selectedRoundIndex >= existingRoundsCount - 1}
                         >
                           <ChevronRight className="h-4 w-4" />
                         </Button>
