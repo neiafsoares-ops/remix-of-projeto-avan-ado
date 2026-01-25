@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,16 @@ import {
   Users
 } from 'lucide-react';
 import { formatDateTimeBR, isBeforeDeadline } from '@/lib/date-utils';
+
+// Types for auto-save tracking
+interface SavedSlotData {
+  home_team: string;
+  away_team: string;
+  match_date: string;
+  prediction_deadline: string;
+}
+
+type SlotSaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 interface Round {
   id: string;
@@ -209,6 +219,12 @@ export function AddGamesScreen({
   const [newClubName, setNewClubName] = useState('');
   const [newClubTarget, setNewClubTarget] = useState<{ slotIndex: number; team: 'home' | 'away'; groupName?: string; roundId?: string } | null>(null);
   
+  // Auto-save tracking refs and state
+  const lastSavedSlots = useRef<Record<number, SavedSlotData>>({});
+  const lastSavedGroupSlots = useRef<Record<string, SavedSlotData>>({});
+  const autoSaveTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
+  const [slotSaveStatus, setSlotSaveStatus] = useState<Record<string, SlotSaveStatus>>({});
+  
   const currentRound = nonGroupRounds[currentRoundIndex];
 
   // Initialize group slots when cup format is detected
@@ -315,7 +331,238 @@ export function AddGamesScreen({
     }
     
     setMatchSlots(slots);
+    // Reset saved tracking when round changes
+    lastSavedSlots.current = {};
   }, [currentRound?.id, matches, matchesPerRound, isCupFormat]);
+  
+  // Cleanup auto-save timeouts on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(autoSaveTimeouts.current).forEach(timeout => clearTimeout(timeout));
+    };
+  }, []);
+
+  // Auto-save callback for standard slots
+  const performAutoSave = useCallback(async (index: number, slot: MatchSlot) => {
+    if (!user || !currentRound) return;
+    
+    const slotKey = `standard-${index}`;
+    setSlotSaveStatus(prev => ({ ...prev, [slotKey]: 'saving' }));
+    
+    try {
+      const matchData = {
+        pool_id: poolId,
+        round_id: currentRound.id,
+        home_team: slot.home_team,
+        away_team: slot.away_team,
+        home_team_image: slot.home_team_image || null,
+        away_team_image: slot.away_team_image || null,
+        match_date: new Date(slot.match_date).toISOString(),
+        prediction_deadline: new Date(slot.prediction_deadline).toISOString(),
+        created_by: user.id,
+      };
+      
+      if (slot.match?.id) {
+        const { error } = await supabase
+          .from('matches')
+          .update({
+            home_team: matchData.home_team,
+            away_team: matchData.away_team,
+            home_team_image: matchData.home_team_image,
+            away_team_image: matchData.away_team_image,
+            match_date: matchData.match_date,
+            prediction_deadline: matchData.prediction_deadline,
+          })
+          .eq('id', slot.match.id);
+          
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('matches')
+          .insert(matchData);
+          
+        if (error) throw error;
+      }
+      
+      // Update last saved values
+      lastSavedSlots.current[index] = {
+        home_team: slot.home_team,
+        away_team: slot.away_team,
+        match_date: slot.match_date,
+        prediction_deadline: slot.prediction_deadline,
+      };
+      
+      setMatchSlots(prev => prev.map((s, i) => 
+        i === index ? { ...s, isSaved: true, isModified: false } : s
+      ));
+      
+      setSlotSaveStatus(prev => ({ ...prev, [slotKey]: 'saved' }));
+      setTimeout(() => {
+        setSlotSaveStatus(prev => ({ ...prev, [slotKey]: 'idle' }));
+      }, 2000);
+      
+      onMatchesUpdate();
+    } catch (error: any) {
+      setSlotSaveStatus(prev => ({ ...prev, [slotKey]: 'error' }));
+      toast({
+        title: 'Erro ao salvar automaticamente',
+        description: error.message || 'Não foi possível salvar o jogo.',
+        variant: 'destructive',
+      });
+    }
+  }, [user, currentRound, poolId, onMatchesUpdate, toast]);
+
+  // Auto-save callback for group slots
+  const performGroupAutoSave = useCallback(async (groupName: string, roundId: string, index: number, slot: MatchSlot) => {
+    if (!user) return;
+    
+    const slotKey = `${groupName}-${roundId}-${index}`;
+    setSlotSaveStatus(prev => ({ ...prev, [slotKey]: 'saving' }));
+    
+    try {
+      const matchData = {
+        pool_id: poolId,
+        round_id: roundId,
+        home_team: slot.home_team,
+        away_team: slot.away_team,
+        home_team_image: slot.home_team_image || null,
+        away_team_image: slot.away_team_image || null,
+        match_date: new Date(slot.match_date).toISOString(),
+        prediction_deadline: new Date(slot.prediction_deadline).toISOString(),
+        created_by: user.id,
+      };
+      
+      if (slot.match?.id) {
+        const { error } = await supabase
+          .from('matches')
+          .update({
+            home_team: matchData.home_team,
+            away_team: matchData.away_team,
+            home_team_image: matchData.home_team_image,
+            away_team_image: matchData.away_team_image,
+            match_date: matchData.match_date,
+            prediction_deadline: matchData.prediction_deadline,
+          })
+          .eq('id', slot.match.id);
+          
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('matches')
+          .insert(matchData);
+          
+        if (error) throw error;
+      }
+      
+      // Update last saved values
+      lastSavedGroupSlots.current[slotKey] = {
+        home_team: slot.home_team,
+        away_team: slot.away_team,
+        match_date: slot.match_date,
+        prediction_deadline: slot.prediction_deadline,
+      };
+      
+      const key = `${groupName}-${roundId}`;
+      setGroupMatchSlots(prev => ({
+        ...prev,
+        [key]: (prev[key] || []).map((s, i) => 
+          i === index ? { ...s, isSaved: true, isModified: false } : s
+        )
+      }));
+      
+      setSlotSaveStatus(prev => ({ ...prev, [slotKey]: 'saved' }));
+      setTimeout(() => {
+        setSlotSaveStatus(prev => ({ ...prev, [slotKey]: 'idle' }));
+      }, 2000);
+      
+      onMatchesUpdate();
+    } catch (error: any) {
+      setSlotSaveStatus(prev => ({ ...prev, [slotKey]: 'error' }));
+      toast({
+        title: 'Erro ao salvar automaticamente',
+        description: error.message || 'Não foi possível salvar o jogo.',
+        variant: 'destructive',
+      });
+    }
+  }, [user, poolId, onMatchesUpdate, toast]);
+
+  // Auto-save effect for standard match slots
+  useEffect(() => {
+    if (!user || !currentRound || isCupFormat) return;
+    
+    matchSlots.forEach((slot, index) => {
+      // Only save if both teams are filled
+      if (!slot.home_team || !slot.away_team) return;
+      
+      // Skip if dates are not filled
+      if (!slot.match_date || !slot.prediction_deadline) return;
+      
+      // Skip if already saved with same values
+      const lastSaved = lastSavedSlots.current[index];
+      const hasChanged = !lastSaved ||
+        lastSaved.home_team !== slot.home_team ||
+        lastSaved.away_team !== slot.away_team ||
+        lastSaved.match_date !== slot.match_date ||
+        lastSaved.prediction_deadline !== slot.prediction_deadline;
+      
+      if (!hasChanged) return;
+      
+      // Validate dates
+      if (new Date(slot.prediction_deadline) >= new Date(slot.match_date)) return;
+      
+      // Clear existing timeout for this slot
+      const timeoutKey = `standard-${index}`;
+      if (autoSaveTimeouts.current[timeoutKey]) {
+        clearTimeout(autoSaveTimeouts.current[timeoutKey]);
+      }
+      
+      // Set new timeout with 1000ms debounce
+      autoSaveTimeouts.current[timeoutKey] = setTimeout(() => {
+        performAutoSave(index, slot);
+      }, 1000);
+    });
+  }, [matchSlots, currentRound, user, isCupFormat, performAutoSave]);
+
+  // Auto-save effect for group match slots
+  useEffect(() => {
+    if (!user || !isCupFormat) return;
+    
+    Object.entries(groupMatchSlots).forEach(([key, slots]) => {
+      const [groupName, roundId] = key.split('-');
+      
+      slots.forEach((slot, index) => {
+        // Only save if both teams are filled
+        if (!slot.home_team || !slot.away_team) return;
+        
+        // Skip if dates are not filled
+        if (!slot.match_date || !slot.prediction_deadline) return;
+        
+        // Skip if already saved with same values
+        const slotKey = `${groupName}-${roundId}-${index}`;
+        const lastSaved = lastSavedGroupSlots.current[slotKey];
+        const hasChanged = !lastSaved ||
+          lastSaved.home_team !== slot.home_team ||
+          lastSaved.away_team !== slot.away_team ||
+          lastSaved.match_date !== slot.match_date ||
+          lastSaved.prediction_deadline !== slot.prediction_deadline;
+        
+        if (!hasChanged) return;
+        
+        // Validate dates
+        if (new Date(slot.prediction_deadline) >= new Date(slot.match_date)) return;
+        
+        // Clear existing timeout for this slot
+        if (autoSaveTimeouts.current[slotKey]) {
+          clearTimeout(autoSaveTimeouts.current[slotKey]);
+        }
+        
+        // Set new timeout with 1000ms debounce
+        autoSaveTimeouts.current[slotKey] = setTimeout(() => {
+          performGroupAutoSave(groupName, roundId, index, slot);
+        }, 1000);
+      });
+    });
+  }, [groupMatchSlots, user, isCupFormat, performGroupAutoSave]);
   
   const formatDateTimeLocalFromISO = (isoDate: string) => {
     const date = new Date(isoDate);
@@ -685,7 +932,38 @@ export function AddGamesScreen({
   const renderGroupMatchSlot = (groupName: string, roundId: string, slot: MatchSlot, index: number) => {
     const key = `${groupName}-${roundId}`;
     const slotKey = `${key}-${index}`;
+    const statusKey = `${groupName}-${roundId}-${index}`;
     const isSaving = savingSlotKey === slotKey;
+    const autoSaveStatus = slotSaveStatus[statusKey] || 'idle';
+
+    // Render save status indicator
+    const renderSaveStatus = () => {
+      if (autoSaveStatus === 'saving') {
+        return (
+          <div className="flex items-center gap-1 text-muted-foreground">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            <span className="text-xs">Salvando...</span>
+          </div>
+        );
+      }
+      if (autoSaveStatus === 'saved') {
+        return (
+          <div className="flex items-center gap-1 text-green-600">
+            <CheckCircle2 className="w-3 h-3" />
+            <span className="text-xs">Salvo automaticamente</span>
+          </div>
+        );
+      }
+      if (autoSaveStatus === 'error') {
+        return (
+          <div className="flex items-center gap-1 text-destructive">
+            <AlertCircle className="w-3 h-3" />
+            <span className="text-xs">Erro ao salvar</span>
+          </div>
+        );
+      }
+      return null;
+    };
 
     return (
       <div
@@ -697,16 +975,19 @@ export function AddGamesScreen({
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-muted-foreground">
-            Jogo {index + 1}
-          </span>
           <div className="flex items-center gap-2">
-            {slot.isModified && (
+            <span className="text-sm font-medium text-muted-foreground">
+              Jogo {index + 1}
+            </span>
+            {renderSaveStatus()}
+          </div>
+          <div className="flex items-center gap-2">
+            {slot.isModified && !autoSaveStatus && (
               <Badge variant="outline" className="text-amber-600 border-amber-500 text-xs">
                 Modificado
               </Badge>
             )}
-            {slot.isSaved && !slot.isModified && (
+            {slot.isSaved && !slot.isModified && autoSaveStatus !== 'saving' && (
               <Badge variant="outline" className="text-green-600 border-green-500 text-xs">
                 Salvo
               </Badge>
@@ -1106,73 +1387,96 @@ export function AddGamesScreen({
       
       {/* Match Slots */}
       <div className="space-y-4">
-        {matchSlots.map((slot, index) => (
-          <Card 
-            key={index} 
-            className={`transition-colors ${
-              slot.isModified ? 'border-amber-500/50 bg-amber-50/30 dark:bg-amber-950/10' : 
-              slot.isSaved ? 'border-green-500/30' : ''
-            }`}
-          >
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  Jogo {index + 1}
-                  {slot.isSaved && !slot.isModified && slot.match?.is_finished && (
-                    <Badge variant="default" className="bg-green-600 text-white text-xs">
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                      Finalizado
-                    </Badge>
-                  )}
-                  {slot.isSaved && !slot.isModified && !slot.match?.is_finished && (
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  )}
-                  {slot.isModified && (
-                    <Badge variant="outline" className="text-amber-600 border-amber-600">
-                      Modificado
-                    </Badge>
-                  )}
-                  {/* Badge de status para jogos salvos */}
-                  {slot.isSaved && slot.match && !slot.match.is_finished && !isBeforeDeadline(slot.match.prediction_deadline) && (
-                    <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 text-xs">
-                      Aguardando Resultado
-                    </Badge>
-                  )}
-                </CardTitle>
-                
-                <div className="flex items-center gap-2">
-                  {/* Botão Lançar Resultado para jogos salvos elegíveis */}
-                  {slot.isSaved && slot.match && canManagePool && !slot.match.is_finished && !isBeforeDeadline(slot.match.prediction_deadline) && onLaunchScore && (
-                    <Button
-                      size="sm"
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                      onClick={() => onLaunchScore(slot.match!)}
-                    >
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
-                      Lançar Resultado
-                    </Button>
-                  )}
+        {matchSlots.map((slot, index) => {
+          const slotStatusKey = `standard-${index}`;
+          const autoSaveStatus = slotSaveStatus[slotStatusKey] || 'idle';
+          
+          return (
+            <Card 
+              key={index} 
+              className={`transition-colors ${
+                slot.isModified ? 'border-amber-500/50 bg-amber-50/30 dark:bg-amber-950/10' : 
+                slot.isSaved ? 'border-green-500/30' : ''
+              }`}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    Jogo {index + 1}
+                    {/* Auto-save status indicator */}
+                    {autoSaveStatus === 'saving' && (
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span className="text-xs">Salvando...</span>
+                      </div>
+                    )}
+                    {autoSaveStatus === 'saved' && (
+                      <div className="flex items-center gap-1 text-green-600">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span className="text-xs">Salvo automaticamente</span>
+                      </div>
+                    )}
+                    {autoSaveStatus === 'error' && (
+                      <div className="flex items-center gap-1 text-destructive">
+                        <AlertCircle className="w-3 h-3" />
+                        <span className="text-xs">Erro ao salvar</span>
+                      </div>
+                    )}
+                    {slot.isSaved && !slot.isModified && slot.match?.is_finished && autoSaveStatus !== 'saving' && (
+                      <Badge variant="default" className="bg-green-600 text-white text-xs">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        Finalizado
+                      </Badge>
+                    )}
+                    {slot.isSaved && !slot.isModified && !slot.match?.is_finished && autoSaveStatus !== 'saving' && autoSaveStatus !== 'saved' && (
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    )}
+                    {slot.isModified && autoSaveStatus !== 'saving' && (
+                      <Badge variant="outline" className="text-amber-600 border-amber-600">
+                        Modificado
+                      </Badge>
+                    )}
+                    {/* Badge de status para jogos salvos */}
+                    {slot.isSaved && slot.match && !slot.match.is_finished && !isBeforeDeadline(slot.match.prediction_deadline) && autoSaveStatus !== 'saving' && (
+                      <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 text-xs">
+                        Aguardando Resultado
+                      </Badge>
+                    )}
+                  </CardTitle>
                   
-                  {(slot.home_team || slot.away_team) && !slot.match?.is_finished && (
-                    <Button
-                      variant={slot.isModified ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => saveSlot(index)}
-                      disabled={savingIndex === index}
-                    >
-                      {savingIndex === index ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      ) : (
-                        <Save className="h-4 w-4 mr-2" />
-                      )}
-                      Salvar
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {/* Botão Lançar Resultado para jogos salvos elegíveis */}
+                    {slot.isSaved && slot.match && canManagePool && !slot.match.is_finished && !isBeforeDeadline(slot.match.prediction_deadline) && onLaunchScore && (
+                      <Button
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                        onClick={() => onLaunchScore(slot.match!)}
+                      >
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        Lançar Resultado
+                      </Button>
+                    )}
+                    
+                    {(slot.home_team || slot.away_team) && !slot.match?.is_finished && (
+                      <Button
+                        variant={slot.isModified ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => saveSlot(index)}
+                        disabled={savingIndex === index || autoSaveStatus === 'saving'}
+                      >
+                        {savingIndex === index ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                          <Save className="h-4 w-4 mr-2" />
+                        )}
+                        Salvar
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </CardHeader>
-            
-            <CardContent>
+              </CardHeader>
+              
+              <CardContent>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Teams Row */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
