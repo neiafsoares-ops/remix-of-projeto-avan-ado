@@ -1,89 +1,100 @@
 
 
-## Plano: Usar Limite da Rodada como Padrao para Numero de Jogos
+## Plano: Aplicar Migração do Novo Schema de Bolões Sugeridos
 
 ### Problema Identificado
 
-Ao clicar em "Adicionar Jogos", o sistema mostra **10 slots** de jogos mesmo quando a rodada esta configurada para **4 jogos** (como "Quartas de Final").
+O erro **"Could not find the 'created_by' column of 'suggested_pools' in the schema cache"** ocorre porque:
 
-**Causa:**
-No `AddGamesScreen.tsx`, linha 128:
-```typescript
-const totalSlots = Math.max(matchesPerRound, maxMatches);
+**Tabela atual no banco:**
+| Coluna | Tipo |
+|--------|------|
+| id | uuid |
+| name | text |
+| description | text |
+| competition_type | text |
+| status | text |
+| suggested_by | uuid |
+| approved_by | uuid |
+| created_at | timestamp |
+
+**Tabela esperada pelo código (nova):**
+| Coluna | Tipo |
+|--------|------|
+| id | uuid |
+| name | text |
+| description | text |
+| cover_image | text |
+| total_rounds | integer |
+| matches_per_round | integer |
+| is_active | boolean |
+| **created_by** | uuid |
+| created_at | timestamp |
+| updated_at | timestamp |
+
+A migração definida em `src/sql/suggested_pools_migration.sql` **não foi aplicada** ao banco de dados.
+
+---
+
+### Solução
+
+Aplicar uma migração para:
+1. Remover as tabelas antigas (se existirem dados, fazer backup primeiro)
+2. Criar as novas tabelas com o schema correto
+3. Criar funções de segurança
+4. Configurar RLS policies
+5. Criar índices de performance
+
+---
+
+### Migração SQL Necessária
+
+A migração precisará:
+
+1. **Remover estruturas antigas** (com segurança):
+```sql
+DROP TABLE IF EXISTS public.suggested_pool_matches CASCADE;
+DROP TABLE IF EXISTS public.suggested_pool_rounds CASCADE;
+DROP TABLE IF EXISTS public.suggested_pool_moderators CASCADE;
+DROP TABLE IF EXISTS public.mestre_pool_instances CASCADE;
+DROP TABLE IF EXISTS public.suggested_pools CASCADE;
 ```
 
-- `matchesPerRound` vem do pool (`pool.matches_per_round || 10`)
-- `maxMatches` vem da rodada (`round.match_limit + extra_matches_allowed`)
+2. **Criar novas tabelas**:
+   - `suggested_pools` - com colunas: id, name, description, cover_image, total_rounds, matches_per_round, is_active, **created_by**, created_at, updated_at
+   - `suggested_pool_moderators` - moderadores por sugestão
+   - `suggested_pool_rounds` - rodadas do template
+   - `suggested_pool_matches` - jogos com round_id, clubs, scores
+   - `mestre_pool_instances` - instâncias criadas pelos Mestres
 
-O sistema esta usando o **maior valor** entre os dois, quando deveria usar apenas o limite especifico da rodada.
+3. **Criar funções de segurança**:
+   - `is_suggested_pool_moderator()` - verifica se usuário é moderador
+   - `can_edit_suggested_pool_matches()` - verifica permissão de edição
 
----
+4. **Habilitar RLS e criar policies** para todas as tabelas
 
-### Solucao
+5. **Criar triggers** para atualizar `updated_at`
 
-Alterar a logica para usar o limite da rodada (`maxMatches`) como fonte primaria, ignorando o `matchesPerRound` do pool.
-
----
-
-### Arquivos a Modificar
-
-| Arquivo | Alteracao |
-|---------|-----------|
-| `src/components/matches/AddGamesScreen.tsx` | Usar `maxMatches` em vez de `Math.max(matchesPerRound, maxMatches)` |
-| `src/components/admin/SuggestedPoolMatchesScreen.tsx` | Ja usa `pool.matches_per_round` corretamente, verificar se precisa ajuste |
+6. **Criar índices** para otimização de queries
 
 ---
 
-### Mudancas Tecnicas
+### Notas Importantes
 
-#### 1. AddGamesScreen.tsx (Linha 128)
-
-**De:**
-```typescript
-const totalSlots = Math.max(matchesPerRound, maxMatches);
-```
-
-**Para:**
-```typescript
-const totalSlots = maxMatches;
-```
-
-Isso garante que o numero de slots corresponda exatamente ao limite configurado para aquela rodada especifica.
-
----
-
-#### 2. Opcional: Remover prop `matchesPerRound`
-
-Se a prop `matchesPerRound` nao for mais utilizada para calcular slots, ela pode ser removida da interface do componente. Porem, ela ainda pode ser util para outras finalidades (como referencia ou logs), entao avaliaremos durante a implementacao.
-
----
-
-### Comportamento Esperado
-
-**Antes:**
-- Quartas de Final (4 jogos configurados) → Abre com 10 slots
-
-**Depois:**
-- Quartas de Final (4 jogos configurados) → Abre com 4 slots
-- Oitavas de Final (8 jogos configurados) → Abre com 8 slots
-- Final (1 jogo configurado) → Abre com 1 slot
+- A migração removerá dados existentes nas tabelas de sugestões (se houver)
+- Todas as tabelas novas terão RLS habilitado
+- Apenas admins podem criar/gerenciar bolões sugeridos
+- Moderadores podem gerenciar jogos das sugestões que moderam
+- Qualquer usuário autenticado pode visualizar sugestões ativas
 
 ---
 
 ### Impacto
 
-| Contexto | Afetado |
-|----------|---------|
-| Boloes normais (PoolManage) | Sim |
-| Sugestoes Zapions (Admin) | Verificar se precisa ajuste similar |
-| Boloes de formato copa/knockout | Sim, ja usam `match_limit` por fase |
-
----
-
-### Validacao
-
-1. Abrir uma rodada de "Quartas de Final" configurada para 4 jogos
-2. Verificar que aparecem exatamente 4 slots
-3. Abrir uma rodada de "Oitavas" configurada para 8 jogos
-4. Verificar que aparecem exatamente 8 slots
+| Item | Status |
+|------|--------|
+| Dados existentes em suggested_pools | Serão removidos |
+| Código do admin (SuggestedPoolsTab) | Funcionará após migração |
+| Código do mestre (SuggestedPoolsSection) | Funcionará após migração |
+| Outras funcionalidades | Não afetadas |
 
