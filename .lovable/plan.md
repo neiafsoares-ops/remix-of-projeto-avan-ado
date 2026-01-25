@@ -1,285 +1,169 @@
 
-## Plano: Edição Completa da Estrutura do Bolão (Parte 3 do Wizard)
+## Plano: Implementar Salvamento Automatico nos Confrontos e Palpites
 
-### Objetivo
+### Situacao Atual
 
-Permitir que o criador de bolões **edite todos os aspectos da estrutura** (equivalente ao Passo 3 do wizard de criação) para bolões que ainda **não foram iniciados** (sem rodadas finalizadas e sem jogos com resultados).
+Analisando o codigo, identifiquei os seguintes comportamentos:
 
----
+#### 1. Criacao de Confrontos (AddGamesScreen.tsx)
+- **Atual**: O salvamento e **manual** - o administrador precisa clicar no botao "Salvar" apos preencher todos os campos (equipes + datas)
+- **Problema**: Nao salva automaticamente apos adicionar as duas equipes
 
-### Funcionalidades a Implementar
-
-1. **Detecção do formato atual do bolão** (Standard, Copa, Knockout)
-2. **Verificação se o bolão pode ser editado** (não iniciado)
-3. **Interface completa de edição** igual ao wizard de criação
-4. **Regeneração de rodadas** quando a estrutura muda
-5. **Aba "Configurações" no PoolManage** com todas as opções
-
----
-
-### Arquivos a Criar/Modificar
-
-| Arquivo | Ação | Descrição |
-|---------|------|-----------|
-| `src/components/pools/PoolStructureConfigTab.tsx` | **Criar** | Novo componente que detecta formato e renderiza a interface de edição apropriada |
-| `src/pages/PoolManage.tsx` | **Modificar** | Adicionar aba "Configurações" que renderiza o novo componente |
+#### 2. Palpites dos Participantes (MatchCard.tsx)
+- **Atual**: **Ja implementado** com debounce de 800ms - salva automaticamente apos digitar os dois placares
+- **Codigo existente** (linhas 51-80): Usa `useEffect` que monitora `homeScore` e `awayScore`, valida os valores e chama `onPredictionChange` automaticamente
+- **Status visual**: Mostra "Salvando...", "Palpite salvo" e "Erro ao salvar"
 
 ---
 
-### Detalhes Técnicos
+### Mudancas Necessarias
 
-#### 1. Detectar Formato do Bolão
+#### Arquivo: `src/components/matches/AddGamesScreen.tsx`
 
-Analisar os nomes das rodadas existentes para identificar o formato:
+Implementar auto-save com debounce quando ambas as equipes forem selecionadas (similar ao MatchCard).
 
-```typescript
-// Detectar formato baseado nos nomes das rodadas
-const detectPoolFormat = (rounds: Round[]): 'standard' | 'cup' | 'knockout' => {
-  const hasGroupRounds = rounds.some(r => r.name?.startsWith('Grupo'));
-  const hasKnockoutRounds = rounds.some(r => 
-    r.name?.includes('Oitavas') || 
-    r.name?.includes('Quartas') || 
-    r.name?.includes('Semifinal') || 
-    r.name?.includes('Final')
-  );
-  
-  if (hasGroupRounds && hasKnockoutRounds) return 'cup';
-  if (hasKnockoutRounds && !hasGroupRounds) return 'knockout';
-  return 'standard';
-};
-```
+#### Nova Logica de Auto-Save para Slots de Jogos
 
-#### 2. Verificar se Bolão Pode Ser Editado
+1. **Adicionar refs para tracking de salvamento** por slot
+2. **Criar useEffect** que monitora mudancas nos slots
+3. **Disparar salvamento automatico** quando:
+   - Home team E away team estiverem preenchidos
+   - Houver mudanca desde o ultimo salvamento
+   - As datas estiverem preenchidas (validacao)
 
 ```typescript
-const canEditStructure = (rounds: Round[], matches: Match[]): boolean => {
-  // Não pode editar se alguma rodada foi finalizada
-  const hasFinalizedRounds = rounds.some(r => r.is_finalized);
-  if (hasFinalizedRounds) return false;
-  
-  // Não pode editar se algum jogo já tem resultado
-  const hasFinishedMatches = matches.some(m => m.is_finished);
-  if (hasFinishedMatches) return false;
-  
-  return true;
-};
-```
+// Novo ref para rastrear ultimos valores salvos
+const lastSavedSlots = useRef<Record<number, {
+  home_team: string;
+  away_team: string;
+  match_date: string;
+  prediction_deadline: string;
+}>>({});
 
-#### 3. Interface Condicional por Formato
+// Auto-save effect para slots individuais
+useEffect(() => {
+  if (!user || !currentRound) return;
 
-```typescript
-// Renderização condicional baseada no formato
-{poolFormat === 'standard' && (
-  <PoolStructureStep
-    totalRounds={totalRounds}
-    matchesPerRound={matchesPerRound}
-    onTotalRoundsChange={setTotalRounds}
-    onMatchesPerRoundChange={setMatchesPerRound}
-    maxMatches={isPrivilegedUser ? undefined : MEMBER_LIMITS.maxMatches}
-  />
-)}
-
-{poolFormat === 'cup' && (
-  <CupFormatStep
-    config={cupConfig}
-    onChange={setCupConfig}
-    maxTeams={isPrivilegedUser ? undefined : MEMBER_LIMITS.maxTeams}
-    maxGroups={isPrivilegedUser ? undefined : MEMBER_LIMITS.maxGroups}
-    maxMatches={isPrivilegedUser ? undefined : MEMBER_LIMITS.maxMatches}
-  />
-)}
-
-{poolFormat === 'knockout' && (
-  <KnockoutOnlyStep
-    config={knockoutConfig}
-    onChange={setKnockoutConfig}
-    maxTeams={isPrivilegedUser ? undefined : MEMBER_LIMITS.maxTeams}
-    maxMatches={isPrivilegedUser ? undefined : MEMBER_LIMITS.maxMatches}
-  />
-)}
-```
-
-#### 4. Lógica de Salvamento
-
-Ao salvar as alterações da estrutura:
-
-1. **Deletar rodadas existentes** (se vazias)
-2. **Atualizar tabela `pools`** com novos valores
-3. **Regenerar rodadas** usando a mesma lógica do wizard:
-   - Para Standard: criar X rodadas simples
-   - Para Cup: criar grupos + fases eliminatórias
-   - Para Knockout: criar fases eliminatórias
-
-```typescript
-const handleSaveStructure = async () => {
-  // 1. Deletar rodadas vazias existentes
-  const emptyRoundIds = rounds
-    .filter(r => (r.matchCount || 0) === 0 && !r.is_finalized)
-    .map(r => r.id);
+  matchSlots.forEach((slot, index) => {
+    // So salva se ambas equipes estiverem preenchidas
+    if (!slot.home_team || !slot.away_team) return;
     
-  if (emptyRoundIds.length > 0) {
-    await supabase.from('rounds').delete().in('id', emptyRoundIds);
-  }
-  
-  // 2. Atualizar pool com nova configuração
-  await supabase.from('pools').update({
-    total_rounds: calculatedTotalRounds,
-    matches_per_round: calculatedMatchesPerRound,
-  }).eq('id', poolId);
-  
-  // 3. Gerar novas rodadas baseado no formato
-  if (poolFormat === 'cup') {
-    const newRounds = generateCupRounds(poolId, cupConfig);
-    await supabase.from('rounds').insert(newRounds);
-  } else if (poolFormat === 'knockout') {
-    const newRounds = generateKnockoutRounds(poolId, knockoutConfig);
-    await supabase.from('rounds').insert(newRounds);
-  } else {
-    const newRounds = generateStandardRounds(poolId, totalRounds, matchesPerRound);
-    await supabase.from('rounds').insert(newRounds);
-  }
-};
+    // Verificar se ja foi salvo com os mesmos valores
+    const lastSaved = lastSavedSlots.current[index];
+    const hasChanged = !lastSaved ||
+      lastSaved.home_team !== slot.home_team ||
+      lastSaved.away_team !== slot.away_team ||
+      lastSaved.match_date !== slot.match_date ||
+      lastSaved.prediction_deadline !== slot.prediction_deadline;
+    
+    if (!hasChanged || slot.isSaved) return;
+    
+    // Validar dados obrigatorios
+    if (!slot.match_date || !slot.prediction_deadline) return;
+    
+    // Debounce de 1000ms
+    const timeoutId = setTimeout(async () => {
+      await saveSlot(index);
+      lastSavedSlots.current[index] = {
+        home_team: slot.home_team,
+        away_team: slot.away_team,
+        match_date: slot.match_date,
+        prediction_deadline: slot.prediction_deadline,
+      };
+    }, 1000);
+    
+    return () => clearTimeout(timeoutId);
+  });
+}, [matchSlots, currentRound, user]);
 ```
 
----
-
-### Novo Componente: PoolStructureConfigTab
-
-Props do componente:
+#### Mesma Logica para Slots de Grupos (Cup Format)
 
 ```typescript
-interface PoolStructureConfigTabProps {
-  poolId: string;
-  pool: Pool;
-  rounds: Round[];
-  matches: Match[];
-  userId: string;
-  isPrivilegedUser: boolean;
-  onConfigUpdated: () => void;
-}
-```
+// Auto-save effect para group slots
+useEffect(() => {
+  if (!user) return;
 
-Estados internos:
-- `poolFormat`: 'standard' | 'cup' | 'knockout'
-- `canEdit`: boolean (se o bolão pode ser editado)
-- `cupConfig`: CupFormatConfig
-- `knockoutConfig`: KnockoutOnlyConfig
-- `totalRounds`, `matchesPerRound`: para formato standard
-- `saving`: boolean
+  Object.entries(groupMatchSlots).forEach(([key, slots]) => {
+    const [groupName, roundId] = key.split('-');
+    
+    slots.forEach((slot, index) => {
+      if (!slot.home_team || !slot.away_team) return;
+      if (!slot.match_date || !slot.prediction_deadline) return;
+      if (!slot.isModified) return;
+      
+      const timeoutId = setTimeout(async () => {
+        await saveGroupSlot(groupName, roundId, index);
+      }, 1000);
+      
+      return () => clearTimeout(timeoutId);
+    });
+  });
+}, [groupMatchSlots, user]);
+```
 
 ---
 
-### Aba Configurações no PoolManage
+### Indicador Visual de Salvamento Automatico
 
-Adicionar nova aba ao TabsList:
+Adicionar feedback visual similar ao MatchCard:
 
 ```typescript
-<TabsList>
-  <TabsTrigger value="rounds">Rodadas</TabsTrigger>
-  <TabsTrigger value="config">Configurações</TabsTrigger>
-  <TabsTrigger value="participants">Participantes</TabsTrigger>
-  <TabsTrigger value="predictions">Palpites</TabsTrigger>
-</TabsList>
+// Novo estado para status de salvamento por slot
+const [slotSaveStatus, setSlotSaveStatus] = useState<Record<string, 'idle' | 'saving' | 'saved' | 'error'>>({});
 
-<TabsContent value="config">
-  <PoolStructureConfigTab
-    poolId={id!}
-    pool={pool}
-    rounds={rounds}
-    matches={matches}
-    userId={user!.id}
-    isPrivilegedUser={userRoles.includes('admin') || userRoles.includes('moderator')}
-    onConfigUpdated={fetchData}
-  />
-</TabsContent>
+// Renderizar status no slot
+{slotSaveStatus[slotKey] === 'saving' && (
+  <div className="flex items-center gap-1 text-muted-foreground">
+    <Loader2 className="w-3 h-3 animate-spin" />
+    <span className="text-xs">Salvando...</span>
+  </div>
+)}
+{slotSaveStatus[slotKey] === 'saved' && (
+  <div className="flex items-center gap-1 text-green-600">
+    <CheckCircle2 className="w-3 h-3" />
+    <span className="text-xs">Salvo automaticamente</span>
+  </div>
+)}
 ```
 
 ---
 
-### Layout Visual Esperado
+### Comportamento Esperado Apos Implementacao
 
-```text
-+------------------------------------------------------------------+
-| ⚙️ Configurações da Estrutura                                     |
-+------------------------------------------------------------------+
-| ✅ Este bolão ainda não foi iniciado e pode ser reconfigurado     |
-+------------------------------------------------------------------+
+#### Para Criadores de Bolao (AddGamesScreen)
 
-[Formato Detectado: Copa]
+1. Selecionar time mandante (busca ou criacao)
+2. Selecionar time visitante (busca ou criacao)
+3. Preencher data do jogo
+4. Preencher prazo para palpites
+5. **Salvamento automatico dispara** apos 1 segundo de inatividade
+6. Indicador visual "Salvando..." aparece
+7. Indicador muda para "Salvo automaticamente"
 
-+------------------------------------------------------------------+
-| 👥 Configurações Gerais                                          |
-+------------------------------------------------------------------+
-| Total de Equipes: [32]  Total de Grupos: [8]  Classificados: [2] |
-+------------------------------------------------------------------+
+#### Para Participantes (MatchCard) - JA FUNCIONA
 
-+------------------------------------------------------------------+
-| 🏳️ Fase de Grupos                                                |
-+------------------------------------------------------------------+
-| (●) Somente ida  ( ) Ida e volta                                  |
-+------------------------------------------------------------------+
-
-+------------------------------------------------------------------+
-| ⚔️ Mata-mata                                                      |
-+------------------------------------------------------------------+
-| Definição: (●) Sorteio Automático  ( ) Escolha Manual            |
-| Formato: ( ) Somente ida  (●) Ida e volta                        |
-| Disputa 3º lugar: ( ) Não  (●) Sim                               |
-+------------------------------------------------------------------+
-
-+------------------------------------------------------------------+
-| 🏆 Jogo Final                                                     |
-+------------------------------------------------------------------+
-| (●) Jogo único  ( ) Ida e volta                                  |
-+------------------------------------------------------------------+
-
-+------------------------------------------------------------------+
-| 📊 Resumo: 8 grupos | 48 equipes no mata-mata | ~120 partidas    |
-+------------------------------------------------------------------+
-
-                    [ 💾 Salvar Alterações ]
-
-+------------------------------------------------------------------+
-| ⚠️ ATENÇÃO: Salvar irá remover as rodadas atuais e criar novas   |
-|    baseadas na configuração acima. Jogos existentes sem          |
-|    resultados serão removidos.                                   |
-+------------------------------------------------------------------+
-```
+1. Digitar placar mandante
+2. Digitar placar visitante
+3. **Salvamento automatico dispara** apos 800ms
+4. Indicador "Salvando..." aparece
+5. Indicador muda para "Palpite salvo"
 
 ---
 
-### Quando Bolão NÃO Pode Ser Editado
+### Resumo das Alteracoes
 
-Se houver rodadas finalizadas ou jogos com resultados:
-
-```text
-+------------------------------------------------------------------+
-| ⚙️ Configurações da Estrutura                                     |
-+------------------------------------------------------------------+
-| 🔒 Este bolão já foi iniciado e não pode ser reconfigurado        |
-|                                                                   |
-| Motivo:                                                           |
-| - 3 rodadas já foram finalizadas                                  |
-| - 12 jogos já possuem resultados lançados                        |
-+------------------------------------------------------------------+
-
-[Configuração Atual - Somente Leitura]
-...
-```
+| Arquivo | Alteracao |
+|---------|-----------|
+| `src/components/matches/AddGamesScreen.tsx` | Adicionar auto-save com debounce para slots de jogos (standard e cup format) |
 
 ---
 
-### Reutilização de Código
+### Notas Tecnicas
 
-A lógica de geração de rodadas (`generateCupRounds`, `generateKnockoutRounds`) já existe no `CreatePoolWizard.tsx`. Será extraída para um utilitário ou reutilizada diretamente.
+1. **Debounce de 1000ms** para confrontos (um pouco maior que palpites) pois envolve mais campos
+2. **Validacao obrigatoria**: Ambas as equipes + datas devem estar preenchidas
+3. **Remover necessidade de botao Salvar individual** apos implementacao (pode manter como fallback)
+4. **Manter toast de confirmacao** para feedback adicional
+5. **Palpites dos participantes**: Ja funciona corretamente - nao precisa alterar
 
----
-
-### Comportamento Esperado
-
-1. **Acesso**: Criador acessa aba "Configurações" no gerenciamento do bolão
-2. **Detecção**: Sistema detecta formato atual (Standard/Cup/Knockout)
-3. **Verificação**: Sistema verifica se pode ser editado
-4. **Edição**: Se permitido, exibe interface completa do Passo 3
-5. **Salvamento**: Ao salvar, regenera toda a estrutura de rodadas
-6. **Feedback**: Toast de sucesso/erro e atualização da lista de rodadas
