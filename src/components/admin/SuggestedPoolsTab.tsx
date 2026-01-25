@@ -221,6 +221,28 @@ export function SuggestedPoolsTab() {
     const teamsFromBestThird = cupConfig.enableBestThirdPlace ? cupConfig.bestThirdPlaceCount : 0;
     const teamsInKnockout = teamsFromGroups + teamsFromBestThird;
 
+    // Round of 32 (16 avos)
+    if (teamsInKnockout >= 32) {
+      if (cupConfig.knockoutFormat === 'home_away') {
+        rounds.push({
+          suggested_pool_id: poolId,
+          round_number: roundNumber++,
+          name: '16 avos - Ida',
+        });
+        rounds.push({
+          suggested_pool_id: poolId,
+          round_number: roundNumber++,
+          name: '16 avos - Volta',
+        });
+      } else {
+        rounds.push({
+          suggested_pool_id: poolId,
+          round_number: roundNumber++,
+          name: '16 avos de Final',
+        });
+      }
+    }
+
     // Round of 16
     if (teamsInKnockout >= 16) {
       if (cupConfig.knockoutFormat === 'home_away') {
