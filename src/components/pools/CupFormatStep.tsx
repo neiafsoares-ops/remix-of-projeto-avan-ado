@@ -41,6 +41,7 @@ export function CupFormatStep({ config, onChange, maxTeams, maxGroups, maxMatche
   const teamsFromGroups = config.totalGroups * config.classifiedPerGroup;
   const teamsFromBestThird = config.enableBestThirdPlace ? config.bestThirdPlaceCount : 0;
   const teamsInKnockout = teamsFromGroups + teamsFromBestThird;
+  const hasRound32 = teamsInKnockout >= 32;
   const hasRound16 = teamsInKnockout >= 16;
   const hasQuarterFinals = teamsInKnockout >= 8;
   const hasSemiFinals = teamsInKnockout >= 4;
@@ -55,6 +56,7 @@ export function CupFormatStep({ config, onChange, maxTeams, maxGroups, maxMatche
   const finalGamesMultiplier = config.finalFormat === 'home_away' ? 2 : 1;
   
   let knockoutMatches = 0;
+  if (hasRound32) knockoutMatches += 16 * knockoutGamesMultiplier;
   if (hasRound16) knockoutMatches += 8 * knockoutGamesMultiplier;
   if (hasQuarterFinals) knockoutMatches += 4 * knockoutGamesMultiplier;
   if (hasSemiFinals) knockoutMatches += 2 * knockoutGamesMultiplier;
@@ -434,6 +436,11 @@ export function CupFormatStep({ config, onChange, maxTeams, maxGroups, maxMatche
                   Grupo {String.fromCharCode(65 + i)}
                 </span>
               ))}
+              {hasRound32 && (
+                <span className="px-2 py-1 text-xs bg-orange-500/10 text-orange-600 rounded-md border border-orange-500/20">
+                  16 avos
+                </span>
+              )}
               {hasRound16 && (
                 <span className="px-2 py-1 text-xs bg-orange-500/10 text-orange-600 rounded-md border border-orange-500/20">
                   Oitavas
