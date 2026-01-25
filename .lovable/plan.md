@@ -1,268 +1,285 @@
 
 
-## Plano: Layout de Fase de Grupos Estilo Copa do Mundo
+## Plano: Interface de Gestao de Grupos como Novo Padrao para Todos os Boloes
 
-### Resumo das Mudancas
+### Objetivo
 
-Implementar o novo layout visual para fase de grupos do formato Copa com:
+Implementar o layout de gestao de grupos estilo Copa do Mundo como padrao para **todos os boloes**, permitindo ao administrador/criador visualizar claramente:
 
-1. **Navegacao independente por grupo** - Cada grupo terá seu próprio seletor de rodada
-2. **Placar com fundo destacado** - Visual mais claro para resultados e palpites
-3. **Separacao visual melhorada** - Divisores claros entre os jogos
-4. **Header integrado com navegacao** - Cada card de grupo terá navegação própria
+1. **Qual e o grupo** (Grupo A, Grupo B, etc.)
+2. **Em qual rodada cada grupo se encontra** (Rodada 1 de 3, etc.)
+3. **Quantos jogos podem ser adicionados** (ex: 2 jogos para grupo de 4 equipes)
+
+A interface sera consistente tanto para boloes normais quanto para sugestoes Zapions.
 
 ---
 
 ### Arquivos a Modificar
 
-| Arquivo | Alteracao |
-|---------|-----------|
-| `src/components/cup/CupFormatView.tsx` | Navegacao independente por grupo, visual melhorado do placar |
+| Arquivo | Tipo de Bolao | Alteracao |
+|---------|---------------|-----------|
+| `src/components/matches/AddGamesScreen.tsx` | Boloes normais | Detectar formato Copa e renderizar layout de grupos organizado |
+| `src/components/admin/SuggestedPoolMatchesScreen.tsx` | Sugestoes Zapions | Mesma logica de grupos aplicada |
 
 ---
 
-### Mudancas Tecnicas Detalhadas
+### Resumo das Mudancas Tecnicas
 
-#### 1. Estado de Navegacao por Grupo (Linha 186)
+#### 1. Deteccao de Formato Copa
 
-**De:**
+Reutilizar a mesma logica ja existente em `CupFormatView.tsx`:
+
 ```typescript
-const [selectedGroupRound, setSelectedGroupRound] = useState<number>(1);
+// Identificar rodadas de grupo
+const groupRounds = useMemo(() => 
+  rounds.filter(r => r.name?.startsWith('Grupo')),
+  [rounds]
+);
+
+// Obter grupos unicos
+const uniqueGroups = useMemo(() => {
+  const groups = new Set<string>();
+  groupRounds.forEach(r => {
+    if (r.name) {
+      const groupMatch = r.name.match(/^Grupo\s+[A-Za-z]/);
+      if (groupMatch) groups.add(groupMatch[0]);
+    }
+  });
+  return Array.from(groups).sort();
+}, [groupRounds]);
+
+const isCupFormat = uniqueGroups.length > 0;
 ```
 
-**Para:**
+#### 2. Navegacao Independente por Grupo
+
+Cada grupo tera sua propria rodada selecionada:
+
 ```typescript
 const [groupRoundSelection, setGroupRoundSelection] = useState<Record<string, number>>({});
 
-const getSelectedRound = (groupName: string) => groupRoundSelection[groupName] || 1;
-const setSelectedRound = (groupName: string, round: number) => {
-  setGroupRoundSelection(prev => ({ ...prev, [groupName]: round }));
+const getSelectedRound = (groupName: string) => groupRoundSelection[groupName] || 0;
+const setSelectedRound = (groupName: string, roundIndex: number) => {
+  setGroupRoundSelection(prev => ({ ...prev, [groupName]: roundIndex }));
 };
 ```
 
-#### 2. Visual do Placar com Fundo Destacado (Linhas 338-396)
+#### 3. Calculo de Jogos por Rodada Baseado em Equipes
 
-**De:**
+Funcao para determinar automaticamente quantos jogos uma rodada de grupo pode ter:
+
 ```typescript
-<div className="flex items-center gap-1 px-2 min-w-[90px] justify-center flex-shrink-0">
-  {match.is_finished ? (
-    <div className="flex items-center gap-1">
-      <span className="text-lg font-bold ...">{match.home_score}</span>
-      <span className="text-muted-foreground text-sm mx-1">x</span>
-      <span className="text-lg font-bold ...">{match.away_score}</span>
-    </div>
-  ) : canPred ? (
-    <div className="flex items-center gap-1">
-      <Input ... className="w-10 h-8 text-center p-0 text-sm font-bold" />
-      <span className="text-muted-foreground text-xs">x</span>
-      <Input ... className="w-10 h-8 text-center p-0 text-sm font-bold" />
-    </div>
-  ) : ...
+// n times jogam n/2 partidas por rodada (todos contra todos por turno)
+// 4 times = 2 jogos, 6 times = 3 jogos, 8 times = 4 jogos
+function calculateMatchesPerRound(teamCount: number): number {
+  if (teamCount <= 2) return 1;
+  return Math.floor(teamCount / 2);
 }
 ```
 
-**Para:**
+#### 4. Organizacao de Dados por Grupo
+
 ```typescript
-<div className="flex items-center justify-center flex-shrink-0">
-  {match.is_finished ? (
-    <div className="flex items-center gap-2 bg-primary/10 dark:bg-primary/20 rounded-lg px-4 py-2 min-w-[100px] justify-center">
-      <span className="text-xl font-bold w-8 text-center ...">{match.home_score}</span>
-      <span className="text-muted-foreground font-medium">x</span>
-      <span className="text-xl font-bold w-8 text-center ...">{match.away_score}</span>
-    </div>
-  ) : canPred ? (
-    <div className="flex items-center gap-2 bg-primary/10 dark:bg-primary/20 rounded-lg px-3 py-1.5">
-      <Input ... className="w-12 h-9 text-center p-0 text-lg font-bold bg-background" />
-      <span className="text-muted-foreground font-medium">x</span>
-      <Input ... className="w-12 h-9 text-center p-0 text-lg font-bold bg-background" />
-    </div>
-  ) : ...
-}
+const matchesByGroup = useMemo(() => {
+  const byGroup: Record<string, { 
+    rounds: Round[]; 
+    matchesByRound: Record<string, Match[]>;
+    teamCount: number;
+    matchesPerRound: number;
+  }> = {};
+  
+  uniqueGroups.forEach(groupName => {
+    // Filtrar rodadas deste grupo
+    const groupRoundsList = groupRounds
+      .filter(r => r.name?.startsWith(groupName))
+      .sort((a, b) => a.round_number - b.round_number);
+    
+    // Mapear jogos por rodada e contar times
+    const matchesByRoundMap: Record<string, Match[]> = {};
+    const teamsInGroup = new Set<string>();
+    
+    groupRoundsList.forEach(round => {
+      const roundMatches = matches.filter(m => m.round_id === round.id);
+      matchesByRoundMap[round.id] = roundMatches;
+      roundMatches.forEach(m => {
+        teamsInGroup.add(m.home_team);
+        teamsInGroup.add(m.away_team);
+      });
+    });
+    
+    const teamCount = Math.max(teamsInGroup.size, 4); // Minimo 4 equipes
+    
+    byGroup[groupName] = {
+      rounds: groupRoundsList,
+      matchesByRound: matchesByRoundMap,
+      teamCount,
+      matchesPerRound: calculateMatchesPerRound(teamCount)
+    };
+  });
+  
+  return byGroup;
+}, [uniqueGroups, groupRounds, matches]);
 ```
 
-#### 3. Header do Card de Grupo com Navegacao (Linhas 457-470)
+---
 
-**De:**
-```typescript
-<CardHeader className="py-2 px-4 border-b bg-muted/30">
-  <div className="flex items-center justify-between">
-    <div className="flex items-center gap-2">
-      <CardTitle className="text-sm font-semibold text-foreground">
-        RODADA {selectedGroupRound}
-      </CardTitle>
-      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-    </div>
-    <button className="text-xs text-primary hover:underline flex items-center gap-1">
-      <Filter className="h-3 w-3" /> equipes
-    </button>
-  </div>
-</CardHeader>
+### Novo Layout Visual
+
+A estrutura visual sera:
+
+```text
++------------------------------------------------------------------+
+| GRUPO A                         < Rodada 1 de 3 >                |
+| [4 equipes] [2 jogos por rodada] [1/2 preenchidos]               |
++------------------------------------------------------------------+
+|                                                                  |
+|  Jogo 1                                           [Modificado]   |
+|  +----------------------------------------------------------+   |
+|  |  [Manchester United    ] x [Liverpool FC       ]         |   |
+|  |  [____Data Jogo____]       [____Prazo Palpite____]       |   |
+|  |                                             [Salvar]     |   |
+|  +----------------------------------------------------------+   |
+|                                                                  |
+|  Jogo 2                                                          |
+|  +----------------------------------------------------------+   |
+|  |  [Buscar mandante...   ] x [Buscar visitante...]         |   |
+|  |  [____Data Jogo____]       [____Prazo Palpite____]       |   |
+|  |                                             [Salvar]     |   |
+|  +----------------------------------------------------------+   |
++------------------------------------------------------------------+
+
++------------------------------------------------------------------+
+| GRUPO B                         < Rodada 2 de 3 >                |
+| [4 equipes] [2 jogos por rodada] [0/2 preenchidos]               |
++------------------------------------------------------------------+
+|  (pode estar em rodada diferente do Grupo A)                     |
++------------------------------------------------------------------+
 ```
 
-**Para:**
+---
+
+### Componente de Card de Grupo
+
 ```typescript
-<CardHeader className="py-3 px-4 border-b bg-muted/30">
-  <div className="flex items-center justify-between">
-    <CardTitle className="text-sm font-semibold uppercase tracking-wide">
-      Rodada {getSelectedRound(groupName)}
-    </CardTitle>
-    <div className="flex items-center gap-1">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7"
-        onClick={() => setSelectedRound(groupName, getSelectedRound(groupName) - 1)}
-        disabled={getSelectedRound(groupName) <= 1}
-      >
-        <ChevronLeft className="h-4 w-4" />
-      </Button>
-      <span className="text-xs text-muted-foreground min-w-[50px] text-center">
-        {getSelectedRound(groupName)}/{totalGroupRounds}
-      </span>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7"
-        onClick={() => setSelectedRound(groupName, getSelectedRound(groupName) + 1)}
-        disabled={getSelectedRound(groupName) >= totalGroupRounds}
-      >
-        <ChevronRight className="h-4 w-4" />
-      </Button>
-    </div>
-  </div>
-</CardHeader>
-```
-
-#### 4. Uso do Estado por Grupo (Linha 441)
-
-**De:**
-```typescript
-const currentGroupRoundMatches = groupData?.rounds[selectedGroupRound] || [];
-```
-
-**Para:**
-```typescript
-const currentGroupRoundMatches = groupData?.rounds[getSelectedRound(groupName)] || [];
-```
-
-#### 5. Remover Navegacao Global (Linhas 489-512)
-
-Remover o bloco de navegacao global que aparece abaixo de todos os grupos, já que agora cada grupo terá sua própria navegação.
-
-**Remover:**
-```typescript
-{/* Round Navigation for Groups */}
-{maxGroupRounds > 1 && (
-  <div className="flex items-center justify-center gap-2 pt-4 border-t">
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={() => setSelectedGroupRound(prev => Math.max(1, prev - 1))}
-      disabled={selectedGroupRound <= 1}
-    >
-      <ChevronLeft className="h-4 w-4" />
-    </Button>
-    <span className="text-sm font-medium min-w-[120px] text-center">
-      Rodada {selectedGroupRound} de {maxGroupRounds}
-    </span>
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={() => setSelectedGroupRound(prev => Math.min(maxGroupRounds, prev + 1))}
-      disabled={selectedGroupRound >= maxGroupRounds}
-    >
-      <ChevronRight className="h-4 w-4" />
-    </Button>
+{isCupFormat && (
+  <div className="space-y-6">
+    {uniqueGroups.map(groupName => {
+      const groupData = matchesByGroup[groupName];
+      const selectedRoundIndex = getSelectedRound(groupName);
+      const currentRound = groupData.rounds[selectedRoundIndex];
+      const totalGroupRounds = groupData.rounds.length;
+      const matchesPerRound = groupData.matchesPerRound;
+      const currentMatches = currentRound 
+        ? groupData.matchesByRound[currentRound.id] || [] 
+        : [];
+      
+      return (
+        <Card key={groupName}>
+          {/* Header do Grupo com Navegacao */}
+          <CardHeader className="py-3 px-4 border-b bg-muted/30">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              {/* Nome do Grupo */}
+              <CardTitle className="text-base font-semibold uppercase">
+                {groupName}
+              </CardTitle>
+              
+              {/* Navegacao de Rodada */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => setSelectedRound(groupName, selectedRoundIndex - 1)}
+                  disabled={selectedRoundIndex <= 0}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm font-medium min-w-[100px] text-center">
+                  Rodada {selectedRoundIndex + 1} de {totalGroupRounds}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => setSelectedRound(groupName, selectedRoundIndex + 1)}
+                  disabled={selectedRoundIndex >= totalGroupRounds - 1}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            
+            {/* Badges Informativos */}
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <Badge variant="outline">
+                {groupData.teamCount} equipes
+              </Badge>
+              <Badge variant="secondary">
+                {matchesPerRound} jogos por rodada
+              </Badge>
+              <Badge variant={currentMatches.length >= matchesPerRound ? "default" : "outline"}>
+                {currentMatches.length}/{matchesPerRound} preenchidos
+              </Badge>
+            </div>
+          </CardHeader>
+          
+          {/* Slots de Jogos */}
+          <CardContent className="p-4">
+            <div className="space-y-4">
+              {Array.from({ length: matchesPerRound }, (_, i) => {
+                const match = currentMatches[i];
+                return renderMatchSlot(groupName, currentRound?.id, i, match);
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      );
+    })}
   </div>
 )}
 ```
 
-#### 6. Separacao Visual Entre Jogos (Linha 478)
+---
 
-**De:**
-```typescript
-<div>
-  {currentGroupRoundMatches.slice(0, matchesPerRound).map(renderGroupMatchCard)}
-</div>
-```
+### Alteracoes em AddGamesScreen.tsx
 
-**Para:**
-```typescript
-<div className="divide-y divide-border">
-  {currentGroupRoundMatches.slice(0, matchesPerRound).map(renderGroupMatchCard)}
-</div>
-```
-
-E no `renderGroupMatchCard` ajustar o padding:
-
-**De:**
-```typescript
-<div key={match.id} className="py-3 border-b last:border-b-0">
-```
-
-**Para:**
-```typescript
-<div key={match.id} className="py-4 first:pt-2 last:pb-2">
-```
-
-#### 7. Remover Import do Filter (Linha 7)
-
-Remover `Filter` dos imports pois nao sera mais usado.
+1. **Adicionar imports**: `useMemo`
+2. **Adicionar estados**:
+   - `groupRoundSelection` para navegacao por grupo
+3. **Adicionar funcoes**:
+   - `getSelectedRound`, `setSelectedRound`
+   - `calculateMatchesPerRound`
+4. **Adicionar memos**:
+   - `groupRounds`, `uniqueGroups`, `matchesByGroup`, `isCupFormat`
+5. **Renderizacao condicional**:
+   - Se `isCupFormat`: renderizar layout de grupos
+   - Senao: manter layout atual (lista de slots linear)
 
 ---
 
-### Novo Visual Esperado
+### Alteracoes em SuggestedPoolMatchesScreen.tsx
 
-```text
-+-------------------------------------------+  +-------------------------------------------+
-| GRUPO A                                   |  | Rodada 1                        < 1/3 >  |
-+-------------------------------------------+  +-------------------------------------------+
-| #  | Equipe      | P | J | V | E | D |...|  |                                           |
-|----|-------------|---|---|---|---|---|---|  |  Haylles FC  [logo] [  6  x  6  ] [logo] Inter|
-| 1  | Haylles FC  | 9 | 3 | 3 | 0 | 0 |...|  |                 (fundo destacado)          |
-| 2  | Inter       | 6 | 3 | 2 | 0 | 1 |...|  |  ----------------------------------------- |
-| 3  | D@niboy FC  | 3 | 3 | 1 | 0 | 2 |...|  |  D@niboy FC  [logo] [  6  x  5  ] [logo] Napoli|
-| 4  | Napoli      | 0 | 3 | 0 | 0 | 3 |...|  |                 (fundo destacado)          |
-+-------------------------------------------+  +-------------------------------------------+
-
-+-------------------------------------------+  +-------------------------------------------+
-| GRUPO B                                   |  | Rodada 2                        < 2/3 >  |
-+-------------------------------------------+  +-------------------------------------------+
-|         (pode estar em rodada diferente)  |  |         (navegacao independente)          |
-+-------------------------------------------+  +-------------------------------------------+
-```
-
----
-
-### Layout para Palpites (Participantes)
-
-Quando o participante pode fazer palpite, o visual fica:
-
-```text
-+-------------------------------------------+
-|  Haylles FC  [logo] [ ___ x ___ ] [logo] Inter|
-|                (fundo destacado)           |
-|             (inputs editaveis)             |
-+-------------------------------------------+
-```
-
-Os inputs mantêm o fundo destacado igual aos placares finais.
+Mesmas alteracoes do AddGamesScreen.tsx, adaptadas para:
+- Usar `SuggestedPoolRound` em vez de `Round`
+- Usar `SuggestedPoolMatch` em vez de `Match`
+- Usar tabelas `suggested_pool_*` em vez de tabelas normais
 
 ---
 
 ### Comportamento Esperado
 
-1. **Tabela de Grupos**: Exibe classificação apenas com nome do time
-2. **Jogos por Rodada**: Cada grupo tem sua própria navegação independente (pode ver Grupo A na Rodada 1 e Grupo B na Rodada 3)
-3. **Visual do Placar**: Números em destaque com fundo colorido (primary/10)
-4. **Inputs de Palpite**: Mesmo visual com fundo destacado, mas campos editáveis
-5. **Responsividade**: Em mobile, layout em coluna única (tabela em cima, jogos embaixo)
+1. **Deteccao automatica**: Sistema detecta formato Copa quando existem rodadas com nome "Grupo X"
+2. **Navegacao independente**: Cada grupo pode estar em rodada diferente simultaneamente
+3. **Limite de jogos claro**: Badges mostram "2 jogos por rodada" para grupos de 4 equipes
+4. **Slots corretos**: Apenas o numero correto de slots aparece (2 para 4 times, 3 para 6 times, etc.)
+5. **Fallback**: Boloes sem formato Copa continuam usando o layout linear atual
 
 ---
 
-### Sem Impacto
+### Notas Importantes
 
-- Fase de mata-mata (knockout) - permanece inalterada
-- GroupStandingsTable - sem alterações
-- Outros componentes - não afetados
+- O calculo de `matchesPerRound` e baseado no numero de times **ja adicionados** ao grupo
+- Se nenhum jogo foi adicionado ainda, assume-se o minimo de 4 equipes (2 jogos por rodada)
+- A navegacao global e mantida para rodadas que NAO sao de grupo (oitavas, quartas, etc.)
+- O layout de grupos e exclusivo para rodadas com nome "Grupo [Letra]"
 
