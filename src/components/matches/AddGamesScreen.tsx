@@ -280,6 +280,19 @@ export function AddGamesScreen({
       }
 
       newGroupSlots[`${groupName}-${currentRound.id}`] = slots;
+      
+      // Initialize tracking for existing matches in this group
+      slots.forEach((slot, index) => {
+        if (slot.isSaved && slot.home_team && slot.away_team) {
+          const slotKey = `${groupName}-${currentRound.id}-${index}`;
+          lastSavedGroupSlots.current[slotKey] = {
+            home_team: slot.home_team,
+            away_team: slot.away_team,
+            match_date: slot.match_date,
+            prediction_deadline: slot.prediction_deadline,
+          };
+        }
+      });
     });
 
     setGroupMatchSlots(newGroupSlots);
@@ -331,8 +344,20 @@ export function AddGamesScreen({
     }
     
     setMatchSlots(slots);
-    // Reset saved tracking when round changes
-    lastSavedSlots.current = {};
+    
+    // Initialize tracking with existing match values to prevent unnecessary auto-saves
+    const initialSavedValues: Record<number, SavedSlotData> = {};
+    slots.forEach((slot, index) => {
+      if (slot.isSaved && slot.home_team && slot.away_team) {
+        initialSavedValues[index] = {
+          home_team: slot.home_team,
+          away_team: slot.away_team,
+          match_date: slot.match_date,
+          prediction_deadline: slot.prediction_deadline,
+        };
+      }
+    });
+    lastSavedSlots.current = initialSavedValues;
   }, [currentRound?.id, matches, matchesPerRound, isCupFormat]);
   
   // Cleanup auto-save timeouts on unmount
@@ -489,6 +514,9 @@ export function AddGamesScreen({
     if (!user || !currentRound || isCupFormat) return;
     
     matchSlots.forEach((slot, index) => {
+      // Skip if slot is saved and not modified by user
+      if (slot.isSaved && !slot.isModified) return;
+      
       // Only save if both teams are filled
       if (!slot.home_team || !slot.away_team) return;
       
@@ -529,6 +557,9 @@ export function AddGamesScreen({
       const [groupName, roundId] = key.split('-');
       
       slots.forEach((slot, index) => {
+        // Skip if slot is saved and not modified by user
+        if (slot.isSaved && !slot.isModified) return;
+        
         // Only save if both teams are filled
         if (!slot.home_team || !slot.away_team) return;
         
