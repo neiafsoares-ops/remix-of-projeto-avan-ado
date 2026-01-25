@@ -1,105 +1,210 @@
 
 
-## Plano: Corrigir Auto-Save Disparando Continuamente
+## Plano: Notificacao de Palpites Completos por Rodada/Grupo
 
-### Problema Identificado
+### Objetivo
 
-O auto-save está disparando repetidamente porque o sistema de tracking (`lastSavedSlots.current`) **não é inicializado** com os valores dos jogos existentes quando a página carrega. 
+Adicionar notificacao visual quando o participante preencher todos os palpites de uma rodada (formato standard) ou de um grupo (formato Copa), informando que todos os palpites foram salvos com sucesso.
 
-Quando a rodada é carregada:
-1. Os slots são preenchidos com jogos já existentes no banco
-2. O `lastSavedSlots.current` permanece vazio `{}`
-3. O `useEffect` de auto-save verifica: `!lastSaved` → retorna `true` (parece mudança)
-4. Auto-save dispara desnecessariamente
-5. Após salvar, atualiza `lastSavedSlots.current`
-6. O ciclo deveria parar, **MAS** se algo causar re-render, o problema pode se repetir
+---
 
-### Solução
+### Analise da Situacao Atual
 
-Inicializar `lastSavedSlots.current` e `lastSavedGroupSlots.current` com os valores dos jogos existentes **quando os slots são carregados**.
+**Formato Standard (MatchCard):**
+- Cada card exibe individualmente "Palpite salvo" apos o salvamento
+- Nao ha verificacao se todos os jogos da rodada foram preenchidos
 
-### Mudanças Necessárias
+**Formato Copa (CupFormatView):**
+- Salvamento ocorre no `onBlur` de cada campo
+- Nao ha feedback visual apos salvamento individual
+- Nao ha verificacao de completude por grupo
 
-#### Arquivo: `src/components/matches/AddGamesScreen.tsx`
+---
 
-**1. Modificar o useEffect que inicializa os slots (linhas 280-336)**
+### Solucao Proposta
 
-Adicionar a inicialização do tracking quando os slots são criados:
+Implementar verificacao de completude que:
+1. Detecta quando todos os jogos **abertos** de uma rodada/grupo possuem palpites
+2. Exibe um Toast ou badge visual informando "Todos os palpites salvos"
+3. A mensagem aparece apenas uma vez quando o ultimo palpite e preenchido
+
+---
+
+### Componentes Afetados
+
+| Componente | Alteracao |
+|------------|-----------|
+| `PoolDetail.tsx` | Adicionar logica de verificacao de completude e callback para notificacao |
+| `CupFormatView.tsx` | Adicionar tracking de palpites salvos e exibir notificacao por grupo |
+| `MatchCard.tsx` | (Opcional) Adicionar callback para notificar quando salvo |
+
+---
+
+### Detalhes da Implementacao
+
+#### 1. PoolDetail.tsx - Adicionar Verificacao de Completude
 
 ```typescript
-// ANTES (linha 333-336):
-setMatchSlots(slots);
-// Reset saved tracking when round changes
-lastSavedSlots.current = {};
+// Funcao para verificar se todos os palpites de uma rodada estao preenchidos
+const checkRoundCompletion = useCallback((roundId: string) => {
+  const roundMatches = matches.filter(m => m.round_id === roundId);
+  
+  // Filtrar apenas jogos com prazo aberto (que permitem palpites)
+  const openMatches = roundMatches.filter(m => {
+    const deadline = new Date(m.prediction_deadline);
+    return deadline > new Date() && !m.is_finished;
+  });
+  
+  if (openMatches.length === 0) return false;
+  
+  // Verificar se todos os jogos abertos tem palpite
+  const allFilled = openMatches.every(m => predictions[m.id] !== undefined);
+  
+  return allFilled;
+}, [matches, predictions]);
+```
 
-// DEPOIS:
-setMatchSlots(slots);
+#### 2. Modificar handlePredictionChange para detectar completude
 
-// Inicializar tracking com valores dos jogos existentes
-const initialSavedValues: Record<number, SavedSlotData> = {};
-slots.forEach((slot, index) => {
-  if (slot.isSaved && slot.home_team && slot.away_team) {
-    initialSavedValues[index] = {
-      home_team: slot.home_team,
-      away_team: slot.away_team,
-      match_date: slot.match_date,
-      prediction_deadline: slot.prediction_deadline,
+```typescript
+const handlePredictionChange = async (matchId: string, homeScore: number, awayScore: number) => {
+  // ... codigo existente ...
+  
+  // Apos salvar com sucesso, verificar completude
+  const match = matches.find(m => m.id === matchId);
+  if (match) {
+    // Atualizar predictions state primeiro
+    const updatedPredictions = {
+      ...predictions,
+      [matchId]: { match_id: matchId, home_score: homeScore, away_score: awayScore, points_earned: null }
     };
+    
+    // Verificar se a rodada/grupo esta completa
+    const roundMatches = matches.filter(m => m.round_id === match.round_id);
+    const openMatches = roundMatches.filter(m => {
+      const deadline = new Date(m.prediction_deadline);
+      return deadline > new Date() && !m.is_finished;
+    });
+    
+    const allFilled = openMatches.every(m => updatedPredictions[m.id] !== undefined);
+    
+    if (allFilled && openMatches.length > 0) {
+      // Encontrar nome da rodada
+      const round = rounds.find(r => r.id === match.round_id);
+      const roundName = round?.name || 'Rodada';
+      
+      toast({
+        title: 'Palpites Completos!',
+        description: `Todos os ${openMatches.length} palpites de "${roundName}" foram salvos.`,
+      });
+    }
   }
-});
-lastSavedSlots.current = initialSavedValues;
+};
 ```
 
-**2. Fazer o mesmo para groupMatchSlots**
+#### 3. CupFormatView.tsx - Tracking por Grupo
 
-Na inicialização dos slots de grupos (se existir lógica similar), também inicializar `lastSavedGroupSlots.current` com os valores já existentes.
-
-**3. Adicionar verificação extra no useEffect de auto-save**
-
-Como segurança adicional, verificar se o slot `isSaved` e `!isModified`:
+Adicionar estado para rastrear notificacoes ja exibidas:
 
 ```typescript
-// No useEffect de auto-save, adicionar esta verificação
-if (slot.isSaved && !slot.isModified) return;
+const [notifiedGroups, setNotifiedGroups] = useState<Set<string>>(new Set());
+
+// Modificar onBlur para incluir verificacao de grupo
+const handleGroupPredictionComplete = (groupName: string, matchId: string) => {
+  const groupData = matchesByGroup[groupName];
+  if (!groupData) return;
+  
+  // Obter todos os jogos do grupo em todas as rodadas
+  const allGroupMatches: Match[] = [];
+  Object.values(groupData.rounds).forEach(roundMatches => {
+    allGroupMatches.push(...roundMatches);
+  });
+  
+  // Filtrar jogos abertos
+  const openMatches = allGroupMatches.filter(m => canPredict(m));
+  
+  // Verificar se todos tem palpite
+  const allFilled = openMatches.every(m => 
+    predictions[m.id] || localPredictions[m.id]?.home !== '' && localPredictions[m.id]?.away !== ''
+  );
+  
+  if (allFilled && openMatches.length > 0 && !notifiedGroups.has(groupName)) {
+    setNotifiedGroups(prev => new Set([...prev, groupName]));
+    // Callback para exibir toast
+    onGroupComplete?.(groupName, openMatches.length);
+  }
+};
+```
+
+#### 4. Visual Badge no Card de Grupo
+
+Adicionar indicador visual quando todos os palpites do grupo estiverem preenchidos:
+
+```tsx
+{allGroupPredictionsFilled && (
+  <div className="flex items-center gap-2 text-green-600 bg-green-50 dark:bg-green-900/20 rounded-lg px-3 py-2">
+    <CheckCircle2 className="h-4 w-4" />
+    <span className="text-sm font-medium">
+      Todos os palpites do {groupName} salvos!
+    </span>
+  </div>
+)}
 ```
 
 ---
 
-### Comparação Antes/Depois
+### Fluxo de Usuario
 
-| Cenário | Antes | Depois |
-|---------|-------|--------|
-| Página carrega com jogos existentes | Auto-save dispara para todos | Nenhum auto-save (já tracked) |
-| Usuário modifica um jogo | Auto-save dispara após 1s | Auto-save dispara após 1s |
-| Usuário não modifica nada | Auto-save pode disparar | Nenhum auto-save |
-
----
-
-### Detalhes Técnicos
-
-**useEffect de inicialização** (linhas ~280-336):
-- Já marca slots existentes com `isSaved: true` e `isModified: false`
-- **Falta**: Popular `lastSavedSlots.current` com esses valores
-
-**useEffect de auto-save** (linhas ~487-522):
-- Verifica `hasChanged` comparando com `lastSavedSlots.current`
-- **Problema**: Se `lastSavedSlots.current` está vazio, `!lastSaved` é sempre `true`
-
----
-
-### Comportamento Esperado Após a Correção
-
-1. **Ao carregar página** → Nenhum auto-save dispara (jogos existentes já estão no tracking)
-2. **Ao modificar time** → Aguarda 1 segundo e salva automaticamente
-3. **Ao modificar data** → Aguarda 1 segundo e salva automaticamente
-4. **Sem modificações** → Nenhum salvamento ocorre
-5. **Indicador visual** → Aparece apenas quando há salvamento real
+```text
+1. Participante abre bolao
+         |
+         v
+2. Preenche palpite do jogo 1
+         |
+         v
+3. Sistema salva automaticamente
+   (feedback individual: "Palpite salvo")
+         |
+         v
+4. Preenche palpite do jogo 2 (ultimo da rodada)
+         |
+         v
+5. Sistema salva automaticamente
+         |
+         v
+6. Detecta: todos os jogos abertos tem palpite
+         |
+         v
+7. Exibe Toast: "Palpites Completos! Todos os X palpites de [Rodada/Grupo] foram salvos"
+```
 
 ---
 
-### Validação
+### Prevencao de Notificacoes Duplicadas
 
-Após implementação, verificar no console:
-- Nenhum `UPDATE` deve aparecer ao simplesmente abrir a página
-- `UPDATE` deve aparecer apenas após o usuário modificar algo
+Para evitar que a mensagem apareca multiplas vezes:
+
+1. **Estado de notificacao**: Manter Set com rodadas/grupos ja notificados
+2. **Reset ao mudar rodada**: Limpar estado quando usuario muda de rodada
+3. **Verificar apenas apos salvamento**: Nao disparar na carga inicial da pagina
+
+---
+
+### Resumo das Alteracoes
+
+| Arquivo | Mudanca |
+|---------|---------|
+| `src/pages/PoolDetail.tsx` | Adicionar verificacao de completude no `handlePredictionChange` e exibir toast |
+| `src/components/cup/CupFormatView.tsx` | Adicionar tracking de grupos completos e indicador visual por grupo |
+
+---
+
+### Comportamento Esperado
+
+**Formato Standard:**
+- Ao completar todos os palpites da rodada, aparece toast: "Palpites Completos! Todos os X palpites de [nome da rodada] foram salvos"
+
+**Formato Copa:**
+- Ao completar todos os palpites de um grupo (em todas as rodadas do grupo), aparece toast: "Palpites Completos! Todos os X palpites do [Grupo A/B/etc] foram salvos"
+- Badge visual permanece visivel no card do grupo indicando completude
 
