@@ -46,7 +46,7 @@ import { CreateClubDialog } from '@/components/CreateClubDialog';
 import { AddGamesScreen } from '@/components/matches/AddGamesScreen';
 import { LaunchScoresScreen } from '@/components/matches/LaunchScoresScreen';
 import { EditKnockoutMatchupsScreen } from '@/components/matches/EditKnockoutMatchupsScreen';
-import { InviteUserDialog } from '@/components/pools/InviteUserDialog';
+import { InviteUserInline } from '@/components/pools/InviteUserInline';
 import { ShareInviteLink } from '@/components/pools/ShareInviteLink';
 import { PendingInvitations } from '@/components/pools/PendingInvitations';
 import { 
@@ -68,7 +68,6 @@ import {
   X,
   AlertCircle,
   Swords,
-  UserPlus
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -220,9 +219,6 @@ export default function PoolManage() {
   
   // Edit Knockout Matchups Screen
   const [showEditKnockoutScreen, setShowEditKnockoutScreen] = useState(false);
-  
-  // Invite User Dialog
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   const handleEditRound = (round: Round) => {
     setSelectedRoundForGames(round);
@@ -1357,14 +1353,7 @@ export default function PoolManage() {
                 
                 {canManagePool() && (
                   <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setInviteDialogOpen(true)}
-                    >
-                      <UserPlus className="h-4 w-4 mr-2" />
-                      Convidar Usuário
-                    </Button>
+                    <InviteUserInline poolId={id!} />
                     <ShareInviteLink poolId={id!} />
                   </div>
                 )}
@@ -1372,13 +1361,6 @@ export default function PoolManage() {
               
               {/* Pending Invitations */}
               {canManagePool() && <PendingInvitations poolId={id!} />}
-              
-              {/* Invite Dialog */}
-              <InviteUserDialog 
-                open={inviteDialogOpen} 
-                onOpenChange={setInviteDialogOpen} 
-                poolId={id!} 
-              />
 
               {participants.length === 0 ? (
                 <Card className="text-center py-12">
