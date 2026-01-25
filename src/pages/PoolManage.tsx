@@ -73,6 +73,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatDateTimeBR, formatDateShortBR, formatTimeBR, isBeforeDeadline } from '@/lib/date-utils';
+import { requiresApproval } from '@/lib/prize-utils';
 import type { Database } from '@/integrations/supabase/types';
 
 type ParticipantStatus = Database['public']['Enums']['participant_status'];
@@ -84,6 +85,7 @@ interface Pool {
   rules: string | null;
   created_by: string;
   is_public: boolean;
+  entry_fee: number;
   cover_image: string | null;
   matches_per_round: number | null;
   total_rounds: number | null;
@@ -304,7 +306,7 @@ export default function PoolManage() {
     try {
       const { data: poolData, error: poolError } = await supabase
         .from('pools')
-        .select('id, name, description, rules, created_by, is_public, cover_image, matches_per_round, total_rounds')
+        .select('id, name, description, rules, created_by, is_public, entry_fee, cover_image, matches_per_round, total_rounds')
         .eq('id', id)
         .single();
 
@@ -1245,9 +1247,9 @@ export default function PoolManage() {
                 setPool(prev => prev ? { ...prev, is_public: newValue } : null);
                 toast({
                   title: newValue ? 'Bolão público' : 'Bolão privado',
-                  description: newValue 
-                    ? 'Qualquer pessoa pode entrar diretamente' 
-                    : 'Novos participantes precisarão de aprovação',
+                  description: requiresApproval(pool.entry_fee || 0, newValue)
+                    ? 'Novos participantes precisarão de aprovação (bolão possui taxa de inscrição ou é privado)'
+                    : 'Qualquer pessoa pode entrar diretamente',
                 });
               } catch (error: any) {
                 toast({ 
