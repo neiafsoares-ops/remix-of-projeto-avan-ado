@@ -41,6 +41,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateBR } from '@/lib/date-utils';
 import { CupFormatStep, CupFormatConfig } from '@/components/pools/CupFormatStep';
+import { KnockoutOnlyStep, KnockoutOnlyConfig } from '@/components/pools/KnockoutOnlyStep';
 import { 
   Sparkles, 
   Plus, 
@@ -57,6 +58,7 @@ import {
   Trophy,
   Layers,
   Award,
+  Swords,
   ArrowLeft,
   ArrowRight
 } from 'lucide-react';
@@ -69,7 +71,7 @@ interface SuggestedPoolWithModerators extends SuggestedPool {
   rounds_count?: number;
 }
 
-type PoolFormat = 'standard' | 'cup';
+type PoolFormat = 'standard' | 'cup' | 'knockout';
 
 export function SuggestedPoolsTab() {
   const { user } = useAuth();
@@ -113,6 +115,15 @@ export function SuggestedPoolsTab() {
     enableBestThirdPlace: false,
     bestThirdPlaceCount: 4,
     knockoutDrawMethod: 'automatic',
+  });
+  
+  // Knockout only config
+  const [knockoutConfig, setKnockoutConfig] = useState<KnockoutOnlyConfig>({
+    totalTeams: 16,
+    knockoutFormat: 'single',
+    finalFormat: 'single',
+    hasThirdPlace: false,
+    awayGoalsRule: false,
   });
   
   const [moderatorUsername, setModeratorUsername] = useState('');
@@ -308,6 +319,83 @@ export function SuggestedPoolsTab() {
     return rounds;
   };
 
+  // Generate knockout-only rounds for suggested pools
+  const generateSuggestedKnockoutRounds = (poolId: string) => {
+    const rounds: Array<{
+      suggested_pool_id: string;
+      round_number: number;
+      name: string;
+    }> = [];
+    
+    let roundNumber = 1;
+    const isHomeAway = knockoutConfig.knockoutFormat === 'home_away';
+    
+    // Round of 64 (32 avos)
+    if (knockoutConfig.totalTeams >= 64) {
+      if (isHomeAway) {
+        rounds.push({ suggested_pool_id: poolId, round_number: roundNumber++, name: '32 avos - Ida' });
+        rounds.push({ suggested_pool_id: poolId, round_number: roundNumber++, name: '32 avos - Volta' });
+      } else {
+        rounds.push({ suggested_pool_id: poolId, round_number: roundNumber++, name: '32 avos de Final' });
+      }
+    }
+    
+    // Round of 32 (16 avos)
+    if (knockoutConfig.totalTeams >= 32) {
+      if (isHomeAway) {
+        rounds.push({ suggested_pool_id: poolId, round_number: roundNumber++, name: '16 avos - Ida' });
+        rounds.push({ suggested_pool_id: poolId, round_number: roundNumber++, name: '16 avos - Volta' });
+      } else {
+        rounds.push({ suggested_pool_id: poolId, round_number: roundNumber++, name: '16 avos de Final' });
+      }
+    }
+    
+    // Round of 16 (Oitavas)
+    if (knockoutConfig.totalTeams >= 16) {
+      if (isHomeAway) {
+        rounds.push({ suggested_pool_id: poolId, round_number: roundNumber++, name: 'Oitavas - Ida' });
+        rounds.push({ suggested_pool_id: poolId, round_number: roundNumber++, name: 'Oitavas - Volta' });
+      } else {
+        rounds.push({ suggested_pool_id: poolId, round_number: roundNumber++, name: 'Oitavas de Final' });
+      }
+    }
+    
+    // Quarter Finals (Quartas)
+    if (knockoutConfig.totalTeams >= 8) {
+      if (isHomeAway) {
+        rounds.push({ suggested_pool_id: poolId, round_number: roundNumber++, name: 'Quartas - Ida' });
+        rounds.push({ suggested_pool_id: poolId, round_number: roundNumber++, name: 'Quartas - Volta' });
+      } else {
+        rounds.push({ suggested_pool_id: poolId, round_number: roundNumber++, name: 'Quartas de Final' });
+      }
+    }
+    
+    // Semi Finals
+    if (knockoutConfig.totalTeams >= 4) {
+      if (isHomeAway) {
+        rounds.push({ suggested_pool_id: poolId, round_number: roundNumber++, name: 'Semifinal - Ida' });
+        rounds.push({ suggested_pool_id: poolId, round_number: roundNumber++, name: 'Semifinal - Volta' });
+      } else {
+        rounds.push({ suggested_pool_id: poolId, round_number: roundNumber++, name: 'Semifinal' });
+      }
+    }
+    
+    // Third place match
+    if (knockoutConfig.hasThirdPlace) {
+      rounds.push({ suggested_pool_id: poolId, round_number: roundNumber++, name: 'Disputa 3º Lugar' });
+    }
+    
+    // Final
+    if (knockoutConfig.finalFormat === 'home_away') {
+      rounds.push({ suggested_pool_id: poolId, round_number: roundNumber++, name: 'Final - Jogo de Ida' });
+      rounds.push({ suggested_pool_id: poolId, round_number: roundNumber++, name: 'Final - Jogo de Volta' });
+    } else {
+      rounds.push({ suggested_pool_id: poolId, round_number: roundNumber++, name: '🏆 FINAL' });
+    }
+    
+    return rounds;
+  };
+
   const handleCreate = async () => {
     if (!user) return;
     
@@ -331,6 +419,20 @@ export function SuggestedPoolsTab() {
         // Calculate matches per round based on teams per group
         const teamsPerGroup = cupConfig.totalTeams / cupConfig.totalGroups;
         calculatedMatchesPerRound = Math.ceil((teamsPerGroup - 1) * teamsPerGroup / 2);
+      } else if (format === 'knockout') {
+        // Calculate total rounds for knockout format
+        const isHomeAway = knockoutConfig.knockoutFormat === 'home_away';
+        calculatedTotalRounds = 0;
+        if (knockoutConfig.totalTeams >= 64) calculatedTotalRounds += (isHomeAway ? 2 : 1);
+        if (knockoutConfig.totalTeams >= 32) calculatedTotalRounds += (isHomeAway ? 2 : 1);
+        if (knockoutConfig.totalTeams >= 16) calculatedTotalRounds += (isHomeAway ? 2 : 1);
+        if (knockoutConfig.totalTeams >= 8) calculatedTotalRounds += (isHomeAway ? 2 : 1);
+        if (knockoutConfig.totalTeams >= 4) calculatedTotalRounds += (isHomeAway ? 2 : 1);
+        if (knockoutConfig.hasThirdPlace) calculatedTotalRounds += 1;
+        calculatedTotalRounds += (knockoutConfig.finalFormat === 'home_away' ? 2 : 1);
+        
+        // First round matches (half of total teams)
+        calculatedMatchesPerRound = knockoutConfig.totalTeams / 2;
       }
 
       // Create the suggested pool
@@ -351,7 +453,6 @@ export function SuggestedPoolsTab() {
 
       const poolId = (pool as any).id;
 
-      // Create the rounds
       let roundsToCreate;
       if (format === 'standard') {
         roundsToCreate = Array.from({ length: formData.total_rounds }, (_, i) => ({
@@ -359,8 +460,10 @@ export function SuggestedPoolsTab() {
           round_number: i + 1,
           name: `Rodada ${i + 1}`
         }));
-      } else {
+      } else if (format === 'cup') {
         roundsToCreate = generateSuggestedCupRounds(poolId);
+      } else {
+        roundsToCreate = generateSuggestedKnockoutRounds(poolId);
       }
 
       const { error: roundsError } = await supabase
@@ -371,7 +474,9 @@ export function SuggestedPoolsTab() {
 
       const successMessage = format === 'standard'
         ? `"${formData.name}" foi criado com ${formData.total_rounds} rodadas.`
-        : `"${formData.name}" foi criado no formato Copa com ${roundsToCreate.length} fases!`;
+        : format === 'cup'
+          ? `"${formData.name}" foi criado no formato Copa com ${roundsToCreate.length} fases!`
+          : `"${formData.name}" foi criado no formato Mata-Mata com ${roundsToCreate.length} fases!`;
 
       toast({
         title: 'Bolão sugerido criado!',
@@ -618,13 +723,22 @@ export function SuggestedPoolsTab() {
       bestThirdPlaceCount: 4,
       knockoutDrawMethod: 'automatic',
     });
+    setKnockoutConfig({
+      totalTeams: 16,
+      knockoutFormat: 'single',
+      finalFormat: 'single',
+      hasThirdPlace: false,
+      awayGoalsRule: false,
+    });
   };
   
   const canProceedStep1 = formData.name.trim().length >= 3;
-  const canProceedStep2 = format === 'standard' || format === 'cup';
+  const canProceedStep2 = format === 'standard' || format === 'cup' || format === 'knockout';
   const canProceedStep3 = format === 'standard' 
     ? (formData.total_rounds >= 1 && formData.matches_per_round >= 1)
-    : (cupConfig.totalTeams >= 4 && cupConfig.totalGroups >= 1 && cupConfig.classifiedPerGroup >= 1);
+    : format === 'cup'
+      ? (cupConfig.totalTeams >= 4 && cupConfig.totalGroups >= 1 && cupConfig.classifiedPerGroup >= 1)
+      : (knockoutConfig.totalTeams >= 4);
     
   const totalSteps = 3;
   const wizardProgress = (wizardStep / totalSteps) * 100;
@@ -708,6 +822,7 @@ export function SuggestedPoolsTab() {
                 {wizardStep === 2 && 'Passo 2 de 3: Escolha o formato'}
                 {wizardStep === 3 && format === 'standard' && 'Passo 3 de 3: Estrutura de rodadas'}
                 {wizardStep === 3 && format === 'cup' && 'Passo 3 de 3: Configure as fases do campeonato'}
+                {wizardStep === 3 && format === 'knockout' && 'Passo 3 de 3: Configure o mata-mata'}
               </DialogDescription>
             </DialogHeader>
             
@@ -777,23 +892,23 @@ export function SuggestedPoolsTab() {
                 <RadioGroup
                   value={format}
                   onValueChange={(value: PoolFormat) => setFormat(value)}
-                  className="grid gap-4 md:grid-cols-2"
+                  className="grid gap-4 md:grid-cols-3"
                 >
                   <div>
                     <RadioGroupItem value="standard" id="format-standard" className="peer sr-only" />
                     <Label
                       htmlFor="format-standard"
-                      className="flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-6 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer transition-all"
+                      className="flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer transition-all"
                     >
-                      <Layers className="h-10 w-10 mb-3 text-primary" />
+                      <Layers className="h-8 w-8 mb-2 text-primary" />
                       <div className="text-center">
-                        <div className="font-semibold text-lg">Formato Padrão</div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Rodadas tradicionais com jogos sequenciais
+                        <div className="font-semibold">Formato Padrão</div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Rodadas tradicionais
                         </p>
                       </div>
-                      <div className="mt-3 text-xs text-muted-foreground">
-                        Ideal para: Brasileirão, Premier League
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        Brasileirão, Premier League
                       </div>
                     </Label>
                   </div>
@@ -802,17 +917,36 @@ export function SuggestedPoolsTab() {
                     <RadioGroupItem value="cup" id="format-cup" className="peer sr-only" />
                     <Label
                       htmlFor="format-cup"
-                      className="flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-6 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer transition-all"
+                      className="flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer transition-all"
                     >
-                      <Award className="h-10 w-10 mb-3 text-yellow-500" />
+                      <Award className="h-8 w-8 mb-2 text-yellow-500" />
                       <div className="text-center">
-                        <div className="font-semibold text-lg">Formato Copa</div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Fase de grupos + mata-mata com final
+                        <div className="font-semibold">Formato Copa</div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Grupos + Mata-Mata
                         </p>
                       </div>
-                      <div className="mt-3 text-xs text-muted-foreground">
-                        Ideal para: Copa do Mundo, Champions
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        Copa do Mundo, Champions
+                      </div>
+                    </Label>
+                  </div>
+
+                  <div>
+                    <RadioGroupItem value="knockout" id="format-knockout" className="peer sr-only" />
+                    <Label
+                      htmlFor="format-knockout"
+                      className="flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer transition-all"
+                    >
+                      <Swords className="h-8 w-8 mb-2 text-destructive" />
+                      <div className="text-center">
+                        <div className="font-semibold">Somente Mata-Mata</div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Eliminatórias diretas
+                        </p>
+                      </div>
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        Copa do Brasil, FA Cup
                       </div>
                     </Label>
                   </div>
@@ -876,6 +1010,13 @@ export function SuggestedPoolsTab() {
             {wizardStep === 3 && format === 'cup' && (
               <div className="py-4">
                 <CupFormatStep config={cupConfig} onChange={setCupConfig} />
+              </div>
+            )}
+            
+            {/* Step 3: Knockout Only Format */}
+            {wizardStep === 3 && format === 'knockout' && (
+              <div className="py-4">
+                <KnockoutOnlyStep config={knockoutConfig} onChange={setKnockoutConfig} />
               </div>
             )}
             
