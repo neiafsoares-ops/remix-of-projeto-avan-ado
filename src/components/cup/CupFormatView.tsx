@@ -4,9 +4,8 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { GroupStandingsTable } from './GroupStandingsTable';
-import { ChevronLeft, ChevronRight, Target, Filter } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Target, Shield } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Shield } from 'lucide-react';
 
 interface Match {
   id: string;
@@ -183,7 +182,12 @@ export function CupFormatView({
   onPredictionChange,
 }: CupFormatViewProps) {
   const [localPredictions, setLocalPredictions] = useState<Record<string, { home: string; away: string }>>({});
-  const [selectedGroupRound, setSelectedGroupRound] = useState<number>(1);
+  const [groupRoundSelection, setGroupRoundSelection] = useState<Record<string, number>>({});
+
+  const getSelectedRound = (groupName: string) => groupRoundSelection[groupName] || 1;
+  const setSelectedRound = (groupName: string, round: number) => {
+    setGroupRoundSelection(prev => ({ ...prev, [groupName]: round }));
+  };
 
   // Identify group rounds (rounds with names starting with "Grupo")
   const groupRounds = useMemo(() => 
@@ -314,7 +318,7 @@ export function CupFormatView({
     return (
       <div 
         key={match.id}
-        className="py-3 border-b last:border-b-0"
+        className="py-4 first:pt-2 last:pb-2"
       >
         <div className="flex items-center justify-between gap-2">
           {/* Home Team */}
@@ -335,19 +339,19 @@ export function CupFormatView({
           </div>
 
           {/* Score / Prediction */}
-          <div className="flex items-center gap-1 px-2 min-w-[90px] justify-center flex-shrink-0">
+          <div className="flex items-center justify-center flex-shrink-0">
             {match.is_finished ? (
-              <div className="flex items-center gap-1">
-                <span className={`text-lg font-bold ${
+              <div className="flex items-center gap-2 bg-primary/10 dark:bg-primary/20 rounded-lg px-4 py-2 min-w-[100px] justify-center">
+                <span className={`text-xl font-bold w-8 text-center ${
                   match.home_score! > match.away_score! ? 'text-primary' : 'text-foreground'
                 }`}>{match.home_score}</span>
-                <span className="text-muted-foreground text-sm mx-1">x</span>
-                <span className={`text-lg font-bold ${
+                <span className="text-muted-foreground font-medium">x</span>
+                <span className={`text-xl font-bold w-8 text-center ${
                   match.away_score! > match.home_score! ? 'text-primary' : 'text-foreground'
                 }`}>{match.away_score}</span>
               </div>
             ) : canPred ? (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-2 bg-primary/10 dark:bg-primary/20 rounded-lg px-3 py-1.5">
                 <Input
                   type="number"
                   min={0}
@@ -361,9 +365,9 @@ export function CupFormatView({
                       onPredictionChange(match.id, home, away);
                     }
                   }}
-                  className="w-10 h-8 text-center p-0 text-sm font-bold"
+                  className="w-12 h-9 text-center p-0 text-lg font-bold bg-background"
                 />
-                <span className="text-muted-foreground text-xs">x</span>
+                <span className="text-muted-foreground font-medium">x</span>
                 <Input
                   type="number"
                   min={0}
@@ -377,16 +381,16 @@ export function CupFormatView({
                       onPredictionChange(match.id, home, away);
                     }
                   }}
-                  className="w-10 h-8 text-center p-0 text-sm font-bold"
+                  className="w-12 h-9 text-center p-0 text-lg font-bold bg-background"
                 />
               </div>
             ) : (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-2 bg-primary/10 dark:bg-primary/20 rounded-lg px-4 py-2 min-w-[100px] justify-center">
                 {prediction ? (
                   <>
-                    <span className="text-lg font-bold text-primary">{prediction.home_score}</span>
-                    <span className="text-muted-foreground text-sm mx-1">x</span>
-                    <span className="text-lg font-bold text-primary">{prediction.away_score}</span>
+                    <span className="text-xl font-bold w-8 text-center text-primary">{prediction.home_score}</span>
+                    <span className="text-muted-foreground font-medium">x</span>
+                    <span className="text-xl font-bold w-8 text-center text-primary">{prediction.away_score}</span>
                   </>
                 ) : (
                   <span className="text-muted-foreground text-sm">vs</span>
@@ -438,7 +442,7 @@ export function CupFormatView({
           const groupData = matchesByGroup[groupName];
           const standings = groupStandings[groupName] || [];
           const matchesPerRound = calculateMatchesPerRound(groupData?.teamCount || 4);
-          const currentGroupRoundMatches = groupData?.rounds[selectedGroupRound] || [];
+          const currentGroupRoundMatches = groupData?.rounds[getSelectedRound(groupName)] || [];
           const totalGroupRounds = Object.keys(groupData?.rounds || {}).length;
           
           return (
@@ -455,17 +459,34 @@ export function CupFormatView({
               {/* Right Column: Matches for Selected Round */}
               <div>
                 <Card className="overflow-hidden">
-                  <CardHeader className="py-2 px-4 border-b bg-muted/30">
+                  <CardHeader className="py-3 px-4 border-b bg-muted/30">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-sm font-semibold text-foreground">
-                          RODADA {selectedGroupRound}
-                        </CardTitle>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      <CardTitle className="text-sm font-semibold uppercase tracking-wide">
+                        Rodada {getSelectedRound(groupName)}
+                      </CardTitle>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setSelectedRound(groupName, getSelectedRound(groupName) - 1)}
+                          disabled={getSelectedRound(groupName) <= 1}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="text-xs text-muted-foreground min-w-[50px] text-center">
+                          {getSelectedRound(groupName)}/{totalGroupRounds}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setSelectedRound(groupName, getSelectedRound(groupName) + 1)}
+                          disabled={getSelectedRound(groupName) >= totalGroupRounds}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <button className="text-xs text-primary hover:underline flex items-center gap-1">
-                        <Filter className="h-3 w-3" /> equipes
-                      </button>
                     </div>
                   </CardHeader>
                   <CardContent className="p-3">
@@ -475,7 +496,7 @@ export function CupFormatView({
                         <p className="text-sm text-muted-foreground">Nenhum jogo nesta rodada</p>
                       </div>
                     ) : (
-                      <div>
+                      <div className="divide-y divide-border">
                         {currentGroupRoundMatches.slice(0, matchesPerRound).map(renderGroupMatchCard)}
                       </div>
                     )}
@@ -486,30 +507,6 @@ export function CupFormatView({
           );
         })}
 
-        {/* Round Navigation for Groups */}
-        {maxGroupRounds > 1 && (
-          <div className="flex items-center justify-center gap-2 pt-4 border-t">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedGroupRound(prev => Math.max(1, prev - 1))}
-              disabled={selectedGroupRound <= 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm font-medium min-w-[120px] text-center">
-              Rodada {selectedGroupRound} de {maxGroupRounds}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedGroupRound(prev => Math.min(maxGroupRounds, prev + 1))}
-              disabled={selectedGroupRound >= maxGroupRounds}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
       </div>
     );
   }
