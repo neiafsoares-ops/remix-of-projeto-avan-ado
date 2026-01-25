@@ -92,6 +92,7 @@ export function CreatePoolWizard({ open, onOpenChange, onSuccess, userId }: Crea
   const [description, setDescription] = useState('');
   const [rules, setRules] = useState('');
   const [entryFee, setEntryFee] = useState('0');
+  const [adminFeePercent, setAdminFeePercent] = useState(0);
   const [maxParticipants, setMaxParticipants] = useState('');
   const [isPublic, setIsPublic] = useState(true);
 
@@ -135,6 +136,7 @@ export function CreatePoolWizard({ open, onOpenChange, onSuccess, userId }: Crea
     setDescription('');
     setRules('');
     setEntryFee('0');
+    setAdminFeePercent(0);
     setMaxParticipants('');
     setIsPublic(true);
     setFormat('standard');
@@ -551,6 +553,7 @@ export function CreatePoolWizard({ open, onOpenChange, onSuccess, userId }: Crea
           description: description.trim() || null,
           rules: rules.trim() || null,
           entry_fee: parseFloat(entryFee) || 0,
+          admin_fee_percent: parseFloat(entryFee) > 0 ? adminFeePercent : 0,
           max_participants: maxParticipants ? parseInt(maxParticipants) : null,
           is_public: isPublic,
           total_rounds: calculatedTotalRounds,
@@ -748,6 +751,58 @@ export function CreatePoolWizard({ open, onOpenChange, onSuccess, userId }: Crea
                 />
               </div>
             </div>
+
+            {/* Admin Fee - Only visible when entry fee > 0 */}
+            {parseFloat(entryFee) > 0 && (
+              <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="adminFeePercent" className="font-medium">
+                      Taxa Administrativa (%)
+                    </Label>
+                    <span className="text-sm font-semibold text-primary">{adminFeePercent}%</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Porcentagem do prêmio que ficará com o organizador (0% a 50%)
+                  </p>
+                  <input
+                    type="range"
+                    id="adminFeePercent"
+                    min="0"
+                    max="50"
+                    step="1"
+                    value={adminFeePercent}
+                    onChange={(e) => setAdminFeePercent(parseInt(e.target.value))}
+                    className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>0%</span>
+                    <span>25%</span>
+                    <span>50%</span>
+                  </div>
+                </div>
+                
+                {/* Prize Preview */}
+                <div className="p-3 bg-accent/10 rounded-lg border border-accent/20">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-muted-foreground">Prêmio estimado (10 participantes):</span>
+                    <span className="font-bold text-accent">
+                      R$ {((parseFloat(entryFee) * 10) * (1 - adminFeePercent / 100)).toFixed(2)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Fórmula: (Taxa × Participantes) - {adminFeePercent}% taxa administrativa
+                  </p>
+                </div>
+
+                <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-amber-700 dark:text-amber-300 text-xs">
+                    Bolões com taxa de inscrição requerem <strong>aprovação obrigatória</strong> de novos participantes, mesmo sendo públicos.
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
 
             <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
               <div>

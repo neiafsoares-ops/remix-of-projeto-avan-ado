@@ -516,7 +516,7 @@ export default function Admin() {
                                     <SelectValue placeholder="Remover..." />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {u.roles.filter(r => r !== 'participant').map((role) => (
+                                    {u.roles.map((role) => (
                                       <SelectItem key={role} value={role}>
                                         {role === 'admin' ? 'Admin' : 
                                          role === 'moderator' ? 'Moderador' : 

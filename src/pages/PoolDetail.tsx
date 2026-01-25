@@ -40,6 +40,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { formatDateShortBR } from '@/lib/date-utils';
+import { calculateEstimatedPrize, formatBRL, requiresApproval } from '@/lib/prize-utils';
 
 interface Pool {
   id: string;
@@ -47,6 +48,7 @@ interface Pool {
   description: string | null;
   rules: string | null;
   entry_fee: number;
+  admin_fee_percent: number | null;
   max_participants: number | null;
   is_active: boolean;
   is_public: boolean;
@@ -362,8 +364,12 @@ export default function PoolDetail() {
     setShowJoinDisclaimer(false);
     setJoining(true);
     try {
-      // Define status based on if pool is public or private
-      const initialStatus = pool?.is_public ? 'active' : 'pending';
+      // Determine initial status:
+      // - If entry_fee > 0: always 'pending' (requires approval)
+      // - If private pool: 'pending' (requires approval)
+      // - If public pool with no fee: 'active' (immediate access)
+      const needsApproval = requiresApproval(pool?.entry_fee || 0, pool?.is_public ?? true);
+      const initialStatus = needsApproval ? 'pending' : 'active';
       
       const { error } = await supabase
         .from('pool_participants')
@@ -375,7 +381,7 @@ export default function PoolDetail() {
 
       if (error) throw error;
 
-      if (pool?.is_public) {
+      if (initialStatus === 'active') {
         toast({
           title: 'Sucesso!',
           description: 'Você entrou no bolão!',
@@ -383,7 +389,9 @@ export default function PoolDetail() {
       } else {
         toast({
           title: 'Solicitação enviada!',
-          description: 'Aguarde a aprovação do administrador.',
+          description: pool?.entry_fee && pool.entry_fee > 0 
+            ? 'Este bolão possui taxa de inscrição. Aguarde a aprovação do administrador.'
+            : 'Aguarde a aprovação do administrador.',
         });
       }
 
@@ -530,12 +538,45 @@ export default function PoolDetail() {
                     <Calendar className="h-4 w-4" />
                     <span>Criado em {formatDateShortBR(pool.created_at)}</span>
                   </div>
-                  {pool.entry_fee > 0 && (
-                    <div className="flex items-center gap-1">
-                      <span className="font-medium text-accent">R$ {pool.entry_fee.toFixed(2)}</span>
-                    </div>
-                  )}
                 </div>
+
+                {/* Prize Information Card - Only for pools with entry fee */}
+                {pool.entry_fee > 0 && (
+                  <div className="p-4 rounded-lg bg-accent/10 border border-accent/20 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="h-5 w-5 text-accent" />
+                      <span className="font-semibold">Informações do Prêmio</span>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Taxa de Inscrição</p>
+                        <p className="font-semibold">{formatBRL(pool.entry_fee)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Participantes Ativos</p>
+                        <p className="font-semibold">{participants.filter(p => p.status === 'active').length}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Taxa Administrativa</p>
+                        <p className="font-semibold">{pool.admin_fee_percent || 0}%</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Prêmio Estimado</p>
+                        <p className="font-bold text-accent text-lg">
+                          {formatBRL(calculateEstimatedPrize(
+                            pool.entry_fee,
+                            participants.filter(p => p.status === 'active').length,
+                            pool.admin_fee_percent || 0
+                          ))}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                      <span>Este bolão requer aprovação do administrador para participar</span>
+                    </div>
+                  </div>
+                )}
 
                 {!userParticipation && (
                   <Button 

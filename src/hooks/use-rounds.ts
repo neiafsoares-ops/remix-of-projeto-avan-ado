@@ -64,7 +64,7 @@ export function useRounds(poolId: string | undefined) {
       if (!user.user) return 0;
       
       const { data, error } = await supabase.rpc('count_user_rounds', {
-        _user_id: user.user.id
+        user_uuid: user.user.id
       });
       
       if (error) {
@@ -394,10 +394,9 @@ export function useLimitRequests() {
       // Log audit
       await supabase.rpc('insert_audit_log', {
         p_action: 'LIMIT_EXCEPTION_APPROVED',
-        p_entity_type: 'round_limit_requests',
-        p_entity_id: requestId,
+        p_table_name: 'round_limit_requests',
+        p_record_id: requestId,
         p_new_data: { round_id: roundId, extra_matches: extraMatches },
-        p_user_id: user.user.id,
       });
 
       toast({
