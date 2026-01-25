@@ -1,180 +1,207 @@
 
 
-## Plano: Habilitar Formato "Somente Mata-Mata" para Sugestoes Zapions
+## Plano: Campo de Pesquisa Inline para Convidar Usuario
 
 ### Objetivo
 
-Adicionar a terceira opcao de formato **"Somente Mata-Mata"** no wizard de criacao de sugestoes de boloes (funcao de administrador), similar ao que ja existe no `CreatePoolWizard`.
+Substituir o botao "Convidar Usuario" (que requer um clique para abrir o modal) por um campo de pesquisa inline que aparece diretamente na interface, eliminando um clique desnecessario.
 
 ---
 
 ### Situacao Atual
 
-O componente `SuggestedPoolsTab.tsx` atualmente oferece apenas **2 formatos**:
+```text
++---------------------------+   +------------------+
+| 👤+ Convidar Usuario     |   | 🔗 Copiar Link   |
++---------------------------+   +------------------+
+            |
+            v (clique abre modal)
+     +-----------------------------+
+     |       Modal Dialog          |
+     |  +------------------------+ |
+     |  | 🔍 Buscar usuario...  | |
+     |  +------------------------+ |
+     |       [Resultado]          |
+     +-----------------------------+
+```
 
-| Formato | Descricao |
-|---------|-----------|
-| `standard` | Rodadas tradicionais (Brasileirao, Premier League) |
-| `cup` | Grupos + Mata-Mata (Copa do Mundo, Champions) |
-
-O formato **"Somente Mata-Mata"** (`knockout`) ja existe no `CreatePoolWizard.tsx` e no componente `KnockoutOnlyStep.tsx`, mas nao foi implementado para as sugestoes Zapions.
+**Problemas:**
+- Requer clique adicional para ver o campo de pesquisa
+- Quebra o fluxo de trabalho do administrador
 
 ---
 
-### Mudancas Necessarias
+### Solucao Proposta
 
-#### 1. Atualizar o Tipo de Formato
-
-**Arquivo:** `src/components/admin/SuggestedPoolsTab.tsx`
-
-Alterar a definicao do tipo `PoolFormat`:
+Substituir por um campo de pesquisa inline com Popover para resultados:
 
 ```text
-De: type PoolFormat = 'standard' | 'cup';
-Para: type PoolFormat = 'standard' | 'cup' | 'knockout';
++----------------------------------------+   +------------------+
+| 🔍 Buscar usuario (ID ou @username)... |   | 🔗 Copiar Link   |
++----------------------------------------+   +------------------+
+            |
+            v (resultados aparecem em popover)
+     +-----------------------------+
+     |   Popover com Resultado     |
+     |   [Avatar] @usuario #12345  |
+     |   [👤+ Enviar Convite]      |
+     +-----------------------------+
 ```
 
 ---
 
-#### 2. Adicionar Estado para Configuracao do Knockout
+### Mudancas Tecnicas
 
-Adicionar novo estado para armazenar a configuracao do knockout:
+#### 1. Criar Novo Componente: `InviteUserInline.tsx`
 
+Novo componente que combina a funcionalidade do `InviteUserDialog.tsx` em formato inline:
+
+**Estrutura:**
 ```typescript
-const [knockoutConfig, setKnockoutConfig] = useState<KnockoutOnlyConfig>({
-  totalTeams: 16,
-  knockoutFormat: 'single',
-  finalFormat: 'single',
-  hasThirdPlace: false,
-  awayGoalsRule: false,
-});
-```
+interface InviteUserInlineProps {
+  poolId: string;
+}
 
----
-
-#### 3. Adicionar Opcao no RadioGroup (Passo 2)
-
-Adicionar terceira opcao na selecao de formato:
-
-| Icone | Titulo | Descricao | Exemplos |
-|-------|--------|-----------|----------|
-| Swords (vermelho) | Somente Mata-Mata | Eliminatorias diretas sem fase de grupos | Copa do Brasil, FA Cup |
-
----
-
-#### 4. Renderizar KnockoutOnlyStep no Passo 3
-
-Quando `format === 'knockout'`, renderizar o componente `KnockoutOnlyStep` com a configuracao apropriada.
-
----
-
-#### 5. Gerar Rodadas de Knockout na Criacao
-
-Criar funcao `generateSuggestedKnockoutRounds()` que gera as rodadas baseadas na configuracao:
-
-**Logica:**
-- Para cada fase (32 avos, 16 avos, Oitavas, Quartas, Semi, Final)
-- Se formato Ida/Volta: criar 2 rodadas por fase
-- Se jogo unico: criar 1 rodada por fase
-- Adicionar Disputa de 3o Lugar se habilitado
-
-**Exemplo com 16 times, jogo unico:**
-- Oitavas de Final
-- Quartas de Final
-- Semifinal
-- (Opcional) Disputa 3o Lugar
-- Final
-
----
-
-#### 6. Atualizar Validacao do Wizard
-
-Atualizar `canProceedStep2` e `canProceedStep3`:
-
-```typescript
-const canProceedStep2 = format === 'standard' || format === 'cup' || format === 'knockout';
-
-const canProceedStep3 = 
-  format === 'standard' 
-    ? (formData.total_rounds >= 1 && formData.matches_per_round >= 1)
-    : format === 'cup'
-      ? (cupConfig.totalTeams >= 4 && cupConfig.totalGroups >= 1)
-      : (knockoutConfig.totalTeams >= 4); // knockout
-```
-
----
-
-#### 7. Atualizar handleCreate
-
-Adicionar logica para criar bolao no formato knockout:
-
-```typescript
-if (format === 'knockout') {
-  // Calcular total de rodadas baseado na configuracao
-  // Gerar rodadas de knockout
-  // Inserir no banco
+export function InviteUserInline({ poolId }: InviteUserInlineProps) {
+  // Reutiliza hook existente
+  const { searchUser, searchingUser, sendInvitation } = usePoolInvitations(poolId);
+  
+  // Estados locais
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchedUser, setSearchedUser] = useState<SearchedUser | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  
+  // Logica de busca igual ao dialog atual
 }
 ```
 
+**UI:**
+- Input de pesquisa sempre visivel com icone de lupa
+- Popover que abre automaticamente ao encontrar resultado
+- Mostra avatar, nome, username e botao de enviar convite
+- Fecha automaticamente apos enviar convite com sucesso
+
 ---
 
-#### 8. Atualizar Reset do Formulario
+#### 2. Atualizar `PoolManage.tsx`
 
-Resetar tambem `knockoutConfig` no `resetForm()`.
+**Remover:**
+- Estado `inviteDialogOpen`
+- Componente `InviteUserDialog`
+- Botao que abre o dialog
+
+**Substituir por:**
+```tsx
+{canManagePool() && (
+  <div className="flex items-center gap-2">
+    <InviteUserInline poolId={id!} />
+    <ShareInviteLink poolId={id!} />
+  </div>
+)}
+```
 
 ---
 
-### Resumo Visual do Wizard Atualizado
-
-**Passo 2 - Selecao de Formato (com 3 opcoes):**
+### Fluxo de Interacao
 
 ```text
-+-------------------+  +-------------------+  +-------------------+
-|      Layers       |  |      Award        |  |      Swords       |
-|                   |  |                   |  |                   |
-| Formato Padrao    |  | Formato Copa      |  | Somente Mata-Mata |
-| Rodadas           |  | Grupos + Knockout |  | Eliminatorias     |
-| tradicionais      |  | com final         |  | diretas           |
-|                   |  |                   |  |                   |
-| Brasileirao,      |  | Copa do Mundo,    |  | Copa do Brasil,   |
-| Premier League    |  | Champions         |  | FA Cup            |
-+-------------------+  +-------------------+  +-------------------+
+1. Usuario ve campo de pesquisa inline
+   +----------------------------------------+
+   | 🔍 Buscar usuario (ID ou @username)... |
+   +----------------------------------------+
+
+2. Usuario digita e pressiona Enter ou clica na lupa
+   +----------------------------------------+
+   | joao123                            [🔍]|
+   +----------------------------------------+
+
+3. Popover abre com resultado
+   +----------------------------------------+
+   | joao123                            [🔍]|
+   +----------------------------------------+
+   | +----------------------------------+ |
+   | | [😀] Joao Silva                  | |
+   | |      @joao123  #00045            | |
+   | | +----------------------------+   | |
+   | | | 👤+ Enviar Convite        |   | |
+   | | +----------------------------+   | |
+   | +----------------------------------+ |
+
+4. Apos enviar, popover fecha e input limpa
+   +----------------------------------------+
+   | 🔍 Buscar usuario (ID ou @username)... |
+   +----------------------------------------+
+   ✅ Toast: "Convite enviado!"
 ```
+
+---
+
+### Estados do Resultado
+
+| Estado | Visual |
+|--------|--------|
+| Buscando | Spinner no botao de busca |
+| Nao encontrado | Popover com icone de alerta |
+| Ja participa | Badge "Ja participa" |
+| Convite pendente | Badge "Convite pendente" |
+| Disponivel | Botao "Enviar Convite" |
 
 ---
 
 ### Arquivos a Modificar
 
-| Arquivo | Alteracoes |
-|---------|------------|
-| `src/components/admin/SuggestedPoolsTab.tsx` | Adicionar formato knockout, importar KnockoutOnlyStep, gerar rodadas de knockout |
+| Arquivo | Acao |
+|---------|------|
+| `src/components/pools/InviteUserInline.tsx` | **Criar** - Novo componente inline |
+| `src/pages/PoolManage.tsx` | **Modificar** - Substituir dialog por inline |
+| `src/components/pools/InviteUserDialog.tsx` | **Manter** - Pode ser util em outros contextos |
 
 ---
 
-### Detalhes Tecnicos
+### Detalhes do Componente InviteUserInline
 
-**Import adicional:**
 ```typescript
-import { KnockoutOnlyStep, KnockoutOnlyConfig } from '@/components/pools/KnockoutOnlyStep';
-import { Swords } from 'lucide-react';
+// Imports
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Search, UserPlus, Loader2, UserCheck, Clock, AlertCircle } from 'lucide-react';
+import { usePoolInvitations } from '@/hooks/use-pool-invitations';
+
+// Estrutura JSX principal
+<div className="relative">
+  <div className="flex gap-2">
+    <Input
+      placeholder="Buscar usuario (ID ou @username)..."
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value)}
+      onKeyDown={handleKeyDown}
+      className="w-64"
+    />
+    <Button onClick={handleSearch} disabled={searchingUser} size="icon">
+      {searchingUser ? <Loader2 className="animate-spin" /> : <Search />}
+    </Button>
+  </div>
+  
+  <Popover open={popoverOpen && hasSearched} onOpenChange={setPopoverOpen}>
+    <PopoverTrigger asChild>
+      <span /> {/* Trigger invisivel ancorado no input */}
+    </PopoverTrigger>
+    <PopoverContent align="start" className="w-80">
+      {/* Resultado da busca */}
+    </PopoverContent>
+  </Popover>
+</div>
 ```
 
-**Nova funcao para gerar rodadas:**
-```typescript
-const generateSuggestedKnockoutRounds = (poolId: string) => {
-  const rounds = [];
-  let roundNumber = 1;
-  const multiplier = knockoutConfig.knockoutFormat === 'home_away' ? 2 : 1;
-  
-  if (knockoutConfig.totalTeams >= 64) { /* 32 avos */ }
-  if (knockoutConfig.totalTeams >= 32) { /* 16 avos */ }
-  if (knockoutConfig.totalTeams >= 16) { /* Oitavas */ }
-  if (knockoutConfig.totalTeams >= 8)  { /* Quartas */ }
-  if (knockoutConfig.totalTeams >= 4)  { /* Semi */ }
-  if (knockoutConfig.hasThirdPlace)    { /* 3o Lugar */ }
-  /* Final - com formato proprio */
-  
-  return rounds;
-};
-```
+---
+
+### Beneficios
+
+- **1 clique a menos**: Usuario ve campo de pesquisa imediatamente
+- **Fluxo mais rapido**: Nao precisa esperar modal abrir/fechar
+- **UX moderna**: Padrao comum em aplicacoes modernas
+- **Mantém funcionalidade**: Mesmas features do dialog (busca, validacao, envio)
 
