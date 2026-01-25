@@ -1570,7 +1570,8 @@ export function AddGamesScreen({
               </div>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
       
       {/* Footer Actions */}
