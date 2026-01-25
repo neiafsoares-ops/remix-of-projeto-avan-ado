@@ -124,6 +124,9 @@ export default function PoolDetail() {
   
   // Invite token processing
   const [processingInvite, setProcessingInvite] = useState(false);
+  
+  // Track notified rounds/groups to prevent duplicate notifications
+  const [notifiedRounds, setNotifiedRounds] = useState<Set<string>>(new Set());
 
   // Handle invite token from URL
   useEffect(() => {
@@ -434,13 +437,55 @@ export default function PoolDetail() {
         if (error) throw error;
       }
 
-      setPredictions(prev => ({
-        ...prev,
+      // Update local state with new prediction
+      const updatedPredictions = {
+        ...predictions,
         [matchId]: { match_id: matchId, home_score: homeScore, away_score: awayScore, points_earned: null },
-      }));
+      };
+      setPredictions(updatedPredictions);
+
+      // Check round completion for notification
+      const match = matches.find(m => m.id === matchId);
+      if (match) {
+        const roundId = (match as any).round_id;
+        if (roundId && !notifiedRounds.has(roundId)) {
+          const roundMatches = matches.filter(m => (m as any).round_id === roundId);
+          const now = new Date();
+          
+          // Filter open matches (deadline not passed, not finished)
+          const openMatches = roundMatches.filter(m => {
+            const deadline = new Date(m.prediction_deadline);
+            return deadline > now && !m.is_finished;
+          });
+          
+          // Check if all open matches have predictions
+          const allFilled = openMatches.length > 0 && openMatches.every(m => 
+            updatedPredictions[m.id] !== undefined
+          );
+          
+          if (allFilled) {
+            const round = rounds.find(r => r.id === roundId);
+            const roundName = round?.name || 'Rodada';
+            
+            setNotifiedRounds(prev => new Set([...prev, roundId]));
+            toast({
+              title: '✅ Palpites Completos!',
+              description: `Todos os ${openMatches.length} palpites de "${roundName}" foram salvos.`,
+            });
+          }
+        }
+      }
     } catch (error: any) {
       throw error;
     }
+  };
+
+  // Callback for CupFormatView when a group is complete
+  const handleGroupComplete = (groupName: string, matchCount: number) => {
+    toast({
+      title: '✅ Palpites Completos!',
+      description: `Todos os ${matchCount} palpites do ${groupName} foram salvos.`,
+    });
   };
 
   if (loading) {
@@ -661,6 +706,7 @@ export default function PoolDetail() {
                     onRoundChange={setSelectedRoundIndex}
                     isParticipant={userParticipation?.status === 'active'}
                     onPredictionChange={handlePredictionChange}
+                    onGroupComplete={handleGroupComplete}
                   />
                 );
               }

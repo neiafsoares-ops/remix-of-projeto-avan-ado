@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { GroupStandingsTable } from './GroupStandingsTable';
-import { ChevronLeft, ChevronRight, Target, Shield } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Target, Shield, CheckCircle2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface Match {
@@ -42,6 +42,7 @@ interface CupFormatViewProps {
   onRoundChange: (index: number) => void;
   isParticipant: boolean;
   onPredictionChange: (matchId: string, homeScore: number, awayScore: number) => void;
+  onGroupComplete?: (groupName: string, matchCount: number) => void;
 }
 
 // Utility to calculate group standings from matches
@@ -180,9 +181,11 @@ export function CupFormatView({
   onRoundChange,
   isParticipant,
   onPredictionChange,
+  onGroupComplete,
 }: CupFormatViewProps) {
   const [localPredictions, setLocalPredictions] = useState<Record<string, { home: string; away: string }>>({});
   const [groupRoundSelection, setGroupRoundSelection] = useState<Record<string, number>>({});
+  const [notifiedGroups, setNotifiedGroups] = useState<Set<string>>(new Set());
 
   const getSelectedRound = (groupName: string) => groupRoundSelection[groupName] || 1;
   const setSelectedRound = (groupName: string, round: number) => {
@@ -310,10 +313,76 @@ export function CupFormatView({
     return deadline > new Date() && !match.is_finished;
   };
 
+  // Check if all predictions for a group are complete
+  const checkGroupCompletion = (groupName: string, currentMatchId: string, updatedPredictions: Record<string, Prediction>) => {
+    if (notifiedGroups.has(groupName)) return;
+    
+    const groupData = matchesByGroup[groupName];
+    if (!groupData) return;
+    
+    // Get all matches from all rounds in this group
+    const allGroupMatches: Match[] = [];
+    Object.values(groupData.rounds).forEach(roundMatches => {
+      allGroupMatches.push(...roundMatches);
+    });
+    
+    // Filter only open matches (can predict)
+    const openMatches = allGroupMatches.filter(m => canPredict(m));
+    
+    if (openMatches.length === 0) return;
+    
+    // Check if all open matches have predictions
+    const allFilled = openMatches.every(m => {
+      // Check both actual predictions and local predictions
+      const hasPrediction = updatedPredictions[m.id] !== undefined;
+      const hasLocalPrediction = localPredictions[m.id]?.home !== '' && 
+                                  localPredictions[m.id]?.away !== '' &&
+                                  !isNaN(parseInt(localPredictions[m.id]?.home || '')) &&
+                                  !isNaN(parseInt(localPredictions[m.id]?.away || ''));
+      return hasPrediction || hasLocalPrediction;
+    });
+    
+    if (allFilled) {
+      setNotifiedGroups(prev => new Set([...prev, groupName]));
+      onGroupComplete?.(groupName, openMatches.length);
+    }
+  };
+
+  // Check if a group is complete (for badge display)
+  const isGroupComplete = (groupName: string): boolean => {
+    const groupData = matchesByGroup[groupName];
+    if (!groupData) return false;
+    
+    const allGroupMatches: Match[] = [];
+    Object.values(groupData.rounds).forEach(roundMatches => {
+      allGroupMatches.push(...roundMatches);
+    });
+    
+    const openMatches = allGroupMatches.filter(m => canPredict(m));
+    if (openMatches.length === 0) return false;
+    
+    return openMatches.every(m => predictions[m.id] !== undefined);
+  };
+
   // Render match card for group view
-  const renderGroupMatchCard = (match: Match) => {
+  const renderGroupMatchCard = (match: Match, groupName: string) => {
     const canPred = canPredict(match);
     const prediction = predictions[match.id];
+    
+    // Handler to check completion after save
+    const handlePredictionBlur = () => {
+      const home = parseInt(localPredictions[match.id]?.home || '');
+      const away = parseInt(localPredictions[match.id]?.away || '');
+      if (!isNaN(home) && !isNaN(away)) {
+        onPredictionChange(match.id, home, away);
+        // Check group completion after saving
+        const updatedPredictions = {
+          ...predictions,
+          [match.id]: { match_id: match.id, home_score: home, away_score: away, points_earned: null }
+        };
+        checkGroupCompletion(groupName, match.id, updatedPredictions);
+      }
+    };
     
     return (
       <div 
@@ -358,13 +427,7 @@ export function CupFormatView({
                   max={99}
                   value={getPredictionValue(match.id, 'home')}
                   onChange={(e) => handlePredictionInput(match.id, 'home', e.target.value)}
-                  onBlur={() => {
-                    const home = parseInt(localPredictions[match.id]?.home || '');
-                    const away = parseInt(localPredictions[match.id]?.away || '');
-                    if (!isNaN(home) && !isNaN(away)) {
-                      onPredictionChange(match.id, home, away);
-                    }
-                  }}
+                  onBlur={handlePredictionBlur}
                   className="w-12 h-9 text-center p-0 text-lg font-bold bg-background"
                 />
                 <span className="text-muted-foreground font-medium">x</span>
@@ -374,13 +437,7 @@ export function CupFormatView({
                   max={99}
                   value={getPredictionValue(match.id, 'away')}
                   onChange={(e) => handlePredictionInput(match.id, 'away', e.target.value)}
-                  onBlur={() => {
-                    const home = parseInt(localPredictions[match.id]?.home || '');
-                    const away = parseInt(localPredictions[match.id]?.away || '');
-                    if (!isNaN(home) && !isNaN(away)) {
-                      onPredictionChange(match.id, home, away);
-                    }
-                  }}
+                  onBlur={handlePredictionBlur}
                   className="w-12 h-9 text-center p-0 text-lg font-bold bg-background"
                 />
               </div>
@@ -497,7 +554,17 @@ export function CupFormatView({
                       </div>
                     ) : (
                       <div className="divide-y divide-border">
-                        {currentGroupRoundMatches.slice(0, matchesPerRound).map(renderGroupMatchCard)}
+                        {currentGroupRoundMatches.slice(0, matchesPerRound).map(match => renderGroupMatchCard(match, groupName))}
+                      </div>
+                    )}
+                    
+                    {/* Badge visual when all group predictions are complete */}
+                    {isGroupComplete(groupName) && (
+                      <div className="flex items-center gap-2 mt-3 pt-3 border-t text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-lg px-3 py-2">
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span className="text-sm font-medium">
+                          Todos os palpites do {groupName} salvos!
+                        </span>
                       </div>
                     )}
                   </CardContent>
