@@ -18,8 +18,16 @@ import {
   Target,
   AlertTriangle,
   Crown,
-  Lock
+  Lock,
+  HelpCircle,
+  Settings,
+  Users,
+  Coins,
+  UserCheck,
+  CheckCircle2,
+  Check
 } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 import {
   Dialog,
   DialogContent,
@@ -348,125 +356,216 @@ export function SuggestedPoolsSection() {
             </Alert>
           )}
           
-          <div className="grid md:grid-cols-2 gap-4">
-            {suggestedPools.map((pool) => {
-              const { withinLimits, violations } = checkPoolLimits(pool);
-              const canAdopt = canCreateNewPool && withinLimits;
-              
-              return (
-                <Card 
-                  key={pool.id}
-                  className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="w-10 h-10 rounded-lg bg-accent/20 flex items-center justify-center">
-                        <Sparkles className="h-5 w-5 text-accent" />
-                      </div>
-                      <Badge variant="secondary" className="bg-accent/10 text-accent border-accent/30">
-                        Pronto para usar
-                      </Badge>
-                    </div>
-                    <CardTitle className="text-lg mt-3">{pool.name}</CardTitle>
-                    {pool.description && (
-                      <CardDescription className="line-clamp-2">
-                        {pool.description}
-                      </CardDescription>
-                    )}
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center gap-4 text-sm">
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <Calendar className="h-4 w-4" />
-                        <span>{pool.total_rounds} rodadas</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <Target className="h-4 w-4" />
-                        <span>{pool.total_matches} jogos</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <CheckCircle className="h-3.5 w-3.5 text-green-500" />
-                      <span>Jogos já configurados pelo admin</span>
-                    </div>
-                    
-                    {/* Limit exceeded warning for common members */}
-                    {!withinLimits && (
-                      <Alert className="border-amber-500/50 bg-amber-500/10 py-2">
-                        <AlertTriangle className="h-4 w-4 text-amber-600" />
-                        <AlertDescription className="ml-2 text-xs">
-                          <p className="font-medium text-amber-700 dark:text-amber-400">
-                            Excede seus limites:
-                          </p>
-                          <ul className="list-disc list-inside mt-1 text-amber-600 dark:text-amber-400/80">
-                            {violations.map((v, i) => (
-                              <li key={i}>{v}</li>
-                            ))}
-                          </ul>
-                        </AlertDescription>
-                      </Alert>
-                    )}
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Card explicativo - aparece primeiro em mobile */}
+            <div className="lg:col-span-1 lg:order-2">
+              <Card className="h-full bg-gradient-to-br from-accent/10 to-background border-accent/20">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <HelpCircle className="h-5 w-5 text-accent" />
+                    O que é Sugestão Zapions?
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  {/* Introdução */}
+                  <p className="text-sm text-muted-foreground">
+                    É um modelo de bolão <strong className="text-foreground">já criado e totalmente configurado</strong> pela plataforma.
+                    Todos os jogos, rodadas, datas e atualizações acontecem automaticamente.
+                  </p>
+                  
+                  {/* O que você gerencia */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold flex items-center gap-2">
+                      <Settings className="h-4 w-4 text-primary" />
+                      O que você gerencia:
+                    </h4>
+                    <ul className="space-y-1.5 text-sm text-muted-foreground">
+                      <li className="flex items-center gap-2">
+                        <Users className="h-3.5 w-3.5 text-primary" />
+                        Quantidade de participantes
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Coins className="h-3.5 w-3.5 text-primary" />
+                        Gratuito ou pago
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <UserCheck className="h-3.5 w-3.5 text-primary" />
+                        Aprovação de participantes
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Trophy className="h-3.5 w-3.5 text-primary" />
+                        Pagamento das premiações
+                      </li>
+                    </ul>
+                  </div>
+                  
+                  {/* O que já vem pronto */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      O que já vem pronto:
+                    </h4>
+                    <ul className="space-y-1.5 text-sm text-muted-foreground">
+                      <li className="flex items-center gap-2">
+                        <Check className="h-3.5 w-3.5 text-green-500" />
+                        Jogos e rodadas configurados
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="h-3.5 w-3.5 text-green-500" />
+                        Atualização automática de placares
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="h-3.5 w-3.5 text-green-500" />
+                        Cálculo automático de pontuação
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="h-3.5 w-3.5 text-green-500" />
+                        Ranking atualizado em tempo real
+                      </li>
+                    </ul>
+                  </div>
+                  
+                  {/* Separador */}
+                  <Separator />
+                  
+                  {/* Para quem é */}
+                  <div className="bg-primary/5 rounded-lg p-3 border border-primary/20">
+                    <h4 className="text-sm font-semibold flex items-center gap-2 mb-2">
+                      <Target className="h-4 w-4 text-primary" />
+                      Para quem é ideal?
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Para quem quer <strong className="text-foreground">praticidade</strong>, não quer perder tempo 
+                      configurando e prefere apenas gerenciar participantes e premiações.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-                    {/* Pool quota reached warning */}
-                    {!canCreateNewPool && withinLimits && (
-                      <Alert className="border-destructive/50 bg-destructive/10 py-2">
-                        <Lock className="h-4 w-4 text-destructive" />
-                        <AlertDescription className="ml-2 text-xs text-destructive">
-                          {isMestreBolao 
-                            ? 'Limite de bolões do seu plano atingido. Renove ou faça upgrade.' 
-                            : 'Limite de bolões atingido. Torne-se Mestre para criar mais.'}
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                    
-                    <Button 
-                      className="w-full gap-2"
-                      onClick={() => openAdoptDialog(pool)}
-                      disabled={!canAdopt}
-                      variant={canAdopt ? "default" : "outline"}
+            {/* Sugestões - aparecem depois em mobile */}
+            <div className="lg:col-span-2 lg:order-1">
+              <div className="grid md:grid-cols-2 gap-4">
+                {suggestedPools.map((pool) => {
+                  const { withinLimits, violations } = checkPoolLimits(pool);
+                  const canAdopt = canCreateNewPool && withinLimits;
+                  
+                  return (
+                    <Card 
+                      key={pool.id}
+                      className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
                     >
-                      {!canCreateNewPool && isMestreBolao ? (
-                        <>
-                          <Lock className="h-4 w-4" />
-                          Renove seu plano
-                        </>
-                      ) : !canCreateNewPool ? (
-                        <>
-                          <Crown className="h-4 w-4" />
-                          Torne-se Mestre
-                        </>
-                      ) : !withinLimits ? (
-                        <>
-                          <Crown className="h-4 w-4" />
-                          Requer plano Mestre
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-4 w-4" />
-                          Adotar Sugestão
-                        </>
-                      )}
-                    </Button>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div className="w-10 h-10 rounded-lg bg-accent/20 flex items-center justify-center">
+                            <Sparkles className="h-5 w-5 text-accent" />
+                          </div>
+                          <Badge variant="secondary" className="bg-accent/10 text-accent border-accent/30">
+                            Pronto para usar
+                          </Badge>
+                        </div>
+                        <CardTitle className="text-lg mt-3">{pool.name}</CardTitle>
+                        {pool.description && (
+                          <CardDescription className="line-clamp-2">
+                            {pool.description}
+                          </CardDescription>
+                        )}
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <Calendar className="h-4 w-4" />
+                            <span>{pool.total_rounds} rodadas</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <Target className="h-4 w-4" />
+                            <span>{pool.total_matches} jogos</span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+                          <span>Jogos já configurados pelo admin</span>
+                        </div>
+                        
+                        {/* Limit exceeded warning for common members */}
+                        {!withinLimits && (
+                          <Alert className="border-amber-500/50 bg-amber-500/10 py-2">
+                            <AlertTriangle className="h-4 w-4 text-amber-600" />
+                            <AlertDescription className="ml-2 text-xs">
+                              <p className="font-medium text-amber-700 dark:text-amber-400">
+                                Excede seus limites:
+                              </p>
+                              <ul className="list-disc list-inside mt-1 text-amber-600 dark:text-amber-400/80">
+                                {violations.map((v, i) => (
+                                  <li key={i}>{v}</li>
+                                ))}
+                              </ul>
+                            </AlertDescription>
+                          </Alert>
+                        )}
 
-                    {/* Link to become Mestre when limits exceeded */}
-                    {!canAdopt && (
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="w-full text-xs text-primary"
-                        onClick={() => navigate('/mestre-do-bolao')}
-                      >
-                        <Crown className="h-3 w-3 mr-1" />
-                        {!canCreateNewPool && isMestreBolao 
-                          ? 'Renove ou faça upgrade do plano'
-                          : 'Conheça os planos Mestre do Bolão'}
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
+                        {/* Pool quota reached warning */}
+                        {!canCreateNewPool && withinLimits && (
+                          <Alert className="border-destructive/50 bg-destructive/10 py-2">
+                            <Lock className="h-4 w-4 text-destructive" />
+                            <AlertDescription className="ml-2 text-xs text-destructive">
+                              {isMestreBolao 
+                                ? 'Limite de bolões do seu plano atingido. Renove ou faça upgrade.' 
+                                : 'Limite de bolões atingido. Torne-se Mestre para criar mais.'}
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                        
+                        <Button 
+                          className="w-full gap-2"
+                          onClick={() => openAdoptDialog(pool)}
+                          disabled={!canAdopt}
+                          variant={canAdopt ? "default" : "outline"}
+                        >
+                          {!canCreateNewPool && isMestreBolao ? (
+                            <>
+                              <Lock className="h-4 w-4" />
+                              Renove seu plano
+                            </>
+                          ) : !canCreateNewPool ? (
+                            <>
+                              <Crown className="h-4 w-4" />
+                              Torne-se Mestre
+                            </>
+                          ) : !withinLimits ? (
+                            <>
+                              <Crown className="h-4 w-4" />
+                              Requer plano Mestre
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-4 w-4" />
+                              Adotar Sugestão
+                            </>
+                          )}
+                        </Button>
+
+                        {/* Link to become Mestre when limits exceeded */}
+                        {!canAdopt && (
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="w-full text-xs text-primary"
+                            onClick={() => navigate('/mestre-do-bolao')}
+                          >
+                            <Crown className="h-3 w-3 mr-1" />
+                            {!canCreateNewPool && isMestreBolao 
+                              ? 'Renove ou faça upgrade do plano'
+                              : 'Conheça os planos Mestre do Bolão'}
+                          </Button>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
