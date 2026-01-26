@@ -1,298 +1,203 @@
 
 
-## Plano: Melhorias na Experiência de Resposta do Quiz 10
+## Plano: Adicionar Opção para Ocultar Perguntas no Quiz 10
 
 ### Objetivo
 
-Implementar três funcionalidades para melhorar a experiência do participante no Quiz 10:
-
-1. **Duas opções de visualização** para responder perguntas (formato atual e formato carrossel)
-2. **Confirmação antes do envio** avisando que não será possível editar após submeter
-3. **Preview das perguntas** antes de ingressar no quiz (formato carrossel)
+Permitir que o administrador marque perguntas específicas como "ocultas" durante a criação. Perguntas ocultas aparecerão com o **texto da pergunta borrado** na visualização prévia (para não-participantes), enquanto as respostas permanecem visíveis.
 
 ---
 
-### 1. Opções de Visualização para Responder
+### Situação Atual
 
-#### Comportamento
+- O modo preview (`previewMode=true`) já borra **todas as opções de resposta**
+- Não existe campo no banco para controlar quais perguntas devem ser ocultadas
+- O administrador não tem controle individual sobre o que mostrar/ocultar
 
-- Adicionar toggle para alternar entre dois modos:
-  - **Lista**: Formato atual com todas as perguntas visíveis
-  - **Carrossel**: Uma pergunta por vez, estilo Facebook
+---
 
-#### Estados Necessários
+### Alterações Necessárias
 
-```tsx
-const [viewMode, setViewMode] = useState<'list' | 'carousel'>('list');
-const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+#### 1. Migração de Banco de Dados
+
+Adicionar coluna `is_hidden` na tabela `quiz_questions`:
+
+```sql
+ALTER TABLE quiz_questions 
+ADD COLUMN is_hidden BOOLEAN DEFAULT false;
 ```
 
-#### Toggle de Visualização
+---
+
+#### 2. Modificar Formulário de Criação de Pergunta (QuizManage.tsx)
+
+**Adicionar switch para "Ocultar Pergunta":**
 
 ```text
-┌─────────────────────────────────────────────────────────────────────┐
-│ Modo de Visualização:   [📋 Lista]  [🎠 Carrossel]                  │
-└─────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                          Nova Pergunta                                  │
+├────────────────────────────────────────────────────────────────────────┤
+│                                                                        │
+│ Pergunta                                                               │
+│ [Qual time venceu a Copa do Brasil 2025?____________________]          │
+│                                                                        │
+│ ┌────────────────────────────────┐  ┌────────────────────────────────┐│
+│ │ Opção A *                      │  │ Opção B *                      ││
+│ │ [Flamengo_________]            │  │ [Palmeiras_________]           ││
+│ └────────────────────────────────┘  └────────────────────────────────┘│
+│ ...                                                                    │
+│                                                                        │
+│ ┌──────────────────────────────────────────────────────────────────┐  │
+│ │ 🙈 Ocultar Pergunta                                   [○ OFF ]   │  │
+│ │    O texto da pergunta ficará borrado para                       │  │
+│ │    quem visualizar antes de participar                           │  │
+│ └──────────────────────────────────────────────────────────────────┘  │
+│                                                                        │
+│                                        [Cancelar]  [Adicionar]        │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-Usando ToggleGroup:
+**Alterações no estado:**
 
 ```tsx
-<ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v)}>
-  <ToggleGroupItem value="list">
-    <List className="h-4 w-4 mr-1" />
-    Lista
-  </ToggleGroupItem>
-  <ToggleGroupItem value="carousel">
-    <LayoutGrid className="h-4 w-4 mr-1" />
-    Carrossel
-  </ToggleGroupItem>
-</ToggleGroup>
+const [newQuestion, setNewQuestion] = useState({
+  question_text: '',
+  option_a: '',
+  option_b: '',
+  option_c: '',
+  option_d: '',
+  option_e: '',
+  is_hidden: false, // NOVO
+});
 ```
 
-#### Modo Carrossel
-
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│                          Pergunta 3 de 10                           │
-│  ●●○○○○○○○○                                                         │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  Qual time venceu a Copa do Brasil 2025?                           │
-│                                                                     │
-│  ┌───────────────────────────────────────────────────────────────┐ │
-│  │ ○  A) Flamengo                                                │ │
-│  └───────────────────────────────────────────────────────────────┘ │
-│  ┌───────────────────────────────────────────────────────────────┐ │
-│  │ ●  B) Palmeiras                                               │ │
-│  └───────────────────────────────────────────────────────────────┘ │
-│  ┌───────────────────────────────────────────────────────────────┐ │
-│  │ ○  C) Corinthians                                             │ │
-│  └───────────────────────────────────────────────────────────────┘ │
-│  ┌───────────────────────────────────────────────────────────────┐ │
-│  │ ○  D) São Paulo                                               │ │
-│  └───────────────────────────────────────────────────────────────┘ │
-│                                                                     │
-│        [← Anterior]                        [Próxima →]              │
-│                                                                     │
-│                    ou                                               │
-│                                                                     │
-│        [← Anterior]              [✓ Finalizar Respostas]           │
-│        (última pergunta)                                            │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-#### Lógica do Carrossel
+**Componente Switch:**
 
 ```tsx
-// Componente de indicadores de progresso
-const ProgressDots = () => (
-  <div className="flex gap-1 justify-center">
-    {questions.map((_, idx) => (
-      <div
-        key={idx}
-        className={cn(
-          "w-2 h-2 rounded-full transition-colors",
-          idx === currentQuestionIndex 
-            ? "bg-primary" 
-            : answers[questions[idx].id] 
-              ? "bg-primary/50" 
-              : "bg-muted"
-        )}
-      />
-    ))}
+<div className="flex items-center justify-between p-4 border rounded-lg">
+  <div className="flex items-center gap-3">
+    <EyeOff className="h-5 w-5 text-muted-foreground" />
+    <div>
+      <p className="font-medium">Ocultar Pergunta</p>
+      <p className="text-sm text-muted-foreground">
+        O texto da pergunta ficará borrado na visualização prévia
+      </p>
+    </div>
   </div>
-);
-
-// Navegação
-const handleNext = () => {
-  if (currentQuestionIndex < questions.length - 1) {
-    setCurrentQuestionIndex(prev => prev + 1);
-  }
-};
-
-const handlePrevious = () => {
-  if (currentQuestionIndex > 0) {
-    setCurrentQuestionIndex(prev => prev - 1);
-  }
-};
+  <Switch
+    checked={newQuestion.is_hidden}
+    onCheckedChange={(checked) => setNewQuestion({ ...newQuestion, is_hidden: checked })}
+  />
+</div>
 ```
 
 ---
 
-### 2. Confirmação Antes do Envio
+#### 3. Atualizar Interface QuizQuestion
 
-#### Dialog de Confirmação
-
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│  ⚠️ Confirmar Envio de Respostas                                    │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  Você está prestes a enviar suas respostas para a                   │
-│  rodada "Rodada 1".                                                 │
-│                                                                     │
-│  ┌───────────────────────────────────────────────────────────────┐ │
-│  │ ⚠️  Após o envio, suas respostas NÃO poderão ser editadas.    │ │
-│  │     Certifique-se de que todas as respostas estão corretas.   │ │
-│  └───────────────────────────────────────────────────────────────┘ │
-│                                                                     │
-│  Resumo:                                                            │
-│  • Perguntas respondidas: 8 de 10                                   │
-│  • Perguntas não respondidas: 2                                     │
-│                                                                     │
-│                           [Revisar]  [Confirmar Envio]              │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-#### Estados e Lógica
+Adicionar campo `is_hidden` na interface:
 
 ```tsx
-const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-
-// Contagem de respostas
-const answeredCount = Object.keys(answers).length;
-const unansweredCount = questions.length - answeredCount;
-
-// Ao clicar em salvar, abre o dialog
-const handleSaveClick = () => {
-  setConfirmDialogOpen(true);
-};
-
-// Após confirmar, salva as respostas
-const handleConfirmSubmit = async () => {
-  setConfirmDialogOpen(false);
-  await handleSaveAnswers();
-};
-```
-
-#### Componente AlertDialog
-
-```tsx
-<AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
-  <AlertDialogContent>
-    <AlertDialogHeader>
-      <AlertDialogTitle className="flex items-center gap-2">
-        <AlertTriangle className="h-5 w-5 text-amber-500" />
-        Confirmar Envio de Respostas
-      </AlertDialogTitle>
-      <AlertDialogDescription asChild>
-        <div className="space-y-4">
-          <p>
-            Você está prestes a enviar suas respostas para a rodada "{currentRound?.name}".
-          </p>
-          <Alert variant="warning" className="bg-amber-50 border-amber-200">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
-            <AlertDescription className="text-amber-800">
-              Após o envio, suas respostas <strong>NÃO</strong> poderão ser editadas.
-              Certifique-se de que todas as respostas estão corretas.
-            </AlertDescription>
-          </Alert>
-          <div className="p-3 bg-muted rounded-lg text-sm">
-            <p>• Perguntas respondidas: <strong>{answeredCount} de {questions.length}</strong></p>
-            {unansweredCount > 0 && (
-              <p className="text-destructive">• Perguntas não respondidas: <strong>{unansweredCount}</strong></p>
-            )}
-          </div>
-        </div>
-      </AlertDialogDescription>
-    </AlertDialogHeader>
-    <AlertDialogFooter>
-      <AlertDialogCancel>Revisar</AlertDialogCancel>
-      <AlertDialogAction onClick={handleConfirmSubmit} className="bg-primary">
-        Confirmar Envio
-      </AlertDialogAction>
-    </AlertDialogFooter>
-  </AlertDialogContent>
-</AlertDialog>
-```
-
----
-
-### 3. Preview das Perguntas Antes de Ingressar
-
-#### Comportamento
-
-- Botão "Ver Perguntas" visível para usuários não participantes
-- Abre modal com perguntas em formato carrossel (somente leitura)
-- Não mostra as opções de resposta (ou mostra desabilitadas)
-- Após ver todas, exibe CTA para participar
-
-#### Botão de Preview
-
-```text
-┌───────────────────────────────────────────────────────────────────────┐
-│  Você precisa participar do quiz para responder às perguntas.        │
-│                                                                       │
-│  [👁️ Ver Perguntas]    [Participar do Quiz]                          │
-└───────────────────────────────────────────────────────────────────────┘
-```
-
-#### Modal de Preview (Carrossel)
-
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│  👁️ Preview das Perguntas                              [X]          │
-├─────────────────────────────────────────────────────────────────────┤
-│                          Pergunta 1 de 10                           │
-│  ●○○○○○○○○○                                                         │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  Qual time venceu a Copa do Brasil 2025?                           │
-│                                                                     │
-│  ┌───────────────────────────────────────────────────────────────┐ │
-│  │ A) ████████████████████████                                   │ │ (blur/oculto)
-│  └───────────────────────────────────────────────────────────────┘ │
-│  ┌───────────────────────────────────────────────────────────────┐ │
-│  │ B) ████████████████████████                                   │ │
-│  └───────────────────────────────────────────────────────────────┘ │
-│  ┌───────────────────────────────────────────────────────────────┐ │
-│  │ C) ████████████████████████                                   │ │
-│  └───────────────────────────────────────────────────────────────┘ │
-│  ┌───────────────────────────────────────────────────────────────┐ │
-│  │ D) ████████████████████████                                   │ │
-│  └───────────────────────────────────────────────────────────────┘ │
-│                                                                     │
-│        [← Anterior]                        [Próxima →]              │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-
-Ao chegar na última pergunta:
-
-│        [← Anterior]     [🎯 Participar do Quiz!]                    │
-```
-
-#### Estados e Lógica
-
-```tsx
-const [previewOpen, setPreviewOpen] = useState(false);
-const [previewIndex, setPreviewIndex] = useState(0);
-
-// Preview mostra apenas texto da pergunta
-// Opções ficam com blur ou placeholder
-```
-
----
-
-### Novo Componente: QuizCarouselView
-
-Criar componente reutilizável para o modo carrossel:
-
-**Arquivo:** `src/components/quiz/QuizCarouselView.tsx`
-
-```tsx
-interface QuizCarouselViewProps {
-  questions: QuizQuestion[];
-  currentIndex: number;
-  onIndexChange: (index: number) => void;
-  answers?: Record<string, string>;
-  onAnswerChange?: (questionId: string, answer: string) => void;
-  disabled?: boolean;
-  previewMode?: boolean; // true = não mostra opções
-  onComplete?: () => void;
-  completeCTA?: string;
+interface QuizQuestion {
+  id: string;
+  question_number: number;
+  question_text: string;
+  option_a: string;
+  option_b: string;
+  option_c: string | null;
+  option_d: string | null;
+  option_e: string | null;
+  correct_answer: string | null;
+  is_hidden: boolean; // NOVO
 }
 ```
+
+---
+
+#### 4. Indicador Visual na Lista de Perguntas (QuizManage.tsx)
+
+Mostrar badge quando pergunta está oculta:
+
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 1. Qual time venceu a Copa do Brasil 2025?             [🙈 Oculta] [🗑]│
+├─────────────────────────────────────────────────────────────────────────┤
+│ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐        │
+│ │ A) Flamengo │ │ B) Palmeiras│ │ C) Corinthians│ │ D) São Paulo│       │
+│ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘        │
+│                                                                         │
+│ Resposta Correta: [Opção B ▼]                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Código:**
+
+```tsx
+<div className="flex items-start justify-between">
+  <div className="flex items-center gap-2">
+    <CardTitle className="text-base">
+      {index + 1}. {question.question_text}
+    </CardTitle>
+    {question.is_hidden && (
+      <Badge variant="secondary" className="flex items-center gap-1">
+        <EyeOff className="h-3 w-3" />
+        Oculta
+      </Badge>
+    )}
+  </div>
+  {/* botão delete */}
+</div>
+```
+
+---
+
+#### 5. Modificar QuizCarouselView.tsx
+
+Adicionar prop `is_hidden` na interface e lógica para borrar apenas perguntas marcadas:
+
+```tsx
+interface QuizQuestion {
+  // ... campos existentes
+  is_hidden?: boolean; // NOVO
+}
+
+interface QuizCarouselViewProps {
+  // ... props existentes
+  previewMode?: boolean;
+}
+```
+
+**Lógica de blur seletivo:**
+
+```tsx
+// No CardHeader - título da pergunta
+<CardTitle className={cn(
+  "text-base md:text-lg font-medium",
+  previewMode && question.is_hidden && "blur-sm select-none"
+)}>
+  {currentIndex + 1}. {question.question_text}
+</CardTitle>
+
+// Mensagem quando pergunta está oculta
+{previewMode && question.is_hidden && (
+  <p className="text-center text-sm text-muted-foreground mt-2">
+    Esta pergunta está oculta. Participe do quiz para visualizá-la!
+  </p>
+)}
+```
+
+**Comportamento no Preview Mode:**
+
+| Configuração | Texto da Pergunta | Opções de Resposta |
+|--------------|-------------------|-------------------|
+| `is_hidden: false` | Normal | Borradas (comportamento atual) |
+| `is_hidden: true` | **Borrado** | Borradas (comportamento atual) |
+
+---
+
+#### 6. Atualizar QuizDetail.tsx
+
+A lógica já utiliza `QuizCarouselView` com `previewMode={true}` para não-participantes. A mudança será aplicada automaticamente após atualizar o componente.
 
 ---
 
@@ -300,39 +205,69 @@ interface QuizCarouselViewProps {
 
 | Arquivo | Ação | Descrição |
 |---------|------|-----------|
-| `src/components/quiz/QuizCarouselView.tsx` | Criar | Componente reutilizável para visualização em carrossel |
-| `src/pages/QuizDetail.tsx` | Modificar | Adicionar toggle de visualização, carrossel, confirmação e preview |
+| Migração SQL | Criar | Adicionar coluna `is_hidden` em `quiz_questions` |
+| `src/pages/QuizManage.tsx` | Modificar | Adicionar Switch no formulário e badge na lista |
+| `src/pages/QuizDetail.tsx` | Modificar | Atualizar interface `QuizQuestion` |
+| `src/components/quiz/QuizCarouselView.tsx` | Modificar | Implementar blur seletivo por pergunta |
 
 ---
 
-### Fluxo de Usuário
+### Fluxo do Administrador
 
 ```text
-Usuário não participante:
-┌─────────────────────────────────────────────────────────────────────┐
-│ 1. Acessa quiz → Vê informações e botão "Ver Perguntas"            │
-│ 2. Clica "Ver Perguntas" → Abre modal carrossel (preview)          │
-│ 3. Navega pelas perguntas → Última pergunta mostra CTA             │
-│ 4. Clica "Participar" → Fecha modal e entra no quiz                │
-└─────────────────────────────────────────────────────────────────────┘
+1. Admin cria nova pergunta
+   ↓
+2. Decide se quer ocultar → Ativa switch "Ocultar Pergunta"
+   ↓
+3. Pergunta salva com is_hidden = true
+   ↓
+4. Na lista de perguntas, aparece badge "🙈 Oculta"
+   ↓
+5. Usuário não-participante visualiza preview
+   ↓
+6. Perguntas com is_hidden=true aparecem borradas
+   Perguntas com is_hidden=false aparecem normais
+   (Todas as opções de resposta permanecem borradas no preview)
+```
 
-Usuário participante respondendo:
+---
+
+### Visualização Comparativa
+
+**Pergunta Normal no Preview:**
+
+```text
 ┌─────────────────────────────────────────────────────────────────────┐
-│ 1. Escolhe modo de visualização (Lista ou Carrossel)               │
-│ 2. Responde perguntas no modo escolhido                            │
-│ 3. Clica "Salvar Respostas" ou "Finalizar" (carrossel)            │
-│ 4. Vê confirmação com resumo de respostas                          │
-│ 5. Confirma → Respostas salvas (não editáveis mais)                │
+│ 1. Qual time venceu a Copa do Brasil 2025?                         │ ← visível
+├─────────────────────────────────────────────────────────────────────┤
+│  A) ████████████                                                    │ ← borrado
+│  B) ████████████                                                    │ ← borrado
+│  C) ████████████                                                    │ ← borrado
+│  D) ████████████                                                    │ ← borrado
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Pergunta Oculta no Preview:**
+
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│ 1. ██████████████████████████████████████████████?                 │ ← BORRADO
+├─────────────────────────────────────────────────────────────────────┤
+│  Esta pergunta está oculta. Participe do quiz para visualizá-la!   │
+│                                                                     │
+│  A) ████████████                                                    │ ← borrado
+│  B) ████████████                                                    │ ← borrado
+│  C) ████████████                                                    │ ← borrado
+│  D) ████████████                                                    │ ← borrado
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### Observações Técnicas
+### Benefícios
 
-- O componente Carousel do shadcn/ui já está disponível no projeto (embla-carousel)
-- O toggle usará ToggleGroup já existente
-- A confirmação usará AlertDialog seguindo o padrão do projeto
-- O preview não exibirá as opções de resposta para não dar vantagem antes de participar
-- Após confirmação do envio, o estado `canAnswer` será atualizado para bloquear edições
+- Administrador tem controle granular sobre o que mostrar
+- Perguntas-chave podem ser ocultadas para gerar curiosidade
+- Melhora a experiência de "teaser" antes de participar
+- Mantém consistência com o padrão existente de blur
 
