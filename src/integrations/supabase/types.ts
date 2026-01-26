@@ -795,6 +795,7 @@ export type Database = {
         Args: { _pool_id: string; _user_id: string }
         Returns: boolean
       }
+      check_mestre_plan_expirations: { Args: never; Returns: undefined }
       count_user_rounds: { Args: { user_uuid: string }; Returns: number }
       create_notification: {
         Args: {
