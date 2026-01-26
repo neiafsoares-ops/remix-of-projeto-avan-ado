@@ -1,50 +1,26 @@
 
 
-## Plano: Adicionar Seção Explicativa "O que é Sugestão Zapions?"
+## Plano: Ajustar Alinhamento do Card Explicativo
 
 ### Objetivo
 
-Adicionar um card informativo no lado direito da seção de Sugestões Zapions que explique claramente o que é o recurso, o que o usuário precisa gerenciar e o que já vem pronto.
+Reorganizar o conteúdo do card "O que é Sugestão Zapions?" para que fique alinhado verticalmente com o card da sugestão à esquerda, usando a segunda imagem como referência visual para estilo mais compacto.
 
 ---
 
-### Layout Proposto
+### Problema Atual
 
-O grid atual (`md:grid-cols-2`) será ajustado para mostrar:
-- **Coluna Esquerda**: Cards das sugestões disponíveis (comportamento atual)
-- **Coluna Direita**: Card explicativo fixo com informações sobre o recurso
+O card explicativo contém muito conteúdo vertical e ultrapassa a altura do card de sugestão ao lado, quebrando o alinhamento visual.
 
-```text
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│ ✨ Sugestões Zapions                                                            │
-│    Adote uma sugestão pronta com todos os jogos já configurados                 │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│  ┌──────────────────────────────┐   ┌──────────────────────────────────────┐   │
-│  │ 🎯 Sugestão Zapions         │   │ ❓ O que é Sugestão Zapions?         │   │
-│  │                              │   │                                      │   │
-│  │ 📅 17 rodadas  ⚽ 48 jogos   │   │ É um modelo de bolão já criado e    │   │
-│  │                              │   │ totalmente configurado pela          │   │
-│  │ ✓ Jogos já configurados      │   │ plataforma.                          │   │
-│  │                              │   │                                      │   │
-│  │ [Adotar Sugestão]            │   │ ⚙️ O que você gerencia:              │   │
-│  │                              │   │ • Participantes                      │   │
-│  └──────────────────────────────┘   │ • Gratuito ou pago                   │   │
-│                                      │ • Aprovações                         │   │
-│                                      │ • Premiações                         │   │
-│                                      │                                      │   │
-│                                      │ ✅ O que já vem pronto:              │   │
-│                                      │ • Jogos e rodadas configurados       │   │
-│                                      │ • Atualização automática             │   │
-│                                      │ • Cálculo de pontuação               │   │
-│                                      │ • Ranking em tempo real              │   │
-│                                      │                                      │   │
-│                                      │ 🎯 Ideal para quem quer praticidade  │   │
-│                                      │ e não quer perder tempo configurando │   │
-│                                      └──────────────────────────────────────┘   │
-│                                                                                 │
-└─────────────────────────────────────────────────────────────────────────────────┘
-```
+---
+
+### Solução Proposta
+
+Tornar o card explicativo mais compacto utilizando:
+1. **Layout em colunas** para "O que você gerencia" e "O que já vem pronto" lado a lado
+2. **Redução de espaçamentos** verticais
+3. **Texto mais conciso** na introdução
+4. **Remoção da seção "Para quem é ideal?"** ou integração como texto simples no final
 
 ---
 
@@ -52,169 +28,128 @@ O grid atual (`md:grid-cols-2`) será ajustado para mostrar:
 
 **Arquivo:** `src/components/mestre/SuggestedPoolsSection.tsx`
 
-#### Modificar o Layout do Grid
-
-Trocar de `grid md:grid-cols-2` para um layout que separe as sugestões do card explicativo:
-
-```typescript
-<div className="grid lg:grid-cols-3 gap-6">
-  {/* Coluna das Sugestões (2/3 do espaço) */}
-  <div className="lg:col-span-2 space-y-4">
-    <div className="grid md:grid-cols-2 gap-4">
-      {suggestedPools.map((pool) => (
-        // ... cards de sugestões existentes
-      ))}
-    </div>
-  </div>
-  
-  {/* Coluna Explicativa (1/3 do espaço) */}
-  <div className="lg:col-span-1">
-    <Card className="h-full bg-gradient-to-br from-accent/10 to-background border-accent/20">
-      {/* Conteúdo explicativo */}
-    </Card>
-  </div>
-</div>
-```
-
----
-
-### Conteúdo do Card Explicativo
+#### Estrutura Compacta Proposta
 
 ```tsx
-<Card className="h-full bg-gradient-to-br from-accent/10 to-background border-accent/20 sticky top-4">
-  <CardHeader className="pb-4">
-    <CardTitle className="flex items-center gap-2 text-lg">
+<Card className="h-fit bg-gradient-to-br from-accent/10 to-background border-accent/20">
+  <CardHeader className="pb-3">
+    <CardTitle className="flex items-center gap-2 text-base">
       <HelpCircle className="h-5 w-5 text-accent" />
       O que é Sugestão Zapions?
     </CardTitle>
   </CardHeader>
-  <CardContent className="space-y-5">
-    {/* Introdução */}
-    <p className="text-sm text-muted-foreground">
-      É um modelo de bolão <strong>já criado e totalmente configurado</strong> pela plataforma.
-      Todos os jogos, rodadas, datas e atualizações acontecem automaticamente.
+  <CardContent className="space-y-4">
+    {/* Introdução compacta */}
+    <p className="text-sm text-muted-foreground leading-relaxed">
+      Seu bolão <strong>configurado, pronto e atualizado automaticamente!</strong>
     </p>
     
-    {/* O que você gerencia */}
-    <div className="space-y-2">
-      <h4 className="text-sm font-semibold flex items-center gap-2">
-        <Settings className="h-4 w-4 text-primary" />
-        O que você gerencia:
-      </h4>
-      <ul className="space-y-1.5 text-sm text-muted-foreground">
-        <li className="flex items-center gap-2">
-          <Users className="h-3.5 w-3.5 text-primary" />
-          Quantidade de participantes
-        </li>
-        <li className="flex items-center gap-2">
-          <Coins className="h-3.5 w-3.5 text-primary" />
-          Gratuito ou pago
-        </li>
-        <li className="flex items-center gap-2">
-          <UserCheck className="h-3.5 w-3.5 text-primary" />
-          Aprovação de participantes
-        </li>
-        <li className="flex items-center gap-2">
-          <Trophy className="h-3.5 w-3.5 text-primary" />
-          Pagamento das premiações
-        </li>
-      </ul>
+    {/* Grid 2 colunas para as duas seções */}
+    <div className="grid grid-cols-2 gap-4">
+      {/* O que você gerencia */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-semibold flex items-center gap-1.5">
+          <Settings className="h-3.5 w-3.5 text-primary" />
+          O que você gerencia:
+        </h4>
+        <ul className="space-y-1 text-xs text-muted-foreground">
+          <li className="flex items-center gap-1.5">
+            <Check className="h-3 w-3 text-primary shrink-0" />
+            Participantes
+          </li>
+          <li className="flex items-center gap-1.5">
+            <Check className="h-3 w-3 text-primary shrink-0" />
+            Gratuito ou pago
+          </li>
+          <li className="flex items-center gap-1.5">
+            <Check className="h-3 w-3 text-primary shrink-0" />
+            Aprovações
+          </li>
+          <li className="flex items-center gap-1.5">
+            <Check className="h-3 w-3 text-primary shrink-0" />
+            Premiações
+          </li>
+        </ul>
+      </div>
+      
+      {/* O que já vem pronto */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-semibold flex items-center gap-1.5">
+          <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+          O que já vem pronto:
+        </h4>
+        <ul className="space-y-1 text-xs text-muted-foreground">
+          <li className="flex items-center gap-1.5">
+            <Check className="h-3 w-3 text-green-500 shrink-0" />
+            Jogos e rodadas
+          </li>
+          <li className="flex items-center gap-1.5">
+            <Check className="h-3 w-3 text-green-500 shrink-0" />
+            Placares automáticos
+          </li>
+          <li className="flex items-center gap-1.5">
+            <Check className="h-3 w-3 text-green-500 shrink-0" />
+            Cálculo de pontos
+          </li>
+          <li className="flex items-center gap-1.5">
+            <Check className="h-3 w-3 text-green-500 shrink-0" />
+            Ranking em tempo real
+          </li>
+        </ul>
+      </div>
     </div>
     
-    {/* O que já vem pronto */}
-    <div className="space-y-2">
-      <h4 className="text-sm font-semibold flex items-center gap-2">
-        <CheckCircle2 className="h-4 w-4 text-green-500" />
-        O que já vem pronto:
-      </h4>
-      <ul className="space-y-1.5 text-sm text-muted-foreground">
-        <li className="flex items-center gap-2">
-          <Check className="h-3.5 w-3.5 text-green-500" />
-          Jogos e rodadas configurados
-        </li>
-        <li className="flex items-center gap-2">
-          <Check className="h-3.5 w-3.5 text-green-500" />
-          Atualização automática de placares
-        </li>
-        <li className="flex items-center gap-2">
-          <Check className="h-3.5 w-3.5 text-green-500" />
-          Cálculo automático de pontuação
-        </li>
-        <li className="flex items-center gap-2">
-          <Check className="h-3.5 w-3.5 text-green-500" />
-          Ranking atualizado em tempo real
-        </li>
-      </ul>
-    </div>
-    
-    {/* Separador */}
-    <Separator />
-    
-    {/* Para quem é */}
-    <div className="bg-primary/5 rounded-lg p-3 border border-primary/20">
-      <h4 className="text-sm font-semibold flex items-center gap-2 mb-2">
-        <Target className="h-4 w-4 text-primary" />
-        Para quem é ideal?
-      </h4>
-      <p className="text-xs text-muted-foreground">
-        Para quem quer <strong>praticidade</strong>, não quer perder tempo 
-        configurando e prefere apenas gerenciar participantes e premiações.
-      </p>
-    </div>
+    {/* Frase final compacta */}
+    <p className="text-xs text-center text-primary font-medium pt-2 border-t border-border/50">
+      Ideal para quem quer praticidade!
+    </p>
   </CardContent>
 </Card>
 ```
 
 ---
 
-### Novos Ícones a Importar
+### Principais Mudanças
 
-```typescript
-import {
-  // ... existentes
-  HelpCircle,
-  Settings,
-  Users,
-  Coins,
-  UserCheck,
-  CheckCircle2,
-  Check
-} from 'lucide-react';
-```
+| Elemento | Antes | Depois |
+|----------|-------|--------|
+| Layout das seções | Vertical (empilhado) | Grid 2 colunas lado a lado |
+| Tamanho da fonte | `text-sm` / `text-xs` | Uniformizado em `text-xs` |
+| Espaçamento | `space-y-5` | `space-y-4` (reduzido) |
+| Introdução | 2 linhas explicativas | 1 linha concisa + destaque |
+| Seção "Para quem é" | Card destacado com ícone | Linha simples no rodapé |
+| Ícones individuais | 4 diferentes por seção | Todos usando `Check` |
+| Altura do card | `h-full` | `h-fit` (ajusta ao conteúdo) |
 
 ---
 
-### Importar Separator
+### Comparativo Visual
 
-```typescript
-import { Separator } from '@/components/ui/separator';
-```
-
----
-
-### Responsividade
-
-- **Desktop (lg+)**: Grid de 3 colunas - sugestões ocupam 2, explicação ocupa 1
-- **Tablet (md)**: Card explicativo aparece acima ou abaixo das sugestões
-- **Mobile**: Tudo em coluna única, card explicativo no topo para dar contexto primeiro
-
-```typescript
-// Para mobile/tablet, mostrar o card explicativo primeiro
-<div className="grid lg:grid-cols-3 gap-6">
-  {/* Card explicativo - aparece primeiro em mobile */}
-  <div className="lg:col-span-1 lg:order-2">
-    <Card className="...">
-      {/* conteúdo explicativo */}
-    </Card>
-  </div>
-  
-  {/* Sugestões - aparecem depois em mobile */}
-  <div className="lg:col-span-2 lg:order-1">
-    <div className="grid md:grid-cols-2 gap-4">
-      {/* cards das sugestões */}
-    </div>
-  </div>
-</div>
+```text
+ANTES (muito alto)                    DEPOIS (compacto)
+┌────────────────────┐                ┌────────────────────────────┐
+│ ❓ O que é...      │                │ ❓ O que é Sugestão Zapions│
+│                    │                │                            │
+│ É um modelo...     │                │ Seu bolão configurado,     │
+│ Todos os jogos...  │                │ pronto e atualizado!       │
+│                    │                │                            │
+│ ⚙️ O que gerencia: │                │ ⚙️ Gerencia:  ✅ Pronto:   │
+│ • Participantes    │                │ ✓ Partic.    ✓ Jogos      │
+│ • Gratuito/pago    │                │ ✓ Pago/grátis✓ Placares   │
+│ • Aprovações       │                │ ✓ Aprovações ✓ Pontos     │
+│ • Premiações       │                │ ✓ Prêmios   ✓ Ranking     │
+│                    │                │                            │
+│ ✅ O que vem pronto│                │ ─────────────────────────  │
+│ • Jogos e rodadas  │                │ Ideal para quem quer       │
+│ • Placares auto    │                │ praticidade!               │
+│ • Cálculo pontos   │                └────────────────────────────┘
+│ • Ranking tempo    │
+│                    │
+│ ─────────────────  │
+│ 🎯 Para quem é?    │
+│ Para quem quer     │
+│ praticidade...     │
+└────────────────────┘
 ```
 
 ---
@@ -223,28 +158,20 @@ import { Separator } from '@/components/ui/separator';
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/components/mestre/SuggestedPoolsSection.tsx` | Reorganizar layout para grid 3 colunas e adicionar card explicativo |
+| `src/components/mestre/SuggestedPoolsSection.tsx` | Reorganizar layout do card explicativo (linhas 361-443) para usar grid 2 colunas e texto mais compacto |
 
-### Ícones Utilizados
+---
 
-| Ícone | Uso |
-|-------|-----|
-| `HelpCircle` | Título "O que é Sugestão Zapions?" |
-| `Settings` | Seção "O que você gerencia" |
-| `Users` | Participantes |
-| `Coins` | Gratuito/Pago |
-| `UserCheck` | Aprovação de participantes |
-| `Trophy` | Premiações |
-| `CheckCircle2` | Seção "O que já vem pronto" |
-| `Check` | Items da lista do que vem pronto |
-| `Target` | Seção "Para quem é ideal" |
+### Ícones Removidos/Simplificados
 
-### Visual Final Esperado
+- `Users`, `Coins`, `UserCheck` → substituídos por `Check` (mais compacto)
+- `Target` → removido (seção "Para quem é" simplificada)
+- `Separator` → substituído por `border-t` simples
 
-O card explicativo terá:
-- Fundo com gradiente sutil (`from-accent/10`)
-- Bordas suaves combinando com a seção
-- Texto organizado em seções claras
-- Ícones coloridos para facilitar leitura rápida
-- Destaque especial na seção "Para quem é ideal" com fundo diferenciado
+### Benefícios
+
+- ✅ Card explicativo alinha verticalmente com o card de sugestão
+- ✅ Layout inspirado na referência (segunda imagem)
+- ✅ Informação mantida, mas mais escaneável
+- ✅ Melhor experiência em telas menores
 
