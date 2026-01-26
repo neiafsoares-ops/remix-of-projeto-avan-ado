@@ -6,13 +6,13 @@ import { toast } from 'sonner';
 interface PoolInvitation {
   id: string;
   pool_id: string;
-  invited_user_id: string | null;
-  invited_by: string;
-  invite_token: string | null;
+  inviter_id: string;
+  invitee_email: string | null;
+  invitee_username: string | null;
+  token: string | null;
   status: 'pending' | 'accepted' | 'rejected' | 'expired' | 'cancelled';
   created_at: string;
-  expires_at: string;
-  accepted_at: string | null;
+  expires_at: string | null;
   // Joined data
   pool?: {
     id: string;
@@ -24,7 +24,7 @@ interface PoolInvitation {
     full_name: string | null;
     public_id: string | null;
   };
-  invited_user?: {
+  invitee_profile?: {
     id: string;
     full_name: string | null;
     public_id: string | null;
@@ -37,7 +37,7 @@ interface UsePoolInvitationsResult {
   // For pool managers
   poolInvitations: PoolInvitation[];
   loadingPoolInvitations: boolean;
-  sendInvitation: (userId: string) => Promise<boolean>;
+  sendInvitation: (userId: string, username: string) => Promise<boolean>;
   cancelInvitation: (invitationId: string) => Promise<boolean>;
   generateShareableLink: () => Promise<string | null>;
   refreshPoolInvitations: () => Promise<void>;
@@ -79,25 +79,33 @@ export function usePoolInvitations(poolId?: string): UsePoolInvitationsResult {
     
     setLoadingPoolInvitations(true);
     try {
-      // Use raw query since table may not be in types yet
+      // Fetch invitations without join (profiles doesn't have fkey from invitations)
       const { data, error } = await supabase
-        .from('pool_invitations' as any)
-        .select(`
-          *,
-          invited_user:profiles!pool_invitations_invited_user_id_fkey(
-            id,
-            full_name,
-            public_id,
-            avatar_url,
-            numeric_id
-          )
-        `)
+        .from('pool_invitations')
+        .select('*')
         .eq('pool_id', poolId)
         .in('status', ['pending'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setPoolInvitations((data as unknown as PoolInvitation[]) || []);
+      
+      // For each invitation with invitee_username, fetch the profile
+      const invitationsWithProfiles = await Promise.all(
+        (data || []).map(async (inv: any) => {
+          if (inv.invitee_username) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('id, full_name, public_id, avatar_url, numeric_id')
+              .eq('public_id', inv.invitee_username)
+              .maybeSingle();
+            
+            return { ...inv, invitee_profile: profile };
+          }
+          return inv;
+        })
+      );
+      
+      setPoolInvitations(invitationsWithProfiles as PoolInvitation[]);
     } catch (error) {
       console.error('Error fetching pool invitations:', error);
       setPoolInvitations([]);
@@ -112,23 +120,48 @@ export function usePoolInvitations(poolId?: string): UsePoolInvitationsResult {
     
     setLoadingMyInvitations(true);
     try {
+      // First get the user's public_id
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('public_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (!profile?.public_id) {
+        setMyInvitations([]);
+        return;
+      }
+      
+      // Fetch invitations where invitee_username matches
       const { data, error } = await supabase
-        .from('pool_invitations' as any)
+        .from('pool_invitations')
         .select(`
           *,
-          pool:pools(id, name, description),
-          inviter:profiles!pool_invitations_invited_by_fkey(
-            id,
-            full_name,
-            public_id
-          )
+          pool:pools(id, name, description)
         `)
-        .eq('invited_user_id', user.id)
+        .eq('invitee_username', profile.public_id)
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setMyInvitations((data as unknown as PoolInvitation[]) || []);
+      
+      // Fetch inviter profiles
+      const invitationsWithInviters = await Promise.all(
+        (data || []).map(async (inv: any) => {
+          if (inv.inviter_id) {
+            const { data: inviterProfile } = await supabase
+              .from('profiles')
+              .select('id, full_name, public_id')
+              .eq('id', inv.inviter_id)
+              .maybeSingle();
+            
+            return { ...inv, inviter: inviterProfile };
+          }
+          return inv;
+        })
+      );
+      
+      setMyInvitations(invitationsWithInviters as PoolInvitation[]);
     } catch (error) {
       console.error('Error fetching my invitations:', error);
       setMyInvitations([]);
@@ -178,12 +211,12 @@ export function usePoolInvitations(poolId?: string): UsePoolInvitationsResult {
         .eq('user_id', users.id)
         .maybeSingle();
       
-      // Check if has pending invitation
+      // Check if has pending invitation (by username)
       const { data: invitation } = await supabase
-        .from('pool_invitations' as any)
+        .from('pool_invitations')
         .select('id')
         .eq('pool_id', poolId)
-        .eq('invited_user_id', users.id)
+        .eq('invitee_username', users.public_id)
         .eq('status', 'pending')
         .maybeSingle();
       
@@ -201,18 +234,18 @@ export function usePoolInvitations(poolId?: string): UsePoolInvitationsResult {
   };
 
   // Send invitation to a specific user
-  const sendInvitation = async (userId: string): Promise<boolean> => {
+  const sendInvitation = async (userId: string, username: string): Promise<boolean> => {
     if (!poolId || !user) return false;
     
     try {
       const { error } = await supabase
-        .from('pool_invitations' as any)
+        .from('pool_invitations')
         .insert({
           pool_id: poolId,
-          invited_user_id: userId,
-          invited_by: user.id,
+          invitee_username: username,
+          inviter_id: user.id,
           status: 'pending'
-        } as any);
+        });
 
       if (error) {
         if (error.code === '23505') {
@@ -237,8 +270,8 @@ export function usePoolInvitations(poolId?: string): UsePoolInvitationsResult {
   const cancelInvitation = async (invitationId: string): Promise<boolean> => {
     try {
       const { error } = await supabase
-        .from('pool_invitations' as any)
-        .update({ status: 'cancelled' } as any)
+        .from('pool_invitations')
+        .update({ status: 'cancelled' })
         .eq('id', invitationId);
 
       if (error) throw error;
@@ -259,22 +292,22 @@ export function usePoolInvitations(poolId?: string): UsePoolInvitationsResult {
     
     try {
       // Generate a unique token
-      const token = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '').slice(0, 32);
+      const tokenValue = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '').slice(0, 32);
       
       const { error } = await supabase
-        .from('pool_invitations' as any)
+        .from('pool_invitations')
         .insert({
           pool_id: poolId,
-          invited_by: user.id,
-          invite_token: token,
+          inviter_id: user.id,
+          token: tokenValue,
           status: 'pending',
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
-        } as any);
+        });
 
       if (error) throw error;
       
       const baseUrl = window.location.origin;
-      return `${baseUrl}/pools/${poolId}?invite=${token}`;
+      return `${baseUrl}/pools/${poolId}?invite=${tokenValue}`;
     } catch (error) {
       console.error('Error generating shareable link:', error);
       toast.error('Erro ao gerar link de convite');
@@ -284,22 +317,67 @@ export function usePoolInvitations(poolId?: string): UsePoolInvitationsResult {
 
   // Accept invitation
   const acceptInvitation = async (invitationId: string): Promise<{ success: boolean; poolId?: string }> => {
+    if (!user) return { success: false };
+    
     try {
-      const { data, error } = await supabase
-        .rpc('accept_pool_invitation' as any, { _invitation_id: invitationId });
-
-      if (error) throw error;
+      // Get the invitation details first
+      const { data: invitation, error: invError } = await supabase
+        .from('pool_invitations')
+        .select('pool_id, status')
+        .eq('id', invitationId)
+        .single();
       
-      const result = data as unknown as { success: boolean; message?: string; error?: string; pool_id?: string };
-      
-      if (result.success) {
-        toast.success(result.message || 'Convite aceito!');
-        await fetchMyInvitations();
-        return { success: true, poolId: result.pool_id };
-      } else {
-        toast.error(result.error || 'Erro ao aceitar convite');
+      if (invError || !invitation) {
+        toast.error('Convite não encontrado');
         return { success: false };
       }
+      
+      if (invitation.status !== 'pending') {
+        toast.error('Este convite não está mais disponível');
+        return { success: false };
+      }
+      
+      // Check if already a participant
+      const { data: existingParticipant } = await supabase
+        .from('pool_participants')
+        .select('id')
+        .eq('pool_id', invitation.pool_id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (existingParticipant) {
+        // Update invitation to accepted and return
+        await supabase
+          .from('pool_invitations')
+          .update({ status: 'accepted' })
+          .eq('id', invitationId);
+        
+        toast.info('Você já é participante deste bolão');
+        return { success: true, poolId: invitation.pool_id };
+      }
+      
+      // Add as participant
+      const { error: participantError } = await supabase
+        .from('pool_participants')
+        .insert({
+          pool_id: invitation.pool_id,
+          user_id: user.id,
+          status: 'active'
+        });
+      
+      if (participantError) {
+        throw participantError;
+      }
+      
+      // Update invitation status
+      await supabase
+        .from('pool_invitations')
+        .update({ status: 'accepted' })
+        .eq('id', invitationId);
+      
+      toast.success('Convite aceito! Você agora é participante do bolão.');
+      await fetchMyInvitations();
+      return { success: true, poolId: invitation.pool_id };
     } catch (error) {
       console.error('Error accepting invitation:', error);
       toast.error('Erro ao aceitar convite');
@@ -311,8 +389,8 @@ export function usePoolInvitations(poolId?: string): UsePoolInvitationsResult {
   const rejectInvitation = async (invitationId: string): Promise<boolean> => {
     try {
       const { error } = await supabase
-        .from('pool_invitations' as any)
-        .update({ status: 'rejected' } as any)
+        .from('pool_invitations')
+        .update({ status: 'rejected' })
         .eq('id', invitationId);
 
       if (error) throw error;
@@ -329,20 +407,53 @@ export function usePoolInvitations(poolId?: string): UsePoolInvitationsResult {
 
   // Accept invitation by token (shareable link)
   const acceptInvitationByToken = async (token: string): Promise<{ success: boolean; poolId?: string; error?: string }> => {
+    if (!user) return { success: false, error: 'Usuário não autenticado' };
+    
     try {
-      const { data, error } = await supabase
-        .rpc('accept_pool_invitation_by_token' as any, { _token: token });
-
-      if (error) throw error;
+      // Find invitation by token
+      const { data: invitation, error: invError } = await supabase
+        .from('pool_invitations')
+        .select('id, pool_id, status, expires_at')
+        .eq('token', token)
+        .eq('status', 'pending')
+        .maybeSingle();
       
-      const result = data as unknown as { success: boolean; message?: string; error?: string; pool_id?: string };
-      
-      if (result.success) {
-        toast.success(result.message || 'Você entrou no bolão!');
-        return { success: true, poolId: result.pool_id };
-      } else {
-        return { success: false, error: result.error };
+      if (invError || !invitation) {
+        return { success: false, error: 'Convite não encontrado ou expirado' };
       }
+      
+      // Check expiry
+      if (invitation.expires_at && new Date(invitation.expires_at) < new Date()) {
+        return { success: false, error: 'Este convite expirou' };
+      }
+      
+      // Check if already a participant
+      const { data: existingParticipant } = await supabase
+        .from('pool_participants')
+        .select('id')
+        .eq('pool_id', invitation.pool_id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (existingParticipant) {
+        return { success: true, poolId: invitation.pool_id };
+      }
+      
+      // Add as participant
+      const { error: participantError } = await supabase
+        .from('pool_participants')
+        .insert({
+          pool_id: invitation.pool_id,
+          user_id: user.id,
+          status: 'active'
+        });
+      
+      if (participantError) {
+        throw participantError;
+      }
+      
+      toast.success('Você entrou no bolão!');
+      return { success: true, poolId: invitation.pool_id };
     } catch (error) {
       console.error('Error accepting invitation by token:', error);
       return { success: false, error: 'Erro ao processar convite' };

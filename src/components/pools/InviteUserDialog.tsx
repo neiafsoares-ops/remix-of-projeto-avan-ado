@@ -60,10 +60,10 @@ export function InviteUserDialog({ open, onOpenChange, poolId }: InviteUserDialo
   };
 
   const handleSendInvite = async () => {
-    if (!searchedUser) return;
+    if (!searchedUser || !searchedUser.public_id) return;
     
     setSending(true);
-    const success = await sendInvitation(searchedUser.id);
+    const success = await sendInvitation(searchedUser.id, searchedUser.public_id);
     setSending(false);
     
     if (success) {
