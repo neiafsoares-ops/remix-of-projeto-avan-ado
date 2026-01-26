@@ -578,6 +578,7 @@ export type Database = {
           option_b: string
           option_c: string | null
           option_d: string | null
+          option_e: string | null
           question_number: number
           question_text: string
           quiz_id: string
@@ -591,6 +592,7 @@ export type Database = {
           option_b: string
           option_c?: string | null
           option_d?: string | null
+          option_e?: string | null
           question_number: number
           question_text: string
           quiz_id: string
@@ -604,6 +606,7 @@ export type Database = {
           option_b?: string
           option_c?: string | null
           option_d?: string | null
+          option_e?: string | null
           question_number?: number
           question_text?: string
           quiz_id?: string
