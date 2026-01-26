@@ -9,9 +9,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/hooks/use-toast';
+import { QuizCarouselView } from '@/components/quiz/QuizCarouselView';
 import { 
   Target, 
   Users, 
@@ -23,7 +36,11 @@ import {
   XCircle,
   ArrowRight,
   Settings,
-  Crown
+  Crown,
+  List,
+  LayoutGrid,
+  Eye,
+  AlertTriangle
 } from 'lucide-react';
 import { format, formatDistanceToNow, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -96,6 +113,13 @@ export default function QuizDetail() {
   const [joining, setJoining] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [creatorProfile, setCreatorProfile] = useState<{ public_id: string; avatar_url: string | null } | null>(null);
+  
+  // New states for carousel and confirmation
+  const [viewMode, setViewMode] = useState<'list' | 'carousel'>('list');
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
 
   useEffect(() => {
     if (id) {
@@ -329,6 +353,21 @@ export default function QuizDetail() {
     }
   };
 
+  // Handler for save button click - opens confirmation dialog
+  const handleSaveClick = () => {
+    setConfirmDialogOpen(true);
+  };
+
+  // Handler for confirmed submit
+  const handleConfirmSubmit = async () => {
+    setConfirmDialogOpen(false);
+    await handleSaveAnswers();
+  };
+
+  // Counts for confirmation dialog
+  const answeredCount = Object.keys(answers).length;
+  const unansweredCount = questions.length - answeredCount;
+
   const isDeadlinePassed = currentRound ? isPast(new Date(currentRound.deadline)) : false;
   const canAnswer = isParticipating && currentRound && !isDeadlinePassed && !currentRound.is_finished;
 
@@ -536,96 +575,147 @@ export default function QuizDetail() {
                 </Card>
 
                 {!isParticipating ? (
-                  <Alert>
-                    <AlertDescription>
-                      Você precisa participar do quiz para responder às perguntas.
-                    </AlertDescription>
-                  </Alert>
+                  <div className="space-y-4">
+                    <Alert>
+                      <AlertDescription className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <span>Você precisa participar do quiz para responder às perguntas.</span>
+                        <div className="flex gap-2">
+                          {questions.length > 0 && (
+                            <Button variant="outline" onClick={() => setPreviewOpen(true)}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              Ver Perguntas
+                            </Button>
+                          )}
+                          {quiz.is_active && (
+                            <Button variant="hero" onClick={handleJoinQuiz} disabled={joining}>
+                              {joining ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                              Participar do Quiz
+                            </Button>
+                          )}
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  </div>
                 ) : (
                   <>
-                    {/* Questions List */}
-                    <div className="space-y-4">
-                      {questions.map((question, index) => {
-                        const savedAnswer = savedAnswers.find(a => a.question_id === question.id);
-                        const showResult = isDeadlinePassed && question.correct_answer;
-                        const isCorrect = savedAnswer?.is_correct;
-
-                        return (
-                          <Card key={question.id} className={showResult ? (isCorrect ? 'border-green-500/50' : 'border-destructive/50') : ''}>
-                            <CardHeader className="pb-3">
-                              <div className="flex items-start justify-between">
-                                <CardTitle className="text-base font-medium">
-                                  {index + 1}. {question.question_text}
-                                </CardTitle>
-                                {showResult && (
-                                  isCorrect ? (
-                                    <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-                                  ) : (
-                                    <XCircle className="h-5 w-5 text-destructive shrink-0" />
-                                  )
-                                )}
-                              </div>
-                            </CardHeader>
-                            <CardContent>
-                              <RadioGroup
-                                value={answers[question.id] || ''}
-                                onValueChange={(value) => handleAnswerChange(question.id, value)}
-                                disabled={!canAnswer}
-                                className="space-y-2"
-                              >
-                                {['a', 'b', 'c', 'd', 'e'].map((option) => {
-                                  const optionText = question[`option_${option}` as keyof QuizQuestion] as string | null;
-                                  if (!optionText) return null;
-
-                                  const isCorrectOption = showResult && question.correct_answer === option;
-                                  const isSelectedWrong = showResult && savedAnswer?.selected_answer === option && !isCorrect;
-
-                                  return (
-                                    <div
-                                      key={option}
-                                      className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${
-                                        isCorrectOption
-                                          ? 'bg-green-500/10 border-green-500/50'
-                                          : isSelectedWrong
-                                          ? 'bg-destructive/10 border-destructive/50'
-                                          : 'hover:bg-muted/50'
-                                      }`}
-                                    >
-                                      <RadioGroupItem value={option} id={`${question.id}-${option}`} />
-                                      <Label
-                                        htmlFor={`${question.id}-${option}`}
-                                        className="flex-1 cursor-pointer"
-                                      >
-                                        <span className="font-medium mr-2">{option.toUpperCase()})</span>
-                                        {optionText}
-                                      </Label>
-                                    </div>
-                                  );
-                                })}
-                              </RadioGroup>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
-
-                    {/* Save Button */}
-                    {canAnswer && (
-                      <div className="sticky bottom-4 flex justify-end">
-                        <Button
-                          variant="hero"
-                          size="lg"
-                          onClick={handleSaveAnswers}
-                          disabled={saving || Object.keys(answers).length === 0}
-                          className="shadow-lg"
-                        >
-                          {saving ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          ) : null}
-                          Salvar Respostas
-                          <ArrowRight className="h-4 w-4 ml-2" />
-                        </Button>
+                    {/* View Mode Toggle */}
+                    {questions.length > 0 && canAnswer && (
+                      <div className="flex items-center justify-between gap-4 flex-wrap">
+                        <span className="text-sm text-muted-foreground">Modo de visualização:</span>
+                        <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as 'list' | 'carousel')}>
+                          <ToggleGroupItem value="list" aria-label="Modo lista">
+                            <List className="h-4 w-4 mr-1" />
+                            Lista
+                          </ToggleGroupItem>
+                          <ToggleGroupItem value="carousel" aria-label="Modo carrossel">
+                            <LayoutGrid className="h-4 w-4 mr-1" />
+                            Carrossel
+                          </ToggleGroupItem>
+                        </ToggleGroup>
                       </div>
+                    )}
+
+                    {/* Carousel View */}
+                    {viewMode === 'carousel' && questions.length > 0 ? (
+                      <QuizCarouselView
+                        questions={questions}
+                        currentIndex={currentQuestionIndex}
+                        onIndexChange={setCurrentQuestionIndex}
+                        answers={answers}
+                        savedAnswers={savedAnswers}
+                        onAnswerChange={handleAnswerChange}
+                        disabled={!canAnswer}
+                        showResults={isDeadlinePassed}
+                        onComplete={canAnswer ? handleSaveClick : undefined}
+                        completeCTA="Finalizar Respostas"
+                      />
+                    ) : (
+                      <>
+                        {/* Questions List */}
+                        <div className="space-y-4">
+                          {questions.map((question, index) => {
+                            const savedAnswer = savedAnswers.find(a => a.question_id === question.id);
+                            const showResult = isDeadlinePassed && question.correct_answer;
+                            const isCorrect = savedAnswer?.is_correct;
+
+                            return (
+                              <Card key={question.id} className={showResult ? (isCorrect ? 'border-green-500/50' : 'border-destructive/50') : ''}>
+                                <CardHeader className="pb-3">
+                                  <div className="flex items-start justify-between">
+                                    <CardTitle className="text-base font-medium">
+                                      {index + 1}. {question.question_text}
+                                    </CardTitle>
+                                    {showResult && (
+                                      isCorrect ? (
+                                        <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
+                                      ) : (
+                                        <XCircle className="h-5 w-5 text-destructive shrink-0" />
+                                      )
+                                    )}
+                                  </div>
+                                </CardHeader>
+                                <CardContent>
+                                  <RadioGroup
+                                    value={answers[question.id] || ''}
+                                    onValueChange={(value) => handleAnswerChange(question.id, value)}
+                                    disabled={!canAnswer}
+                                    className="space-y-2"
+                                  >
+                                    {['a', 'b', 'c', 'd', 'e'].map((option) => {
+                                      const optionText = question[`option_${option}` as keyof QuizQuestion] as string | null;
+                                      if (!optionText) return null;
+
+                                      const isCorrectOption = showResult && question.correct_answer === option;
+                                      const isSelectedWrong = showResult && savedAnswer?.selected_answer === option && !isCorrect;
+
+                                      return (
+                                        <div
+                                          key={option}
+                                          className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${
+                                            isCorrectOption
+                                              ? 'bg-green-500/10 border-green-500/50'
+                                              : isSelectedWrong
+                                              ? 'bg-destructive/10 border-destructive/50'
+                                              : 'hover:bg-muted/50'
+                                          }`}
+                                        >
+                                          <RadioGroupItem value={option} id={`${question.id}-${option}`} />
+                                          <Label
+                                            htmlFor={`${question.id}-${option}`}
+                                            className="flex-1 cursor-pointer"
+                                          >
+                                            <span className="font-medium mr-2">{option.toUpperCase()})</span>
+                                            {optionText}
+                                          </Label>
+                                        </div>
+                                      );
+                                    })}
+                                  </RadioGroup>
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
+
+                        {/* Save Button */}
+                        {canAnswer && (
+                          <div className="sticky bottom-4 flex justify-end">
+                            <Button
+                              variant="hero"
+                              size="lg"
+                              onClick={handleSaveClick}
+                              disabled={saving || Object.keys(answers).length === 0}
+                              className="shadow-lg"
+                            >
+                              {saving ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              ) : null}
+                              Salvar Respostas
+                              <ArrowRight className="h-4 w-4 ml-2" />
+                            </Button>
+                          </div>
+                        )}
+                      </>
                     )}
                   </>
                 )}
@@ -750,6 +840,71 @@ export default function QuizDetail() {
             )}
           </TabsContent>
         </Tabs>
+
+        {/* Confirmation Dialog */}
+        <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500" />
+                Confirmar Envio de Respostas
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-4">
+                  <p>
+                    Você está prestes a enviar suas respostas para a rodada "{currentRound?.name}".
+                  </p>
+                  <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    <AlertDescription className="text-amber-800 dark:text-amber-200">
+                      Após o envio, suas respostas <strong>NÃO</strong> poderão ser editadas.
+                      Certifique-se de que todas as respostas estão corretas.
+                    </AlertDescription>
+                  </Alert>
+                  <div className="p-3 bg-muted rounded-lg text-sm">
+                    <p>• Perguntas respondidas: <strong>{answeredCount} de {questions.length}</strong></p>
+                    {unansweredCount > 0 && (
+                      <p className="text-destructive">• Perguntas não respondidas: <strong>{unansweredCount}</strong></p>
+                    )}
+                  </div>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Revisar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmSubmit}>
+                Confirmar Envio
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Preview Dialog */}
+        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                Preview das Perguntas
+              </DialogTitle>
+            </DialogHeader>
+            {questions.length > 0 && (
+              <QuizCarouselView
+                questions={questions}
+                currentIndex={previewIndex}
+                onIndexChange={setPreviewIndex}
+                previewMode={true}
+                disabled={true}
+                onComplete={() => {
+                  setPreviewOpen(false);
+                  setPreviewIndex(0);
+                  handleJoinQuiz();
+                }}
+                completeCTA="🎯 Participar do Quiz!"
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
