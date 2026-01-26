@@ -127,8 +127,8 @@ export function QuizCarouselView({
           )}
         </CardHeader>
         <CardContent>
-          {previewMode ? (
-            // Preview mode - show blurred options
+        {previewMode && question.is_hidden ? (
+            // Preview mode with hidden question - show blurred options
             <div className="space-y-2">
               {['a', 'b', 'c', 'd', 'e'].map((option) => {
                 const optionText = question[`option_${option}` as keyof QuizQuestion] as string | null;
