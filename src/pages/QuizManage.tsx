@@ -31,6 +31,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
 import { 
   ChevronLeft, 
   Loader2, 
@@ -43,7 +44,8 @@ import {
   Save,
   Users,
   CalendarIcon,
-  Clock
+  Clock,
+  EyeOff
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -75,6 +77,7 @@ interface QuizQuestion {
   option_d: string | null;
   option_e: string | null;
   correct_answer: string | null;
+  is_hidden: boolean;
 }
 
 export default function QuizManage() {
@@ -106,6 +109,7 @@ export default function QuizManage() {
     option_c: '',
     option_d: '',
     option_e: '',
+    is_hidden: false,
   });
   const [creatingQuestion, setCreatingQuestion] = useState(false);
 
@@ -296,6 +300,7 @@ export default function QuizManage() {
           option_c: newQuestion.option_c || null,
           option_d: newQuestion.option_d || null,
           option_e: newQuestion.option_e || null,
+          is_hidden: newQuestion.is_hidden,
         })
         .select()
         .single();
@@ -311,6 +316,7 @@ export default function QuizManage() {
         option_c: '',
         option_d: '',
         option_e: '',
+        is_hidden: false,
       });
 
       toast({
@@ -716,6 +722,23 @@ export default function QuizManage() {
                                     />
                                   </div>
                                 </div>
+                                
+                                {/* Switch para ocultar pergunta */}
+                                <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
+                                  <div className="flex items-center gap-3">
+                                    <EyeOff className="h-5 w-5 text-muted-foreground" />
+                                    <div>
+                                      <p className="font-medium">Ocultar Pergunta</p>
+                                      <p className="text-sm text-muted-foreground">
+                                        O texto ficará borrado na visualização prévia
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <Switch
+                                    checked={newQuestion.is_hidden}
+                                    onCheckedChange={(checked) => setNewQuestion({ ...newQuestion, is_hidden: checked })}
+                                  />
+                                </div>
                               </div>
                               <DialogFooter>
                                 <DialogClose asChild>
@@ -755,9 +778,17 @@ export default function QuizManage() {
                           <Card key={question.id}>
                             <CardHeader className="pb-3">
                               <div className="flex items-start justify-between">
-                                <CardTitle className="text-base">
-                                  {index + 1}. {question.question_text}
-                                </CardTitle>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <CardTitle className="text-base">
+                                    {index + 1}. {question.question_text}
+                                  </CardTitle>
+                                  {question.is_hidden && (
+                                    <Badge variant="secondary" className="flex items-center gap-1">
+                                      <EyeOff className="h-3 w-3" />
+                                      Oculta
+                                    </Badge>
+                                  )}
+                                </div>
                                 {!selectedRound.is_finished && (
                                   <Button
                                     variant="ghost"
