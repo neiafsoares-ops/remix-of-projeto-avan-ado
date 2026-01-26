@@ -1,191 +1,231 @@
 
-
-## Plano: Melhorias nas Sugestoes Zapions - Visibilidade para Todos
+## Plano: Sistema de Notificações com Ícone de Sino
 
 ### Objetivo
 
-Tornar as sugestoes Zapions visiveis para **todos os usuarios** (incluindo membros comuns), mantendo as restricoes de adocao baseadas nos limites de cada tipo de usuario.
+Criar um sistema centralizado de notificações com um ícone de sino (Bell) na Navbar, exibindo diferentes tipos de alertas para os usuários, com funcionalidades específicas para Mestres do Bolão.
 
 ---
 
-### Situacao Atual
+### Tipos de Notificações
 
-| Aspecto | Comportamento Atual |
-|---------|---------------------|
-| **Visibilidade** | Apenas admins, moderadores e mestres veem as sugestoes |
-| **Verificacao de limites** | Ja existe no `checkPoolLimits()` - funciona corretamente |
-| **Bloqueio de adocao** | Ja implementado com botoes "Torne-se Mestre" e "Limite atingido" |
-| **Exibicao no Dashboard** | Condicional `{isPrivilegedUser && <SuggestedPoolsSection />}` |
-
----
-
-### Solucao Proposta
-
-#### 1. Remover Restricao de Visibilidade no Dashboard
-
-**Arquivo:** `src/pages/Dashboard.tsx`
-
-**Mudanca:** Remover a condicao `isPrivilegedUser` da exibicao do componente
-
-```typescript
-// ANTES (linha 154):
-{isPrivilegedUser && <SuggestedPoolsSection />}
-
-// DEPOIS:
-<SuggestedPoolsSection />
-```
-
-#### 2. Melhorar Mensagens Contextuais no SuggestedPoolsSection
-
-**Arquivo:** `src/components/mestre/SuggestedPoolsSection.tsx`
-
-**Mudancas:**
-
-**a) Mensagem diferenciada para Mestres que atingiram limite vs membros comuns:**
-
-Quando o usuario nao pode adotar, exibir mensagem especifica:
-- **Membro comum:** "Torne-se Mestre para adotar esta sugestao"
-- **Mestre com limite atingido:** "Renove ou faca upgrade do seu plano"
-
-**b) Adicionar banner informativo para membros comuns:**
-
-```typescript
-{!isPrivilegedUser && (
-  <Alert className="mb-4 border-primary/30 bg-primary/5">
-    <Crown className="h-4 w-4 text-primary" />
-    <AlertDescription>
-      Voce pode adotar sugestoes que respeitem seus limites (ate 8 equipes, 2 grupos e 15 partidas).
-      Para sugestoes maiores, torne-se Mestre do Bolao!
-    </AlertDescription>
-  </Alert>
-)}
-```
-
-**c) Melhorar logica do botao de adocao:**
-
-```typescript
-// Quando nao pode criar e e mestre com limite atingido
-{!canCreateNewPool && isMestreBolao ? (
-  <>
-    <Lock className="h-4 w-4" />
-    Renove seu plano
-  </>
-) : !canCreateNewPool ? (
-  <>
-    <Crown className="h-4 w-4" />
-    Torne-se Mestre
-  </>
-) : !withinLimits ? (
-  <>
-    <Crown className="h-4 w-4" />
-    Requer plano Mestre
-  </>
-) : (
-  <>
-    <Copy className="h-4 w-4" />
-    Adotar Sugestao
-  </>
-)}
-```
-
-**d) Adicionar link diferenciado no rodape do card:**
-
-```typescript
-{(!canAdopt) && (
-  <Button
-    variant="link"
-    size="sm"
-    className="w-full text-xs text-primary"
-    onClick={() => navigate('/mestre-do-bolao')}
-  >
-    <Crown className="h-3 w-3 mr-1" />
-    {!canCreateNewPool && isMestreBolao 
-      ? 'Renove ou faca upgrade do plano'
-      : 'Conheca os planos Mestre do Bolao'}
-  </Button>
-)}
-```
+| Tipo | Destinatário | Descrição |
+|------|--------------|-----------|
+| `invitation_received` | Todos | Convite recebido para participar de bolão |
+| `message_received` | Todos | Mensagem recebida (futuro) |
+| `round_updated` | Participantes | Rodada atualizada com novos jogos ou placares |
+| `new_suggestion` | Todos | Nova sugestão Zapions adicionada |
+| `plan_expiring` | Mestres | Aviso 30 dias antes do vencimento do pacote |
+| `new_participant` | Mestres | Novo participante ou convite para bolão criado |
+| `moderator_action` | Mestres | Ações de moderadores (aprovação, remoção) |
+| `scores_updated` | Participantes | Placares atualizados em uma rodada |
 
 ---
 
-### Fluxo de Usuario Apos Implementacao
+### Estrutura do Banco de Dados
 
 ```text
-MEMBRO COMUM abre Dashboard
-         |
-         v
-Ve secao "Sugestoes Zapions" com banner informativo
-         |
-         +---> Sugestao dentro dos limites (<=15 jogos, <=4 rodadas)
-         |            |
-         |            v
-         |     Botao "Adotar Sugestao" HABILITADO
-         |            |
-         |            v
-         |     Pode criar bolao normalmente
-         |
-         +---> Sugestao acima dos limites (>15 jogos ou estrutura maior)
-                      |
-                      v
-               Alerta: "Excede seus limites"
-                      |
-                      v
-               Botao "Requer plano Mestre" (desabilitado)
-                      |
-                      v
-               Link: "Conheca os planos Mestre do Bolao"
+notifications
+├── id (uuid, PK)
+├── user_id (uuid, FK -> auth.users) - destinatário
+├── type (text) - tipo da notificação
+├── title (text) - título curto
+├── message (text) - descrição
+├── data (jsonb) - dados extras (pool_id, round_id, etc)
+├── is_read (boolean, default: false)
+├── created_at (timestamp)
+└── read_at (timestamp, nullable)
+```
 
+**RLS Policies:**
+- SELECT: usuário pode ver apenas suas notificações
+- UPDATE: usuário pode marcar como lida
+- DELETE: usuário pode remover suas notificações
 
-MESTRE COM LIMITE ATINGIDO abre Dashboard
-         |
-         v
-Ve todas as sugestoes
-         |
-         v
-Alerta: "Limite de boloes atingido"
-         |
-         v
-Botao: "Renove seu plano" (desabilitado)
-         |
-         v
-Link: "Renove ou faca upgrade do plano"
+**Realtime:** Habilitar para atualizações em tempo real
+
+---
+
+### Componentes a Criar
+
+#### 1. NotificationBell (Navbar)
+
+Ícone de sino com badge de contagem de não lidas:
+
+```text
+┌─────────────────────────────────────────────┐
+│  [Logo]  Bolões  Meus Palpites  [🔔3] [👤] │
+└─────────────────────────────────────────────┘
+```
+
+**Comportamento:**
+- Badge vermelho com número quando há notificações não lidas
+- Ao clicar, abre dropdown com lista de notificações recentes
+- Link "Ver todas" para página dedicada (opcional)
+
+#### 2. NotificationDropdown
+
+Lista de notificações recentes com:
+- Ícone por tipo (Mail, Trophy, Star, Clock, etc)
+- Título e preview da mensagem
+- Tempo relativo ("há 5 minutos")
+- Indicador visual de não lida
+- Ação de marcar como lida ao clicar
+
+#### 3. Hook: useNotifications
+
+```typescript
+// Funcionalidades:
+- Buscar notificações do usuário
+- Contagem de não lidas
+- Marcar como lida
+- Marcar todas como lidas
+- Subscription realtime para novas notificações
 ```
 
 ---
 
-### Resumo das Alteracoes
+### Triggers para Criar Notificações
 
-| Arquivo | Mudanca |
-|---------|---------|
-| `src/pages/Dashboard.tsx` | Remover condicao `isPrivilegedUser` da exibicao de sugestoes |
-| `src/components/mestre/SuggestedPoolsSection.tsx` | Adicionar banner para membros comuns |
-| `src/components/mestre/SuggestedPoolsSection.tsx` | Melhorar textos dos botoes para diferenciar cenarios |
-| `src/components/mestre/SuggestedPoolsSection.tsx` | Adicionar mensagem especifica para Mestres renovarem plano |
-
----
-
-### Detalhes Tecnicos
-
-**Logica de decisao do botao:**
-
-| canCreateNewPool | withinLimits | isMestreBolao | Resultado |
-|------------------|--------------|---------------|-----------|
-| true | true | * | Adotar Sugestao (habilitado) |
-| true | false | * | Requer plano Mestre (desabilitado) |
-| false | * | true | Renove seu plano (desabilitado) |
-| false | * | false | Torne-se Mestre (desabilitado) |
-
-**Limites para membros comuns (ja existentes):**
-- `maxTeams: 8`
-- `maxGroups: 2`
-- `maxMatches: 15`
+| Evento | Trigger/Função | Notificação Criada |
+|--------|----------------|-------------------|
+| Novo convite | INSERT em `pool_invitations` | Para o convidado |
+| Nova sugestão | INSERT em `suggested_pools` | Para todos Mestres |
+| Placar atualizado | UPDATE em `matches` (score changed) | Para participantes do pool |
+| Rodada atualizada | INSERT em `matches` | Para participantes do pool |
+| Novo participante | INSERT em `pool_participants` | Para criador do pool |
+| Plano expirando | CRON (verificar diariamente) | Para Mestres com < 30 dias |
 
 ---
 
-### Beneficios da Implementacao
+### Fluxo de Implementação
 
-1. **Marketing:** Membros comuns veem o que esta disponivel, incentivando upgrade
-2. **Transparencia:** Usuarios entendem exatamente o que podem ou nao fazer
-3. **UX clara:** Mensagens especificas para cada cenario evitam confusao
-4. **Conversao:** CTAs direcionados para pagina de planos
+**Fase 1: Infraestrutura**
+1. Criar tabela `notifications` com RLS
+2. Habilitar realtime na tabela
+3. Criar funções helper para inserir notificações
 
+**Fase 2: UI**
+1. Criar hook `useNotifications`
+2. Criar componente `NotificationBell`
+3. Integrar na Navbar (desktop e mobile)
+
+**Fase 3: Triggers de Eventos**
+1. Trigger para convites
+2. Trigger para novas sugestões
+3. Trigger para atualizações de placar
+4. Trigger para novos participantes
+
+**Fase 4: Notificações de Mestres**
+1. Lógica para verificar expiração de plano
+2. Notificações de ações de moderadores
+
+---
+
+### Detalhes da UI
+
+**NotificationBell no Desktop:**
+```text
+┌──────────────────────────────────────┐
+│  🔔                                  │
+│  ├── Badge: número de não lidas      │
+│  └── Dropdown ao clicar:             │
+│      ┌─────────────────────────────┐ │
+│      │ Notificações           ✓All │ │
+│      ├─────────────────────────────┤ │
+│      │ 📧 Convite para Copa 2025   │ │
+│      │    de @zapions • há 5min    │ │
+│      ├─────────────────────────────┤ │
+│      │ ⭐ Nova sugestão Zapions    │ │
+│      │    Brasileirão 2026 • 1h    │ │
+│      ├─────────────────────────────┤ │
+│      │ 📊 Placares atualizados     │ │
+│      │    Copa Zapions • 2h        │ │
+│      └─────────────────────────────┘ │
+└──────────────────────────────────────┘
+```
+
+**Mobile:**
+- Sino aparece junto aos outros ícones
+- Toque abre sheet/drawer com lista completa
+
+---
+
+### Arquivos a Criar/Modificar
+
+| Arquivo | Ação |
+|---------|------|
+| `supabase/migrations/notifications.sql` | Criar tabela e triggers |
+| `src/hooks/use-notifications.ts` | Hook para gerenciar notificações |
+| `src/components/notifications/NotificationBell.tsx` | Ícone com badge |
+| `src/components/notifications/NotificationDropdown.tsx` | Lista de notificações |
+| `src/components/notifications/NotificationItem.tsx` | Item individual |
+| `src/components/layout/Navbar.tsx` | Integrar NotificationBell |
+
+---
+
+### Ícones por Tipo de Notificação
+
+| Tipo | Ícone | Cor |
+|------|-------|-----|
+| invitation_received | Mail | primary |
+| message_received | MessageSquare | blue |
+| round_updated | Calendar | green |
+| new_suggestion | Star | yellow |
+| plan_expiring | AlertTriangle | orange |
+| new_participant | UserPlus | green |
+| moderator_action | Shield | purple |
+| scores_updated | Trophy | primary |
+
+---
+
+### Exemplos de Notificações
+
+**Convite Recebido:**
+```json
+{
+  "type": "invitation_received",
+  "title": "Convite para bolão",
+  "message": "zapions convidou você para Copa 2025",
+  "data": { "pool_id": "...", "inviter_name": "zapions" }
+}
+```
+
+**Plano Expirando (Mestre):**
+```json
+{
+  "type": "plan_expiring",
+  "title": "Seu plano vence em breve",
+  "message": "Seu plano Mestre expira em 28 dias. Renove para continuar!",
+  "data": { "days_remaining": 28, "plan_type": "intermediario" }
+}
+```
+
+**Novo Participante (Mestre):**
+```json
+{
+  "type": "new_participant",
+  "title": "Novo participante",
+  "message": "joaosilva entrou no seu bolão Copa 2025",
+  "data": { "pool_id": "...", "participant_name": "joaosilva" }
+}
+```
+
+---
+
+### Comportamento Esperado
+
+1. **Ao receber notificação:** Badge aparece/atualiza no sino
+2. **Ao clicar no sino:** Dropdown abre com lista recente
+3. **Ao clicar em notificação:** Marca como lida e navega (se aplicável)
+4. **"Marcar todas como lidas":** Limpa o badge
+5. **Realtime:** Novas notificações aparecem instantaneamente
+
+---
+
+### Considerações de Performance
+
+- Limitar dropdown a 10 notificações mais recentes
+- Paginação para página completa de notificações
+- Índices no banco: `user_id`, `is_read`, `created_at`
+- Subscription realtime filtrada por `user_id`
