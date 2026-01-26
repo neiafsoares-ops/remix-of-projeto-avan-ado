@@ -49,12 +49,14 @@ import {
   AlertCircle,
   Sparkles,
   Crown,
-  Bell
+  Bell,
+  ClipboardCheck
 } from 'lucide-react';
 import { LimitRequestsPanel } from '@/components/rounds/LimitRequestsPanel';
 import { SuggestedPoolsTab } from '@/components/admin/SuggestedPoolsTab';
 import { AssignMestrePlanDialog } from '@/components/admin/AssignMestrePlanDialog';
 import { CreateNotificationForm } from '@/components/admin/CreateNotificationForm';
+import { AuditPoolsTab } from '@/components/admin/AuditPoolsTab';
 import { formatDateTimeBR, formatDateBR } from '@/lib/date-utils';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -385,7 +387,7 @@ export default function Admin() {
         </div>
 
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-flex">
+          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-flex">
             <TabsTrigger value="users" className="gap-2">
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Usuários</span>
@@ -397,6 +399,10 @@ export default function Admin() {
             <TabsTrigger value="suggestions" className="gap-2">
               <Sparkles className="h-4 w-4" />
               <span className="hidden sm:inline">Sugestões</span>
+            </TabsTrigger>
+            <TabsTrigger value="audit" className="gap-2">
+              <ClipboardCheck className="h-4 w-4" />
+              <span className="hidden sm:inline">Auditoria</span>
             </TabsTrigger>
             <TabsTrigger value="approvals" className="gap-2">
               <AlertCircle className="h-4 w-4" />
@@ -646,6 +652,11 @@ export default function Admin() {
           {/* Suggested Pools Tab */}
           <TabsContent value="suggestions" className="space-y-6">
             <SuggestedPoolsTab />
+          </TabsContent>
+
+          {/* Audit Tab */}
+          <TabsContent value="audit" className="space-y-6">
+            <AuditPoolsTab />
           </TabsContent>
 
           {/* Approvals Tab */}
