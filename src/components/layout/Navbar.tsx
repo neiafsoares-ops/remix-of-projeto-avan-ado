@@ -6,6 +6,7 @@ import { Sun, Moon, Menu, X, User, LogOut, LayoutDashboard, Shield, Star } from 
 import logoZapions from '@/assets/logo-zapions.png';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -115,6 +116,8 @@ export function Navbar() {
             {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
           </Button>
 
+          {user && <NotificationBell />}
+
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -163,6 +166,7 @@ export function Navbar() {
 
         {/* Mobile Menu Button */}
         <div className="flex md:hidden items-center gap-2">
+          {user && <NotificationBell />}
           <Button
             variant="ghost"
             size="icon"
