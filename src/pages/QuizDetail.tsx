@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -27,12 +27,15 @@ import {
 } from 'lucide-react';
 import { format, formatDistanceToNow, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { calculateEstimatedPrize, formatBRL } from '@/lib/prize-utils';
 
 interface Quiz {
   id: string;
   name: string;
   description: string | null;
   cover_image: string | null;
+  entry_fee: number;
+  admin_fee_percent: number | null;
   accumulated_prize: number;
   is_active: boolean;
   created_by: string | null;
@@ -56,6 +59,7 @@ interface QuizQuestion {
   option_b: string;
   option_c: string | null;
   option_d: string | null;
+  option_e: string | null;
   correct_answer: string | null;
 }
 
@@ -328,6 +332,16 @@ export default function QuizDetail() {
   const isDeadlinePassed = currentRound ? isPast(new Date(currentRound.deadline)) : false;
   const canAnswer = isParticipating && currentRound && !isDeadlinePassed && !currentRound.is_finished;
 
+  // Calculate estimated prize
+  const estimatedPrize = useMemo(() => {
+    if (!quiz || (quiz.entry_fee || 0) <= 0) return 0;
+    return calculateEstimatedPrize(
+      quiz.entry_fee || 0,
+      participants.length,
+      quiz.admin_fee_percent || 0
+    );
+  }, [quiz, participants]);
+
   if (loading) {
     return (
       <Layout>
@@ -433,9 +447,11 @@ export default function QuizDetail() {
                 <Trophy className="h-5 w-5 text-accent" />
                 <div>
                   <p className="text-2xl font-bold text-accent">
-                    {quiz.accumulated_prize > 0 ? `R$ ${quiz.accumulated_prize.toFixed(2)}` : '-'}
+                    {estimatedPrize > 0 ? formatBRL(estimatedPrize) : (quiz.accumulated_prize > 0 ? formatBRL(quiz.accumulated_prize) : '-')}
                   </p>
-                  <p className="text-sm text-muted-foreground">Prêmio Acumulado</p>
+                  <p className="text-sm text-muted-foreground">
+                    {estimatedPrize > 0 ? 'Prêmio Estimado' : 'Prêmio Acumulado'}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -452,6 +468,26 @@ export default function QuizDetail() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Entry Fee Info */}
+        {quiz.entry_fee > 0 && (
+          <Card className="mb-8 bg-gradient-to-r from-accent/10 to-primary/5 border-accent/20">
+            <CardContent className="py-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">💰 Prêmio Estimado</p>
+                    <p className="text-2xl font-bold text-accent">{formatBRL(estimatedPrize)}</p>
+                  </div>
+                  <div className="text-sm text-muted-foreground border-l pl-4">
+                    <p>ℹ️ Taxa de entrada: {formatBRL(quiz.entry_fee)}</p>
+                    <p>{participants.length} participantes × {formatBRL(quiz.entry_fee)} - {quiz.admin_fee_percent || 0}% taxa admin</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Main Content */}
         <Tabs defaultValue="questions" className="space-y-6">
@@ -537,7 +573,7 @@ export default function QuizDetail() {
                                 disabled={!canAnswer}
                                 className="space-y-2"
                               >
-                                {['a', 'b', 'c', 'd'].map((option) => {
+                                {['a', 'b', 'c', 'd', 'e'].map((option) => {
                                   const optionText = question[`option_${option}` as keyof QuizQuestion] as string | null;
                                   if (!optionText) return null;
 

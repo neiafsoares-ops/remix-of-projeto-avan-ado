@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
+import { calculateEstimatedPrize, formatBRL } from '@/lib/prize-utils';
 import { 
   HelpCircle, 
   Users, 
@@ -22,7 +23,8 @@ import {
   Trophy,
   Target,
   Clock,
-  Zap
+  Zap,
+  DollarSign
 } from 'lucide-react';
 
 interface Quiz {
@@ -362,15 +364,41 @@ export default function Quiz10() {
                     </div>
                   </div>
                   
-                  {/* Prêmio acumulado */}
-                  {quiz.accumulated_prize > 0 && (
-                    <div className="p-3 bg-accent/10 rounded-lg border border-accent/20">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Prêmio acumulado:</span>
-                        <span className="font-bold text-accent text-lg">
-                          R$ {quiz.accumulated_prize.toFixed(2)}
-                        </span>
-                      </div>
+                  {/* Prize Info */}
+                  {(quiz.entry_fee > 0 || quiz.accumulated_prize > 0) && (
+                    <div className="p-3 bg-accent/10 rounded-lg border border-accent/20 space-y-1">
+                      {quiz.entry_fee > 0 && (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground flex items-center gap-1">
+                              <Trophy className="h-4 w-4" />
+                              Prêmio estimado:
+                            </span>
+                            <span className="font-bold text-accent">
+                              {formatBRL(calculateEstimatedPrize(
+                                quiz.entry_fee,
+                                quiz.participant_count || 0,
+                                quiz.admin_fee_percent || 0
+                              ))}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground flex items-center gap-1">
+                              <DollarSign className="h-3 w-3" />
+                              Taxa de entrada:
+                            </span>
+                            <span className="font-medium">{formatBRL(quiz.entry_fee)}</span>
+                          </div>
+                        </>
+                      )}
+                      {quiz.accumulated_prize > 0 && quiz.entry_fee <= 0 && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Prêmio acumulado:</span>
+                          <span className="font-bold text-accent text-lg">
+                            {formatBRL(quiz.accumulated_prize)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
                   

@@ -68,6 +68,7 @@ interface QuizQuestion {
   option_b: string;
   option_c: string | null;
   option_d: string | null;
+  option_e: string | null;
   correct_answer: string | null;
 }
 
@@ -98,6 +99,7 @@ export default function QuizManage() {
     option_b: '',
     option_c: '',
     option_d: '',
+    option_e: '',
   });
   const [creatingQuestion, setCreatingQuestion] = useState(false);
 
@@ -281,6 +283,7 @@ export default function QuizManage() {
           option_b: newQuestion.option_b,
           option_c: newQuestion.option_c || null,
           option_d: newQuestion.option_d || null,
+          option_e: newQuestion.option_e || null,
         })
         .select()
         .single();
@@ -295,6 +298,7 @@ export default function QuizManage() {
         option_b: '',
         option_c: '',
         option_d: '',
+        option_e: '',
       });
 
       toast({
@@ -601,7 +605,7 @@ export default function QuizManage() {
                               <DialogHeader>
                                 <DialogTitle>Nova Pergunta</DialogTitle>
                                 <DialogDescription>
-                                  Adicione uma pergunta com 2 a 4 opções de resposta.
+                                  Adicione uma pergunta com 2 a 5 opções de resposta.
                                 </DialogDescription>
                               </DialogHeader>
                               <div className="space-y-4 py-4">
@@ -649,6 +653,15 @@ export default function QuizManage() {
                                       placeholder="Opção D"
                                       value={newQuestion.option_d}
                                       onChange={(e) => setNewQuestion({ ...newQuestion, option_d: e.target.value })}
+                                    />
+                                  </div>
+                                  <div className="space-y-2 col-span-2">
+                                    <Label htmlFor="optionE">Opção E (opcional)</Label>
+                                    <Input
+                                      id="optionE"
+                                      placeholder="Opção E"
+                                      value={newQuestion.option_e}
+                                      onChange={(e) => setNewQuestion({ ...newQuestion, option_e: e.target.value })}
                                     />
                                   </div>
                                 </div>
@@ -707,7 +720,7 @@ export default function QuizManage() {
                             </CardHeader>
                             <CardContent className="space-y-3">
                               <div className="grid grid-cols-2 gap-2 text-sm">
-                                {['a', 'b', 'c', 'd'].map((option) => {
+                                {['a', 'b', 'c', 'd', 'e'].map((option) => {
                                   const optionText = question[`option_${option}` as keyof QuizQuestion] as string | null;
                                   if (!optionText) return null;
 
@@ -740,7 +753,7 @@ export default function QuizManage() {
                                       <SelectValue placeholder="Selecione..." />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {['a', 'b', 'c', 'd'].map((option) => {
+                                      {['a', 'b', 'c', 'd', 'e'].map((option) => {
                                         const optionText = question[`option_${option}` as keyof QuizQuestion] as string | null;
                                         if (!optionText) return null;
                                         return (
