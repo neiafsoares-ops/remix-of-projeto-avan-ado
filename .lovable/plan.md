@@ -1,192 +1,155 @@
 
 
-## Plano: Notificacao de Palpites Completos por Rodada/Grupo
+## Plano: Melhorias nas Sugestoes Zapions - Visibilidade para Todos
 
 ### Objetivo
 
-Adicionar notificacao visual quando o participante preencher todos os palpites de uma rodada (formato standard) ou de um grupo (formato Copa), informando que todos os palpites foram salvos com sucesso.
+Tornar as sugestoes Zapions visiveis para **todos os usuarios** (incluindo membros comuns), mantendo as restricoes de adocao baseadas nos limites de cada tipo de usuario.
 
 ---
 
-### Analise da Situacao Atual
+### Situacao Atual
 
-**Formato Standard (MatchCard):**
-- Cada card exibe individualmente "Palpite salvo" apos o salvamento
-- Nao ha verificacao se todos os jogos da rodada foram preenchidos
-
-**Formato Copa (CupFormatView):**
-- Salvamento ocorre no `onBlur` de cada campo
-- Nao ha feedback visual apos salvamento individual
-- Nao ha verificacao de completude por grupo
+| Aspecto | Comportamento Atual |
+|---------|---------------------|
+| **Visibilidade** | Apenas admins, moderadores e mestres veem as sugestoes |
+| **Verificacao de limites** | Ja existe no `checkPoolLimits()` - funciona corretamente |
+| **Bloqueio de adocao** | Ja implementado com botoes "Torne-se Mestre" e "Limite atingido" |
+| **Exibicao no Dashboard** | Condicional `{isPrivilegedUser && <SuggestedPoolsSection />}` |
 
 ---
 
 ### Solucao Proposta
 
-Implementar verificacao de completude que:
-1. Detecta quando todos os jogos **abertos** de uma rodada/grupo possuem palpites
-2. Exibe um Toast ou badge visual informando "Todos os palpites salvos"
-3. A mensagem aparece apenas uma vez quando o ultimo palpite e preenchido
+#### 1. Remover Restricao de Visibilidade no Dashboard
 
----
+**Arquivo:** `src/pages/Dashboard.tsx`
 
-### Componentes Afetados
-
-| Componente | Alteracao |
-|------------|-----------|
-| `PoolDetail.tsx` | Adicionar logica de verificacao de completude e callback para notificacao |
-| `CupFormatView.tsx` | Adicionar tracking de palpites salvos e exibir notificacao por grupo |
-| `MatchCard.tsx` | (Opcional) Adicionar callback para notificar quando salvo |
-
----
-
-### Detalhes da Implementacao
-
-#### 1. PoolDetail.tsx - Adicionar Verificacao de Completude
+**Mudanca:** Remover a condicao `isPrivilegedUser` da exibicao do componente
 
 ```typescript
-// Funcao para verificar se todos os palpites de uma rodada estao preenchidos
-const checkRoundCompletion = useCallback((roundId: string) => {
-  const roundMatches = matches.filter(m => m.round_id === roundId);
-  
-  // Filtrar apenas jogos com prazo aberto (que permitem palpites)
-  const openMatches = roundMatches.filter(m => {
-    const deadline = new Date(m.prediction_deadline);
-    return deadline > new Date() && !m.is_finished;
-  });
-  
-  if (openMatches.length === 0) return false;
-  
-  // Verificar se todos os jogos abertos tem palpite
-  const allFilled = openMatches.every(m => predictions[m.id] !== undefined);
-  
-  return allFilled;
-}, [matches, predictions]);
+// ANTES (linha 154):
+{isPrivilegedUser && <SuggestedPoolsSection />}
+
+// DEPOIS:
+<SuggestedPoolsSection />
 ```
 
-#### 2. Modificar handlePredictionChange para detectar completude
+#### 2. Melhorar Mensagens Contextuais no SuggestedPoolsSection
+
+**Arquivo:** `src/components/mestre/SuggestedPoolsSection.tsx`
+
+**Mudancas:**
+
+**a) Mensagem diferenciada para Mestres que atingiram limite vs membros comuns:**
+
+Quando o usuario nao pode adotar, exibir mensagem especifica:
+- **Membro comum:** "Torne-se Mestre para adotar esta sugestao"
+- **Mestre com limite atingido:** "Renove ou faca upgrade do seu plano"
+
+**b) Adicionar banner informativo para membros comuns:**
 
 ```typescript
-const handlePredictionChange = async (matchId: string, homeScore: number, awayScore: number) => {
-  // ... codigo existente ...
-  
-  // Apos salvar com sucesso, verificar completude
-  const match = matches.find(m => m.id === matchId);
-  if (match) {
-    // Atualizar predictions state primeiro
-    const updatedPredictions = {
-      ...predictions,
-      [matchId]: { match_id: matchId, home_score: homeScore, away_score: awayScore, points_earned: null }
-    };
-    
-    // Verificar se a rodada/grupo esta completa
-    const roundMatches = matches.filter(m => m.round_id === match.round_id);
-    const openMatches = roundMatches.filter(m => {
-      const deadline = new Date(m.prediction_deadline);
-      return deadline > new Date() && !m.is_finished;
-    });
-    
-    const allFilled = openMatches.every(m => updatedPredictions[m.id] !== undefined);
-    
-    if (allFilled && openMatches.length > 0) {
-      // Encontrar nome da rodada
-      const round = rounds.find(r => r.id === match.round_id);
-      const roundName = round?.name || 'Rodada';
-      
-      toast({
-        title: 'Palpites Completos!',
-        description: `Todos os ${openMatches.length} palpites de "${roundName}" foram salvos.`,
-      });
-    }
-  }
-};
+{!isPrivilegedUser && (
+  <Alert className="mb-4 border-primary/30 bg-primary/5">
+    <Crown className="h-4 w-4 text-primary" />
+    <AlertDescription>
+      Voce pode adotar sugestoes que respeitem seus limites (ate 8 equipes, 2 grupos e 15 partidas).
+      Para sugestoes maiores, torne-se Mestre do Bolao!
+    </AlertDescription>
+  </Alert>
+)}
 ```
 
-#### 3. CupFormatView.tsx - Tracking por Grupo
-
-Adicionar estado para rastrear notificacoes ja exibidas:
+**c) Melhorar logica do botao de adocao:**
 
 ```typescript
-const [notifiedGroups, setNotifiedGroups] = useState<Set<string>>(new Set());
-
-// Modificar onBlur para incluir verificacao de grupo
-const handleGroupPredictionComplete = (groupName: string, matchId: string) => {
-  const groupData = matchesByGroup[groupName];
-  if (!groupData) return;
-  
-  // Obter todos os jogos do grupo em todas as rodadas
-  const allGroupMatches: Match[] = [];
-  Object.values(groupData.rounds).forEach(roundMatches => {
-    allGroupMatches.push(...roundMatches);
-  });
-  
-  // Filtrar jogos abertos
-  const openMatches = allGroupMatches.filter(m => canPredict(m));
-  
-  // Verificar se todos tem palpite
-  const allFilled = openMatches.every(m => 
-    predictions[m.id] || localPredictions[m.id]?.home !== '' && localPredictions[m.id]?.away !== ''
-  );
-  
-  if (allFilled && openMatches.length > 0 && !notifiedGroups.has(groupName)) {
-    setNotifiedGroups(prev => new Set([...prev, groupName]));
-    // Callback para exibir toast
-    onGroupComplete?.(groupName, openMatches.length);
-  }
-};
+// Quando nao pode criar e e mestre com limite atingido
+{!canCreateNewPool && isMestreBolao ? (
+  <>
+    <Lock className="h-4 w-4" />
+    Renove seu plano
+  </>
+) : !canCreateNewPool ? (
+  <>
+    <Crown className="h-4 w-4" />
+    Torne-se Mestre
+  </>
+) : !withinLimits ? (
+  <>
+    <Crown className="h-4 w-4" />
+    Requer plano Mestre
+  </>
+) : (
+  <>
+    <Copy className="h-4 w-4" />
+    Adotar Sugestao
+  </>
+)}
 ```
 
-#### 4. Visual Badge no Card de Grupo
+**d) Adicionar link diferenciado no rodape do card:**
 
-Adicionar indicador visual quando todos os palpites do grupo estiverem preenchidos:
-
-```tsx
-{allGroupPredictionsFilled && (
-  <div className="flex items-center gap-2 text-green-600 bg-green-50 dark:bg-green-900/20 rounded-lg px-3 py-2">
-    <CheckCircle2 className="h-4 w-4" />
-    <span className="text-sm font-medium">
-      Todos os palpites do {groupName} salvos!
-    </span>
-  </div>
+```typescript
+{(!canAdopt) && (
+  <Button
+    variant="link"
+    size="sm"
+    className="w-full text-xs text-primary"
+    onClick={() => navigate('/mestre-do-bolao')}
+  >
+    <Crown className="h-3 w-3 mr-1" />
+    {!canCreateNewPool && isMestreBolao 
+      ? 'Renove ou faca upgrade do plano'
+      : 'Conheca os planos Mestre do Bolao'}
+  </Button>
 )}
 ```
 
 ---
 
-### Fluxo de Usuario
+### Fluxo de Usuario Apos Implementacao
 
 ```text
-1. Participante abre bolao
+MEMBRO COMUM abre Dashboard
          |
          v
-2. Preenche palpite do jogo 1
+Ve secao "Sugestoes Zapions" com banner informativo
+         |
+         +---> Sugestao dentro dos limites (<=15 jogos, <=4 rodadas)
+         |            |
+         |            v
+         |     Botao "Adotar Sugestao" HABILITADO
+         |            |
+         |            v
+         |     Pode criar bolao normalmente
+         |
+         +---> Sugestao acima dos limites (>15 jogos ou estrutura maior)
+                      |
+                      v
+               Alerta: "Excede seus limites"
+                      |
+                      v
+               Botao "Requer plano Mestre" (desabilitado)
+                      |
+                      v
+               Link: "Conheca os planos Mestre do Bolao"
+
+
+MESTRE COM LIMITE ATINGIDO abre Dashboard
          |
          v
-3. Sistema salva automaticamente
-   (feedback individual: "Palpite salvo")
+Ve todas as sugestoes
          |
          v
-4. Preenche palpite do jogo 2 (ultimo da rodada)
+Alerta: "Limite de boloes atingido"
          |
          v
-5. Sistema salva automaticamente
+Botao: "Renove seu plano" (desabilitado)
          |
          v
-6. Detecta: todos os jogos abertos tem palpite
-         |
-         v
-7. Exibe Toast: "Palpites Completos! Todos os X palpites de [Rodada/Grupo] foram salvos"
+Link: "Renove ou faca upgrade do plano"
 ```
-
----
-
-### Prevencao de Notificacoes Duplicadas
-
-Para evitar que a mensagem apareca multiplas vezes:
-
-1. **Estado de notificacao**: Manter Set com rodadas/grupos ja notificados
-2. **Reset ao mudar rodada**: Limpar estado quando usuario muda de rodada
-3. **Verificar apenas apos salvamento**: Nao disparar na carga inicial da pagina
 
 ---
 
@@ -194,17 +157,35 @@ Para evitar que a mensagem apareca multiplas vezes:
 
 | Arquivo | Mudanca |
 |---------|---------|
-| `src/pages/PoolDetail.tsx` | Adicionar verificacao de completude no `handlePredictionChange` e exibir toast |
-| `src/components/cup/CupFormatView.tsx` | Adicionar tracking de grupos completos e indicador visual por grupo |
+| `src/pages/Dashboard.tsx` | Remover condicao `isPrivilegedUser` da exibicao de sugestoes |
+| `src/components/mestre/SuggestedPoolsSection.tsx` | Adicionar banner para membros comuns |
+| `src/components/mestre/SuggestedPoolsSection.tsx` | Melhorar textos dos botoes para diferenciar cenarios |
+| `src/components/mestre/SuggestedPoolsSection.tsx` | Adicionar mensagem especifica para Mestres renovarem plano |
 
 ---
 
-### Comportamento Esperado
+### Detalhes Tecnicos
 
-**Formato Standard:**
-- Ao completar todos os palpites da rodada, aparece toast: "Palpites Completos! Todos os X palpites de [nome da rodada] foram salvos"
+**Logica de decisao do botao:**
 
-**Formato Copa:**
-- Ao completar todos os palpites de um grupo (em todas as rodadas do grupo), aparece toast: "Palpites Completos! Todos os X palpites do [Grupo A/B/etc] foram salvos"
-- Badge visual permanece visivel no card do grupo indicando completude
+| canCreateNewPool | withinLimits | isMestreBolao | Resultado |
+|------------------|--------------|---------------|-----------|
+| true | true | * | Adotar Sugestao (habilitado) |
+| true | false | * | Requer plano Mestre (desabilitado) |
+| false | * | true | Renove seu plano (desabilitado) |
+| false | * | false | Torne-se Mestre (desabilitado) |
+
+**Limites para membros comuns (ja existentes):**
+- `maxTeams: 8`
+- `maxGroups: 2`
+- `maxMatches: 15`
+
+---
+
+### Beneficios da Implementacao
+
+1. **Marketing:** Membros comuns veem o que esta disponivel, incentivando upgrade
+2. **Transparencia:** Usuarios entendem exatamente o que podem ou nao fazer
+3. **UX clara:** Mensagens especificas para cada cenario evitam confusao
+4. **Conversao:** CTAs direcionados para pagina de planos
 
