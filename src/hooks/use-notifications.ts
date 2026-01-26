@@ -19,7 +19,8 @@ export type NotificationType =
   | 'became_mestre'
   | 'new_participant'
   | 'moderator_action'
-  | 'scores_updated';
+  | 'scores_updated'
+  | 'admin_broadcast';
 
 export interface Notification {
   id: string;

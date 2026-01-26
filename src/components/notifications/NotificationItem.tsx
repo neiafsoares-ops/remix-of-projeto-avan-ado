@@ -11,7 +11,8 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  Crown
+  Crown,
+  Megaphone
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -36,6 +37,7 @@ const iconMap: Record<NotificationType, { icon: typeof Mail; colorClass: string 
   new_participant: { icon: UserPlus, colorClass: 'text-green-500' },
   moderator_action: { icon: Shield, colorClass: 'text-purple-500' },
   scores_updated: { icon: Trophy, colorClass: 'text-primary' },
+  admin_broadcast: { icon: Megaphone, colorClass: 'text-accent' },
 };
 
 interface NotificationItemProps {
