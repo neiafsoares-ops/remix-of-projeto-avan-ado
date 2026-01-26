@@ -55,23 +55,23 @@ export function PendingInvitations({ poolId }: PendingInvitationsProps) {
             className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30"
           >
             <Avatar className="h-10 w-10">
-              <AvatarImage src={invitation.invited_user?.avatar_url || undefined} />
+              <AvatarImage src={invitation.invitee_profile?.avatar_url || undefined} />
               <AvatarFallback>
-                {getInitials(invitation.invited_user?.full_name || null)}
+                {getInitials(invitation.invitee_profile?.full_name || invitation.invitee_username || null)}
               </AvatarFallback>
             </Avatar>
             
             <div className="flex-1 min-w-0">
               <p className="font-medium truncate text-sm">
-                {invitation.invited_user?.full_name || 'Usuário'}
+                {invitation.invitee_profile?.full_name || invitation.invitee_username || 'Usuário'}
               </p>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                {invitation.invited_user?.public_id && (
-                  <span>@{invitation.invited_user.public_id}</span>
+                {(invitation.invitee_profile?.public_id || invitation.invitee_username) && (
+                  <span>@{invitation.invitee_profile?.public_id || invitation.invitee_username}</span>
                 )}
-                {invitation.invited_user?.numeric_id != null && (
+                {invitation.invitee_profile?.numeric_id != null && (
                   <span className="bg-muted px-1 rounded">
-                    #{String(invitation.invited_user.numeric_id).padStart(5, '0')}
+                    #{String(invitation.invitee_profile.numeric_id).padStart(5, '0')}
                   </span>
                 )}
               </div>
