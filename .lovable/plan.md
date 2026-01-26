@@ -1,424 +1,276 @@
 
 
-## Plano: Expandir Sistema de Notificações
+## Plano: Criar Notificações no Painel Administrativo
 
 ### Objetivo
 
-Adicionar novos tipos de notificações para cobrir cenários importantes do ciclo de vida de convites e assinaturas Mestre.
+Adicionar uma nova aba/seção no painel administrativo que permite ao administrador criar notificações personalizadas para enviar a grupos específicos de usuários.
 
 ---
 
-### Novos Tipos de Notificação a Adicionar
+### Funcionalidades
 
-| Tipo | Destinatário | Descrição |
-|------|--------------|-----------|
-| `invitation_accepted` | Quem convidou | Convite aceito pelo destinatário |
-| `invitation_rejected` | Quem convidou | Convite recusado pelo destinatário |
-| `plan_expiring_30` | Mestre | Aviso 30 dias antes do vencimento |
-| `plan_expiring_15` | Mestre | Aviso 15 dias antes do vencimento |
-| `plan_expiring_7` | Mestre | Aviso 7 dias antes do vencimento |
-| `plan_expiring_1` | Mestre | Aviso 1 dia antes do vencimento |
-| `plan_expired` | Mestre | Pacote expirou |
-| `became_mestre` | Novo Mestre | Usuário se tornou Mestre do Bolão |
+| Campo | Descrição | Validação |
+|-------|-----------|-----------|
+| Título | Título da notificação | Máximo 40 caracteres |
+| Corpo | Mensagem da notificação | Máximo 150 caracteres |
+| Público-alvo | Quem receberá a notificação | Seleção: Todos, Moderadores, Mestres |
 
 ---
 
-### Fase 1: Atualizar Tipos no Frontend
+### Opções de Público-alvo
 
-**Arquivo:** `src/hooks/use-notifications.ts`
+| Opção | Descrição | Query para obter usuários |
+|-------|-----------|---------------------------|
+| `all` | Todos os usuários | Todos os registros em `profiles` |
+| `moderators` | Usuários com role `moderator` | `user_roles` onde `role = 'moderator'` |
+| `mestres` | Usuários com plano Mestre ativo | `mestre_plans` onde `is_active = true` |
 
-Adicionar novos tipos ao union type:
+---
 
-```typescript
-export type NotificationType = 
-  | 'invitation_received'
-  | 'invitation_accepted'    // NOVO
-  | 'invitation_rejected'    // NOVO
-  | 'message_received'
-  | 'round_updated'
-  | 'new_suggestion'
-  | 'plan_expiring'
-  | 'plan_expiring_30'       // NOVO
-  | 'plan_expiring_15'       // NOVO
-  | 'plan_expiring_7'        // NOVO
-  | 'plan_expiring_1'        // NOVO
-  | 'plan_expired'           // NOVO
-  | 'became_mestre'          // NOVO
-  | 'new_participant'
-  | 'moderator_action'
-  | 'scores_updated';
+### Estrutura da UI
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ Criar Notificação                                           │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Título *                                                   │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ Aviso importante                            32/40  │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  Mensagem *                                                 │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ Esta é uma mensagem de teste para todos os         │   │
+│  │ usuários da plataforma.                   85/150   │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  Público-alvo *                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ [○] Todos os usuários                               │   │
+│  │ [○] Apenas Moderadores                              │   │
+│  │ [○] Apenas Mestres                                  │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  [ Preview da Notificação ]                                 │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ 📢 Aviso importante                                 │   │
+│  │    Esta é uma mensagem de teste para todos os       │   │
+│  │    usuários da plataforma.                          │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│                                        [Enviar Notificação] │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### Fase 2: Atualizar Ícones no NotificationItem
+### Tipo de Notificação
 
-**Arquivo:** `src/components/notifications/NotificationItem.tsx`
-
-Adicionar novos ícones ao mapa:
+Adicionar um novo tipo `admin_broadcast` para identificar notificações criadas pelo admin:
 
 ```typescript
-import { 
-  // ... existentes
-  CheckCircle,
-  XCircle,
-  Clock,
-  Crown
-} from 'lucide-react';
+export type NotificationType = 
+  // ... tipos existentes
+  | 'admin_broadcast';  // NOVO
+```
 
-const iconMap: Record<NotificationType, { icon: typeof Mail; colorClass: string }> = {
+---
+
+### Componentes a Criar/Modificar
+
+| Arquivo | Ação |
+|---------|------|
+| `src/components/admin/CreateNotificationForm.tsx` | **Criar** - Formulário para criar notificações |
+| `src/pages/Admin.tsx` | **Modificar** - Adicionar nova aba "Notificações" |
+| `src/hooks/use-notifications.ts` | **Modificar** - Adicionar tipo `admin_broadcast` |
+| `src/components/notifications/NotificationItem.tsx` | **Modificar** - Adicionar ícone para `admin_broadcast` |
+
+---
+
+### Fase 1: Atualizar Tipos e Ícones
+
+**`use-notifications.ts`** - Adicionar novo tipo:
+```typescript
+export type NotificationType = 
   // ... existentes
-  invitation_accepted: { icon: CheckCircle, colorClass: 'text-green-500' },
-  invitation_rejected: { icon: XCircle, colorClass: 'text-red-500' },
-  plan_expiring_30: { icon: Clock, colorClass: 'text-yellow-500' },
-  plan_expiring_15: { icon: Clock, colorClass: 'text-orange-400' },
-  plan_expiring_7: { icon: AlertTriangle, colorClass: 'text-orange-500' },
-  plan_expiring_1: { icon: AlertTriangle, colorClass: 'text-red-500' },
-  plan_expired: { icon: AlertTriangle, colorClass: 'text-red-600' },
-  became_mestre: { icon: Crown, colorClass: 'text-yellow-500' },
+  | 'admin_broadcast';
+```
+
+**`NotificationItem.tsx`** - Adicionar ícone:
+```typescript
+import { Megaphone } from 'lucide-react';
+
+const iconMap = {
+  // ... existentes
+  admin_broadcast: { icon: Megaphone, colorClass: 'text-accent' },
 };
 ```
 
 ---
 
-### Fase 3: Trigger para Convite Aceito/Recusado
+### Fase 2: Criar Componente CreateNotificationForm
 
-**Migração SQL:**
+**Estrutura do componente:**
 
-```sql
--- Trigger function para notificar quando convite muda de status
-CREATE OR REPLACE FUNCTION public.notify_on_invitation_response()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  pool_name TEXT;
-  invitee_name TEXT;
-BEGIN
-  -- Só processa se status mudou para accepted ou rejected
-  IF OLD.status = 'pending' AND NEW.status IN ('accepted', 'rejected') THEN
-    
-    -- Get pool name
-    SELECT name INTO pool_name FROM public.pools WHERE id = NEW.pool_id;
-    
-    -- Get invitee name from username
-    SELECT public_id INTO invitee_name FROM public.profiles 
-    WHERE public_id = NEW.invitee_username;
-    
-    IF NEW.status = 'accepted' THEN
-      PERFORM public.create_notification(
-        NEW.inviter_id,
-        'invitation_accepted',
-        'Convite aceito!',
-        invitee_name || ' aceitou seu convite para ' || pool_name,
-        jsonb_build_object(
-          'pool_id', NEW.pool_id, 
-          'invitee_name', invitee_name,
-          'invitation_id', NEW.id
-        )
-      );
-    ELSIF NEW.status = 'rejected' THEN
-      PERFORM public.create_notification(
-        NEW.inviter_id,
-        'invitation_rejected',
-        'Convite recusado',
-        invitee_name || ' recusou seu convite para ' || pool_name,
-        jsonb_build_object(
-          'pool_id', NEW.pool_id, 
-          'invitee_name', invitee_name,
-          'invitation_id', NEW.id
-        )
-      );
-    END IF;
-  END IF;
-  
-  RETURN NEW;
-END;
-$$;
+```typescript
+// Props
+interface CreateNotificationFormProps {
+  onSuccess?: () => void;
+}
 
--- Create trigger
-CREATE TRIGGER on_invitation_response
-AFTER UPDATE ON public.pool_invitations
-FOR EACH ROW
-EXECUTE FUNCTION public.notify_on_invitation_response();
+// Estado do formulário
+interface FormState {
+  title: string;        // max 40 chars
+  message: string;      // max 150 chars
+  audience: 'all' | 'moderators' | 'mestres';
+}
+```
+
+**Validações:**
+- Título: obrigatório, máximo 40 caracteres
+- Mensagem: obrigatório, máximo 150 caracteres
+- Público-alvo: obrigatório
+
+**Fluxo de envio:**
+1. Validar campos
+2. Buscar lista de user_ids com base no público-alvo:
+   - `all`: Buscar todos de `profiles`
+   - `moderators`: Buscar de `user_roles` onde `role = 'moderator'`
+   - `mestres`: Buscar de `mestre_plans` onde `is_active = true`
+3. Inserir notificações em batch para todos os usuários selecionados
+4. Mostrar toast de sucesso com contagem de notificações enviadas
+
+---
+
+### Fase 3: Integrar no Admin.tsx
+
+**Adicionar nova aba na TabsList:**
+```tsx
+<TabsTrigger value="notifications" className="gap-2">
+  <Bell className="h-4 w-4" />
+  <span className="hidden sm:inline">Notificações</span>
+</TabsTrigger>
+```
+
+**Adicionar TabsContent:**
+```tsx
+<TabsContent value="notifications" className="space-y-6">
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <Bell className="h-5 w-5" />
+        Criar Notificação
+      </CardTitle>
+      <CardDescription>
+        Envie notificações personalizadas para grupos de usuários
+      </CardDescription>
+    </CardHeader>
+    <CardContent>
+      <CreateNotificationForm />
+    </CardContent>
+  </Card>
+</TabsContent>
 ```
 
 ---
 
-### Fase 4: Trigger para Novo Mestre
+### Lógica de Busca de Usuários
 
-**Migração SQL:**
-
-```sql
--- Trigger para notificar quando usuário se torna Mestre
-CREATE OR REPLACE FUNCTION public.notify_on_became_mestre()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  plan_name TEXT;
-  user_name TEXT;
-BEGIN
-  -- Get plan name
-  SELECT name INTO plan_name FROM public.mestre_plans WHERE id = NEW.plan_id;
-  
-  -- Get user name
-  SELECT public_id INTO user_name FROM public.profiles WHERE id = NEW.user_id;
-  
-  PERFORM public.create_notification(
-    NEW.user_id,
-    'became_mestre',
-    'Parabéns! Você é Mestre do Bolão!',
-    'Seu plano ' || plan_name || ' está ativo. Aproveite todos os benefícios!',
-    jsonb_build_object(
-      'plan_type', plan_name,
-      'expires_at', NEW.expires_at,
-      'subscription_id', NEW.id
-    )
-  );
-  
-  RETURN NEW;
-END;
-$$;
-
--- Create trigger
-CREATE TRIGGER on_mestre_subscription_created
-AFTER INSERT ON public.mestre_subscriptions
-FOR EACH ROW
-EXECUTE FUNCTION public.notify_on_became_mestre();
+```typescript
+const getTargetUsers = async (audience: 'all' | 'moderators' | 'mestres') => {
+  switch (audience) {
+    case 'all': {
+      const { data } = await supabase.from('profiles').select('id');
+      return data?.map(p => p.id) || [];
+    }
+    case 'moderators': {
+      const { data } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'moderator');
+      return data?.map(r => r.user_id) || [];
+    }
+    case 'mestres': {
+      const { data } = await supabase
+        .from('mestre_plans')
+        .select('user_id')
+        .eq('is_active', true);
+      return data?.map(p => p.user_id) || [];
+    }
+  }
+};
 ```
 
 ---
 
-### Fase 5: Função para Verificar Expiração de Planos
+### Inserção em Batch
 
-Esta função será chamada por um CRON job diário:
-
-```sql
--- Função para verificar e notificar sobre planos expirando
-CREATE OR REPLACE FUNCTION public.check_mestre_plan_expirations()
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  sub RECORD;
-  days_remaining INTEGER;
-  notification_type TEXT;
-  notification_title TEXT;
-  notification_message TEXT;
-  already_notified BOOLEAN;
-BEGIN
-  -- Buscar todas as assinaturas ativas
-  FOR sub IN 
-    SELECT 
-      ms.id as subscription_id,
-      ms.user_id,
-      ms.expires_at,
-      mp.name as plan_name,
-      mp.plan_type
-    FROM public.mestre_subscriptions ms
-    JOIN public.mestre_plans mp ON ms.plan_id = mp.id
-    WHERE ms.expires_at > now()
-  LOOP
-    days_remaining := EXTRACT(DAY FROM (sub.expires_at - now()));
-    
-    -- Determinar tipo de notificação baseado nos dias
-    IF days_remaining = 30 THEN
-      notification_type := 'plan_expiring_30';
-      notification_title := 'Seu plano expira em 30 dias';
-      notification_message := 'Renove seu plano ' || sub.plan_name || ' para continuar aproveitando os benefícios!';
-    ELSIF days_remaining = 15 THEN
-      notification_type := 'plan_expiring_15';
-      notification_title := 'Seu plano expira em 15 dias';
-      notification_message := 'Não esqueça de renovar seu plano ' || sub.plan_name || '!';
-    ELSIF days_remaining = 7 THEN
-      notification_type := 'plan_expiring_7';
-      notification_title := 'Seu plano expira em 7 dias!';
-      notification_message := 'Seu plano ' || sub.plan_name || ' expira em breve. Renove agora!';
-    ELSIF days_remaining = 1 THEN
-      notification_type := 'plan_expiring_1';
-      notification_title := 'Seu plano expira AMANHÃ!';
-      notification_message := 'Último dia para renovar seu plano ' || sub.plan_name || '!';
-    ELSE
-      CONTINUE;
-    END IF;
-    
-    -- Verificar se já notificou hoje para este tipo
-    SELECT EXISTS (
-      SELECT 1 FROM public.notifications 
-      WHERE user_id = sub.user_id 
-      AND type = notification_type
-      AND data->>'subscription_id' = sub.subscription_id::text
-    ) INTO already_notified;
-    
-    IF NOT already_notified THEN
-      PERFORM public.create_notification(
-        sub.user_id,
-        notification_type,
-        notification_title,
-        notification_message,
-        jsonb_build_object(
-          'subscription_id', sub.subscription_id,
-          'plan_type', sub.plan_type,
-          'days_remaining', days_remaining,
-          'expires_at', sub.expires_at
-        )
-      );
-    END IF;
-  END LOOP;
+```typescript
+const sendNotifications = async (
+  userIds: string[], 
+  title: string, 
+  message: string
+) => {
+  const notifications = userIds.map(userId => ({
+    user_id: userId,
+    type: 'admin_broadcast',
+    title,
+    message,
+    data: { sent_by: 'admin' },
+  }));
   
-  -- Verificar planos que expiraram hoje
-  FOR sub IN 
-    SELECT 
-      ms.id as subscription_id,
-      ms.user_id,
-      ms.expires_at,
-      mp.name as plan_name
-    FROM public.mestre_subscriptions ms
-    JOIN public.mestre_plans mp ON ms.plan_id = mp.id
-    WHERE ms.expires_at <= now()
-    AND ms.expires_at > now() - INTERVAL '1 day'
-  LOOP
-    -- Verificar se já notificou
-    SELECT EXISTS (
-      SELECT 1 FROM public.notifications 
-      WHERE user_id = sub.user_id 
-      AND type = 'plan_expired'
-      AND data->>'subscription_id' = sub.subscription_id::text
-    ) INTO already_notified;
-    
-    IF NOT already_notified THEN
-      PERFORM public.create_notification(
-        sub.user_id,
-        'plan_expired',
-        'Seu plano expirou',
-        'Seu plano ' || sub.plan_name || ' expirou. Renove para continuar criando bolões!',
-        jsonb_build_object(
-          'subscription_id', sub.subscription_id,
-          'expired_at', sub.expires_at
-        )
-      );
-    END IF;
-  END LOOP;
-END;
-$$;
+  // Inserir em lotes de 100 para evitar timeout
+  const batchSize = 100;
+  for (let i = 0; i < notifications.length; i += batchSize) {
+    const batch = notifications.slice(i, i + batchSize);
+    await supabase.from('notifications').insert(batch);
+  }
+  
+  return notifications.length;
+};
 ```
 
 ---
 
-### Fase 6: Configurar CRON Job
+### Exemplo de Notificação Criada
 
-Agendar a função para rodar diariamente às 9:00 da manhã:
-
-```sql
--- Habilitar extensões necessárias (se não estiverem)
--- CREATE EXTENSION IF NOT EXISTS pg_cron;
--- CREATE EXTENSION IF NOT EXISTS pg_net;
-
--- Agendar verificação diária de expiração
-SELECT cron.schedule(
-  'check-mestre-plan-expirations',
-  '0 9 * * *',  -- Todo dia às 9:00 AM
-  $$SELECT public.check_mestre_plan_expirations()$$
-);
+```json
+{
+  "type": "admin_broadcast",
+  "title": "Manutenção programada",
+  "message": "O sistema ficará indisponível amanhã das 2h às 4h para manutenção.",
+  "data": { "sent_by": "admin" }
+}
 ```
 
 ---
 
 ### Resumo das Alterações
 
-| Componente | Alteração |
-|------------|-----------|
-| `use-notifications.ts` | Adicionar 8 novos tipos de notificação |
-| `NotificationItem.tsx` | Adicionar ícones e cores para novos tipos |
-| Migração SQL | Trigger para `invitation_accepted` e `invitation_rejected` |
-| Migração SQL | Trigger para `became_mestre` (nova assinatura) |
-| Migração SQL | Função `check_mestre_plan_expirations()` |
-| CRON (via insert) | Agendar verificação diária de planos |
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/hooks/use-notifications.ts` | Adicionar tipo `admin_broadcast` |
+| `src/components/notifications/NotificationItem.tsx` | Adicionar ícone Megaphone para broadcasts |
+| `src/components/admin/CreateNotificationForm.tsx` | **Novo** - Formulário de criação |
+| `src/pages/Admin.tsx` | Adicionar aba "Notificações" com o formulário |
 
 ---
 
-### Fluxo de Notificações
+### UX Features
 
-```text
-CONVITE ACEITO/RECUSADO
-pool_invitations UPDATE (status: pending -> accepted/rejected)
-         |
-         v
-  on_invitation_response trigger
-         |
-         v
-  Notifica INVITER com resultado
-
-NOVO MESTRE
-mestre_subscriptions INSERT
-         |
-         v
-  on_mestre_subscription_created trigger
-         |
-         v
-  Notifica usuário com boas-vindas
-
-EXPIRAÇÃO DE PLANO
-CRON diário às 9:00
-         |
-         v
-  check_mestre_plan_expirations()
-         |
-         +---> 30 dias: plan_expiring_30
-         +---> 15 dias: plan_expiring_15
-         +---> 7 dias: plan_expiring_7
-         +---> 1 dia: plan_expiring_1
-         +---> 0 dias: plan_expired
-```
+- **Contador de caracteres**: Exibe caracteres restantes em tempo real
+- **Preview em tempo real**: Mostra como a notificação aparecerá para o usuário
+- **Confirmação antes de enviar**: Dialog confirmando a quantidade de destinatários
+- **Feedback de sucesso**: Toast com número de notificações enviadas
+- **Loading state**: Botão desabilitado e spinner durante o envio
 
 ---
 
-### Exemplos de Notificações
+### Segurança
 
-**Convite Aceito:**
-```json
-{
-  "type": "invitation_accepted",
-  "title": "Convite aceito!",
-  "message": "joaosilva aceitou seu convite para Copa 2025",
-  "data": { "pool_id": "...", "invitee_name": "joaosilva" }
-}
-```
-
-**Novo Mestre:**
-```json
-{
-  "type": "became_mestre",
-  "title": "Parabéns! Você é Mestre do Bolão!",
-  "message": "Seu plano Intermediário está ativo. Aproveite todos os benefícios!",
-  "data": { "plan_type": "intermediario", "expires_at": "..." }
-}
-```
-
-**Plano Expirando (7 dias):**
-```json
-{
-  "type": "plan_expiring_7",
-  "title": "Seu plano expira em 7 dias!",
-  "message": "Seu plano Supremo expira em breve. Renove agora!",
-  "data": { "days_remaining": 7, "plan_type": "supremo" }
-}
-```
-
-**Plano Expirado:**
-```json
-{
-  "type": "plan_expired",
-  "title": "Seu plano expirou",
-  "message": "Seu plano Intermediário expirou. Renove para continuar criando bolões!",
-  "data": { "expired_at": "..." }
-}
-```
+- Apenas usuários com role `admin` podem acessar esta funcionalidade
+- A verificação de admin já existe no componente Admin.tsx (`isAdmin` state)
+- RLS da tabela `notifications` já permite INSERT para qualquer usuário autenticado (via trigger/system)
 
