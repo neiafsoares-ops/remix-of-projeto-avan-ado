@@ -124,6 +124,17 @@ export default function Index() {
                   Ver Bolões
                 </Link>
               </Button>
+              <Button 
+                variant="outline" 
+                size="lg" 
+                asChild 
+                className="bg-accent/20 backdrop-blur-sm border-accent/50 text-white hover:bg-accent/30 hover:text-white"
+              >
+                <Link to="/quiz">
+                  <Target className="h-4 w-4 mr-2" />
+                  Quiz 10
+                </Link>
+              </Button>
             </div>
           </div>
         </div>

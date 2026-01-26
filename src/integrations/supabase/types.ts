@@ -476,6 +476,242 @@ export type Database = {
         }
         Relationships: []
       }
+      quiz_answers: {
+        Row: {
+          created_at: string
+          id: string
+          is_correct: boolean | null
+          points_earned: number | null
+          question_id: string
+          quiz_id: string
+          round_id: string
+          selected_answer: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_correct?: boolean | null
+          points_earned?: number | null
+          question_id: string
+          quiz_id: string
+          round_id: string
+          selected_answer: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_correct?: boolean | null
+          points_earned?: number | null
+          question_id?: string
+          quiz_id?: string
+          round_id?: string
+          selected_answer?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_answers_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_answers_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_participants: {
+        Row: {
+          id: string
+          joined_at: string
+          quiz_id: string
+          status: string | null
+          total_points: number | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          quiz_id: string
+          status?: string | null
+          total_points?: number | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          quiz_id?: string
+          status?: string | null
+          total_points?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_participants_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_questions: {
+        Row: {
+          correct_answer: string | null
+          created_at: string
+          id: string
+          option_a: string
+          option_b: string
+          option_c: string | null
+          option_d: string | null
+          question_number: number
+          question_text: string
+          quiz_id: string
+          round_id: string
+        }
+        Insert: {
+          correct_answer?: string | null
+          created_at?: string
+          id?: string
+          option_a: string
+          option_b: string
+          option_c?: string | null
+          option_d?: string | null
+          question_number: number
+          question_text: string
+          quiz_id: string
+          round_id: string
+        }
+        Update: {
+          correct_answer?: string | null
+          created_at?: string
+          id?: string
+          option_a?: string
+          option_b?: string
+          option_c?: string | null
+          option_d?: string | null
+          question_number?: number
+          question_text?: string
+          quiz_id?: string
+          round_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_questions_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_rounds: {
+        Row: {
+          created_at: string
+          deadline: string
+          has_winner: boolean | null
+          id: string
+          is_finished: boolean | null
+          name: string
+          quiz_id: string
+          round_number: number
+        }
+        Insert: {
+          created_at?: string
+          deadline: string
+          has_winner?: boolean | null
+          id?: string
+          is_finished?: boolean | null
+          name: string
+          quiz_id: string
+          round_number: number
+        }
+        Update: {
+          created_at?: string
+          deadline?: string
+          has_winner?: boolean | null
+          id?: string
+          is_finished?: boolean | null
+          name?: string
+          quiz_id?: string
+          round_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_rounds_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quizzes: {
+        Row: {
+          accumulated_prize: number | null
+          admin_fee_percent: number | null
+          cover_image: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          entry_fee: number | null
+          id: string
+          is_active: boolean | null
+          is_public: boolean | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          accumulated_prize?: number | null
+          admin_fee_percent?: number | null
+          cover_image?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          entry_fee?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_public?: boolean | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          accumulated_prize?: number | null
+          admin_fee_percent?: number | null
+          cover_image?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          entry_fee?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_public?: boolean | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       round_limit_requests: {
         Row: {
           approved_at: string | null
