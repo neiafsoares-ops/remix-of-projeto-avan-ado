@@ -150,8 +150,8 @@ export default function Dashboard() {
             {/* Received Invitations - Always visible for all users */}
             <ReceivedInvitations />
             
-            {/* Suggested Pools Section - Only for privileged users */}
-            {isPrivilegedUser && <SuggestedPoolsSection />}
+            {/* Suggested Pools Section - Visible for all users */}
+            <SuggestedPoolsSection />
             
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Bolões Criados por Mim</h2>

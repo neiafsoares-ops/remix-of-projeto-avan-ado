@@ -337,6 +337,17 @@ export function SuggestedPoolsSection() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Banner informativo para membros comuns */}
+          {!isPrivilegedUser && (
+            <Alert className="mb-4 border-primary/30 bg-primary/5">
+              <Crown className="h-4 w-4 text-primary" />
+              <AlertDescription className="ml-2 text-sm">
+                Você pode adotar sugestões que respeitem seus limites (até {MEMBER_LIMITS.maxTeams} equipes, {MEMBER_LIMITS.maxGroups} grupos e {MEMBER_LIMITS.maxMatches} partidas).
+                Para sugestões maiores, <button onClick={() => navigate('/mestre-do-bolao')} className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80">torne-se Mestre do Bolão!</button>
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <div className="grid md:grid-cols-2 gap-4">
             {suggestedPools.map((pool) => {
               const { withinLimits, violations } = checkPoolLimits(pool);
@@ -402,7 +413,9 @@ export function SuggestedPoolsSection() {
                       <Alert className="border-destructive/50 bg-destructive/10 py-2">
                         <Lock className="h-4 w-4 text-destructive" />
                         <AlertDescription className="ml-2 text-xs text-destructive">
-                          Limite de bolões atingido
+                          {isMestreBolao 
+                            ? 'Limite de bolões do seu plano atingido. Renove ou faça upgrade.' 
+                            : 'Limite de bolões atingido. Torne-se Mestre para criar mais.'}
                         </AlertDescription>
                       </Alert>
                     )}
@@ -413,15 +426,20 @@ export function SuggestedPoolsSection() {
                       disabled={!canAdopt}
                       variant={canAdopt ? "default" : "outline"}
                     >
-                      {!canCreateNewPool ? (
+                      {!canCreateNewPool && isMestreBolao ? (
                         <>
                           <Lock className="h-4 w-4" />
-                          Limite de bolões atingido
+                          Renove seu plano
+                        </>
+                      ) : !canCreateNewPool ? (
+                        <>
+                          <Crown className="h-4 w-4" />
+                          Torne-se Mestre
                         </>
                       ) : !withinLimits ? (
                         <>
                           <Crown className="h-4 w-4" />
-                          Torne-se Mestre
+                          Requer plano Mestre
                         </>
                       ) : (
                         <>
@@ -432,7 +450,7 @@ export function SuggestedPoolsSection() {
                     </Button>
 
                     {/* Link to become Mestre when limits exceeded */}
-                    {(!canAdopt && !canCreateNewPool) || !withinLimits ? (
+                    {!canAdopt && (
                       <Button
                         variant="link"
                         size="sm"
@@ -440,9 +458,11 @@ export function SuggestedPoolsSection() {
                         onClick={() => navigate('/mestre-do-bolao')}
                       >
                         <Crown className="h-3 w-3 mr-1" />
-                        Conheça os planos Mestre do Bolão
+                        {!canCreateNewPool && isMestreBolao 
+                          ? 'Renove ou faça upgrade do plano'
+                          : 'Conheça os planos Mestre do Bolão'}
                       </Button>
-                    ) : null}
+                    )}
                   </CardContent>
                 </Card>
               );
