@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Dialog,
   DialogContent,
@@ -28,6 +30,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 import { 
   ChevronLeft, 
   Loader2, 
@@ -38,7 +41,9 @@ import {
   Trash2,
   CheckCircle2,
   Save,
-  Users
+  Users,
+  CalendarIcon,
+  Clock
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -88,7 +93,8 @@ export default function QuizManage() {
   // New round dialog
   const [newRoundOpen, setNewRoundOpen] = useState(false);
   const [newRoundName, setNewRoundName] = useState('');
-  const [newRoundDeadline, setNewRoundDeadline] = useState('');
+  const [deadlineDate, setDeadlineDate] = useState<Date | undefined>(undefined);
+  const [deadlineTime, setDeadlineTime] = useState('18:00');
   const [creatingRound, setCreatingRound] = useState(false);
 
   // New question dialog
@@ -196,7 +202,7 @@ export default function QuizManage() {
   };
 
   const handleCreateRound = async () => {
-    if (!newRoundName || !newRoundDeadline) {
+    if (!newRoundName || !deadlineDate || !deadlineTime) {
       toast({
         title: 'Erro',
         description: 'Preencha todos os campos.',
@@ -208,6 +214,11 @@ export default function QuizManage() {
     try {
       setCreatingRound(true);
 
+      // Combinar data e hora
+      const [hours, minutes] = deadlineTime.split(':').map(Number);
+      const deadline = new Date(deadlineDate);
+      deadline.setHours(hours, minutes, 0, 0);
+
       const roundNumber = rounds.length + 1;
 
       const { data, error } = await supabase
@@ -216,7 +227,7 @@ export default function QuizManage() {
           quiz_id: id,
           round_number: roundNumber,
           name: newRoundName,
-          deadline: new Date(newRoundDeadline).toISOString(),
+          deadline: deadline.toISOString(),
         })
         .select()
         .single();
@@ -228,7 +239,8 @@ export default function QuizManage() {
       setQuestions([]);
       setNewRoundOpen(false);
       setNewRoundName('');
-      setNewRoundDeadline('');
+      setDeadlineDate(undefined);
+      setDeadlineTime('18:00');
 
       toast({
         title: 'Rodada criada!',
@@ -509,7 +521,7 @@ export default function QuizManage() {
                           Defina o nome e prazo para a nova rodada do quiz.
                         </DialogDescription>
                       </DialogHeader>
-                      <div className="space-y-4 py-4">
+                        <div className="space-y-4 py-4">
                         <div className="space-y-2">
                           <Label htmlFor="roundName">Nome da Rodada</Label>
                           <Input
@@ -519,15 +531,54 @@ export default function QuizManage() {
                             onChange={(e) => setNewRoundName(e.target.value)}
                           />
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="deadline">Prazo para Respostas</Label>
-                          <Input
-                            id="deadline"
-                            type="datetime-local"
-                            value={newRoundDeadline}
-                            onChange={(e) => setNewRoundDeadline(e.target.value)}
-                          />
+                        <div className="grid grid-cols-2 gap-4">
+                          {/* Data */}
+                          <div className="space-y-2">
+                            <Label>Data do Prazo</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !deadlineDate && "text-muted-foreground"
+                                  )}
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                  {deadlineDate ? format(deadlineDate, "dd/MM/yyyy", { locale: ptBR }) : "Selecione a data"}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={deadlineDate}
+                                  onSelect={setDeadlineDate}
+                                  disabled={(date) => date < new Date()}
+                                  initialFocus
+                                  className="pointer-events-auto"
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+
+                          {/* Hora */}
+                          <div className="space-y-2">
+                            <Label>Hora do Prazo</Label>
+                            <Input
+                              type="time"
+                              value={deadlineTime}
+                              onChange={(e) => setDeadlineTime(e.target.value)}
+                            />
+                          </div>
                         </div>
+
+                        {/* Preview */}
+                        {deadlineDate && (
+                          <div className="p-3 bg-muted/50 rounded-lg text-sm flex items-center">
+                            <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
+                            <span>Prazo: {format(deadlineDate, "dd/MM/yyyy", { locale: ptBR })} às {deadlineTime}</span>
+                          </div>
+                        )}
                       </div>
                       <DialogFooter>
                         <DialogClose asChild>
