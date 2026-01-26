@@ -1,248 +1,220 @@
 
 
-## Plano: Criar Notificações no Painel Administrativo
+## Plano: Adicionar Seção Explicativa "O que é Sugestão Zapions?"
 
 ### Objetivo
 
-Adicionar uma nova aba/seção no painel administrativo que permite ao administrador criar notificações personalizadas para enviar a grupos específicos de usuários.
+Adicionar um card informativo no lado direito da seção de Sugestões Zapions que explique claramente o que é o recurso, o que o usuário precisa gerenciar e o que já vem pronto.
 
 ---
 
-### Funcionalidades
+### Layout Proposto
 
-| Campo | Descrição | Validação |
-|-------|-----------|-----------|
-| Título | Título da notificação | Máximo 40 caracteres |
-| Corpo | Mensagem da notificação | Máximo 150 caracteres |
-| Público-alvo | Quem receberá a notificação | Seleção: Todos, Moderadores, Mestres |
-
----
-
-### Opções de Público-alvo
-
-| Opção | Descrição | Query para obter usuários |
-|-------|-----------|---------------------------|
-| `all` | Todos os usuários | Todos os registros em `profiles` |
-| `moderators` | Usuários com role `moderator` | `user_roles` onde `role = 'moderator'` |
-| `mestres` | Usuários com plano Mestre ativo | `mestre_plans` onde `is_active = true` |
-
----
-
-### Estrutura da UI
+O grid atual (`md:grid-cols-2`) será ajustado para mostrar:
+- **Coluna Esquerda**: Cards das sugestões disponíveis (comportamento atual)
+- **Coluna Direita**: Card explicativo fixo com informações sobre o recurso
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│ Criar Notificação                                           │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  Título *                                                   │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ Aviso importante                            32/40  │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-│  Mensagem *                                                 │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ Esta é uma mensagem de teste para todos os         │   │
-│  │ usuários da plataforma.                   85/150   │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-│  Público-alvo *                                             │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ [○] Todos os usuários                               │   │
-│  │ [○] Apenas Moderadores                              │   │
-│  │ [○] Apenas Mestres                                  │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-│  [ Preview da Notificação ]                                 │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ 📢 Aviso importante                                 │   │
-│  │    Esta é uma mensagem de teste para todos os       │   │
-│  │    usuários da plataforma.                          │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-│                                        [Enviar Notificação] │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ ✨ Sugestões Zapions                                                            │
+│    Adote uma sugestão pronta com todos os jogos já configurados                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ┌──────────────────────────────┐   ┌──────────────────────────────────────┐   │
+│  │ 🎯 Sugestão Zapions         │   │ ❓ O que é Sugestão Zapions?         │   │
+│  │                              │   │                                      │   │
+│  │ 📅 17 rodadas  ⚽ 48 jogos   │   │ É um modelo de bolão já criado e    │   │
+│  │                              │   │ totalmente configurado pela          │   │
+│  │ ✓ Jogos já configurados      │   │ plataforma.                          │   │
+│  │                              │   │                                      │   │
+│  │ [Adotar Sugestão]            │   │ ⚙️ O que você gerencia:              │   │
+│  │                              │   │ • Participantes                      │   │
+│  └──────────────────────────────┘   │ • Gratuito ou pago                   │   │
+│                                      │ • Aprovações                         │   │
+│                                      │ • Premiações                         │   │
+│                                      │                                      │   │
+│                                      │ ✅ O que já vem pronto:              │   │
+│                                      │ • Jogos e rodadas configurados       │   │
+│                                      │ • Atualização automática             │   │
+│                                      │ • Cálculo de pontuação               │   │
+│                                      │ • Ranking em tempo real              │   │
+│                                      │                                      │   │
+│                                      │ 🎯 Ideal para quem quer praticidade  │   │
+│                                      │ e não quer perder tempo configurando │   │
+│                                      └──────────────────────────────────────┘   │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### Tipo de Notificação
+### Alterações no Componente
 
-Adicionar um novo tipo `admin_broadcast` para identificar notificações criadas pelo admin:
+**Arquivo:** `src/components/mestre/SuggestedPoolsSection.tsx`
+
+#### Modificar o Layout do Grid
+
+Trocar de `grid md:grid-cols-2` para um layout que separe as sugestões do card explicativo:
 
 ```typescript
-export type NotificationType = 
-  // ... tipos existentes
-  | 'admin_broadcast';  // NOVO
-```
-
----
-
-### Componentes a Criar/Modificar
-
-| Arquivo | Ação |
-|---------|------|
-| `src/components/admin/CreateNotificationForm.tsx` | **Criar** - Formulário para criar notificações |
-| `src/pages/Admin.tsx` | **Modificar** - Adicionar nova aba "Notificações" |
-| `src/hooks/use-notifications.ts` | **Modificar** - Adicionar tipo `admin_broadcast` |
-| `src/components/notifications/NotificationItem.tsx` | **Modificar** - Adicionar ícone para `admin_broadcast` |
-
----
-
-### Fase 1: Atualizar Tipos e Ícones
-
-**`use-notifications.ts`** - Adicionar novo tipo:
-```typescript
-export type NotificationType = 
-  // ... existentes
-  | 'admin_broadcast';
-```
-
-**`NotificationItem.tsx`** - Adicionar ícone:
-```typescript
-import { Megaphone } from 'lucide-react';
-
-const iconMap = {
-  // ... existentes
-  admin_broadcast: { icon: Megaphone, colorClass: 'text-accent' },
-};
-```
-
----
-
-### Fase 2: Criar Componente CreateNotificationForm
-
-**Estrutura do componente:**
-
-```typescript
-// Props
-interface CreateNotificationFormProps {
-  onSuccess?: () => void;
-}
-
-// Estado do formulário
-interface FormState {
-  title: string;        // max 40 chars
-  message: string;      // max 150 chars
-  audience: 'all' | 'moderators' | 'mestres';
-}
-```
-
-**Validações:**
-- Título: obrigatório, máximo 40 caracteres
-- Mensagem: obrigatório, máximo 150 caracteres
-- Público-alvo: obrigatório
-
-**Fluxo de envio:**
-1. Validar campos
-2. Buscar lista de user_ids com base no público-alvo:
-   - `all`: Buscar todos de `profiles`
-   - `moderators`: Buscar de `user_roles` onde `role = 'moderator'`
-   - `mestres`: Buscar de `mestre_plans` onde `is_active = true`
-3. Inserir notificações em batch para todos os usuários selecionados
-4. Mostrar toast de sucesso com contagem de notificações enviadas
-
----
-
-### Fase 3: Integrar no Admin.tsx
-
-**Adicionar nova aba na TabsList:**
-```tsx
-<TabsTrigger value="notifications" className="gap-2">
-  <Bell className="h-4 w-4" />
-  <span className="hidden sm:inline">Notificações</span>
-</TabsTrigger>
-```
-
-**Adicionar TabsContent:**
-```tsx
-<TabsContent value="notifications" className="space-y-6">
-  <Card>
-    <CardHeader>
-      <CardTitle className="flex items-center gap-2">
-        <Bell className="h-5 w-5" />
-        Criar Notificação
-      </CardTitle>
-      <CardDescription>
-        Envie notificações personalizadas para grupos de usuários
-      </CardDescription>
-    </CardHeader>
-    <CardContent>
-      <CreateNotificationForm />
-    </CardContent>
-  </Card>
-</TabsContent>
-```
-
----
-
-### Lógica de Busca de Usuários
-
-```typescript
-const getTargetUsers = async (audience: 'all' | 'moderators' | 'mestres') => {
-  switch (audience) {
-    case 'all': {
-      const { data } = await supabase.from('profiles').select('id');
-      return data?.map(p => p.id) || [];
-    }
-    case 'moderators': {
-      const { data } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'moderator');
-      return data?.map(r => r.user_id) || [];
-    }
-    case 'mestres': {
-      const { data } = await supabase
-        .from('mestre_plans')
-        .select('user_id')
-        .eq('is_active', true);
-      return data?.map(p => p.user_id) || [];
-    }
-  }
-};
-```
-
----
-
-### Inserção em Batch
-
-```typescript
-const sendNotifications = async (
-  userIds: string[], 
-  title: string, 
-  message: string
-) => {
-  const notifications = userIds.map(userId => ({
-    user_id: userId,
-    type: 'admin_broadcast',
-    title,
-    message,
-    data: { sent_by: 'admin' },
-  }));
+<div className="grid lg:grid-cols-3 gap-6">
+  {/* Coluna das Sugestões (2/3 do espaço) */}
+  <div className="lg:col-span-2 space-y-4">
+    <div className="grid md:grid-cols-2 gap-4">
+      {suggestedPools.map((pool) => (
+        // ... cards de sugestões existentes
+      ))}
+    </div>
+  </div>
   
-  // Inserir em lotes de 100 para evitar timeout
-  const batchSize = 100;
-  for (let i = 0; i < notifications.length; i += batchSize) {
-    const batch = notifications.slice(i, i + batchSize);
-    await supabase.from('notifications').insert(batch);
-  }
-  
-  return notifications.length;
-};
+  {/* Coluna Explicativa (1/3 do espaço) */}
+  <div className="lg:col-span-1">
+    <Card className="h-full bg-gradient-to-br from-accent/10 to-background border-accent/20">
+      {/* Conteúdo explicativo */}
+    </Card>
+  </div>
+</div>
 ```
 
 ---
 
-### Exemplo de Notificação Criada
+### Conteúdo do Card Explicativo
 
-```json
-{
-  "type": "admin_broadcast",
-  "title": "Manutenção programada",
-  "message": "O sistema ficará indisponível amanhã das 2h às 4h para manutenção.",
-  "data": { "sent_by": "admin" }
-}
+```tsx
+<Card className="h-full bg-gradient-to-br from-accent/10 to-background border-accent/20 sticky top-4">
+  <CardHeader className="pb-4">
+    <CardTitle className="flex items-center gap-2 text-lg">
+      <HelpCircle className="h-5 w-5 text-accent" />
+      O que é Sugestão Zapions?
+    </CardTitle>
+  </CardHeader>
+  <CardContent className="space-y-5">
+    {/* Introdução */}
+    <p className="text-sm text-muted-foreground">
+      É um modelo de bolão <strong>já criado e totalmente configurado</strong> pela plataforma.
+      Todos os jogos, rodadas, datas e atualizações acontecem automaticamente.
+    </p>
+    
+    {/* O que você gerencia */}
+    <div className="space-y-2">
+      <h4 className="text-sm font-semibold flex items-center gap-2">
+        <Settings className="h-4 w-4 text-primary" />
+        O que você gerencia:
+      </h4>
+      <ul className="space-y-1.5 text-sm text-muted-foreground">
+        <li className="flex items-center gap-2">
+          <Users className="h-3.5 w-3.5 text-primary" />
+          Quantidade de participantes
+        </li>
+        <li className="flex items-center gap-2">
+          <Coins className="h-3.5 w-3.5 text-primary" />
+          Gratuito ou pago
+        </li>
+        <li className="flex items-center gap-2">
+          <UserCheck className="h-3.5 w-3.5 text-primary" />
+          Aprovação de participantes
+        </li>
+        <li className="flex items-center gap-2">
+          <Trophy className="h-3.5 w-3.5 text-primary" />
+          Pagamento das premiações
+        </li>
+      </ul>
+    </div>
+    
+    {/* O que já vem pronto */}
+    <div className="space-y-2">
+      <h4 className="text-sm font-semibold flex items-center gap-2">
+        <CheckCircle2 className="h-4 w-4 text-green-500" />
+        O que já vem pronto:
+      </h4>
+      <ul className="space-y-1.5 text-sm text-muted-foreground">
+        <li className="flex items-center gap-2">
+          <Check className="h-3.5 w-3.5 text-green-500" />
+          Jogos e rodadas configurados
+        </li>
+        <li className="flex items-center gap-2">
+          <Check className="h-3.5 w-3.5 text-green-500" />
+          Atualização automática de placares
+        </li>
+        <li className="flex items-center gap-2">
+          <Check className="h-3.5 w-3.5 text-green-500" />
+          Cálculo automático de pontuação
+        </li>
+        <li className="flex items-center gap-2">
+          <Check className="h-3.5 w-3.5 text-green-500" />
+          Ranking atualizado em tempo real
+        </li>
+      </ul>
+    </div>
+    
+    {/* Separador */}
+    <Separator />
+    
+    {/* Para quem é */}
+    <div className="bg-primary/5 rounded-lg p-3 border border-primary/20">
+      <h4 className="text-sm font-semibold flex items-center gap-2 mb-2">
+        <Target className="h-4 w-4 text-primary" />
+        Para quem é ideal?
+      </h4>
+      <p className="text-xs text-muted-foreground">
+        Para quem quer <strong>praticidade</strong>, não quer perder tempo 
+        configurando e prefere apenas gerenciar participantes e premiações.
+      </p>
+    </div>
+  </CardContent>
+</Card>
+```
+
+---
+
+### Novos Ícones a Importar
+
+```typescript
+import {
+  // ... existentes
+  HelpCircle,
+  Settings,
+  Users,
+  Coins,
+  UserCheck,
+  CheckCircle2,
+  Check
+} from 'lucide-react';
+```
+
+---
+
+### Importar Separator
+
+```typescript
+import { Separator } from '@/components/ui/separator';
+```
+
+---
+
+### Responsividade
+
+- **Desktop (lg+)**: Grid de 3 colunas - sugestões ocupam 2, explicação ocupa 1
+- **Tablet (md)**: Card explicativo aparece acima ou abaixo das sugestões
+- **Mobile**: Tudo em coluna única, card explicativo no topo para dar contexto primeiro
+
+```typescript
+// Para mobile/tablet, mostrar o card explicativo primeiro
+<div className="grid lg:grid-cols-3 gap-6">
+  {/* Card explicativo - aparece primeiro em mobile */}
+  <div className="lg:col-span-1 lg:order-2">
+    <Card className="...">
+      {/* conteúdo explicativo */}
+    </Card>
+  </div>
+  
+  {/* Sugestões - aparecem depois em mobile */}
+  <div className="lg:col-span-2 lg:order-1">
+    <div className="grid md:grid-cols-2 gap-4">
+      {/* cards das sugestões */}
+    </div>
+  </div>
+</div>
 ```
 
 ---
@@ -251,26 +223,28 @@ const sendNotifications = async (
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/hooks/use-notifications.ts` | Adicionar tipo `admin_broadcast` |
-| `src/components/notifications/NotificationItem.tsx` | Adicionar ícone Megaphone para broadcasts |
-| `src/components/admin/CreateNotificationForm.tsx` | **Novo** - Formulário de criação |
-| `src/pages/Admin.tsx` | Adicionar aba "Notificações" com o formulário |
+| `src/components/mestre/SuggestedPoolsSection.tsx` | Reorganizar layout para grid 3 colunas e adicionar card explicativo |
 
----
+### Ícones Utilizados
 
-### UX Features
+| Ícone | Uso |
+|-------|-----|
+| `HelpCircle` | Título "O que é Sugestão Zapions?" |
+| `Settings` | Seção "O que você gerencia" |
+| `Users` | Participantes |
+| `Coins` | Gratuito/Pago |
+| `UserCheck` | Aprovação de participantes |
+| `Trophy` | Premiações |
+| `CheckCircle2` | Seção "O que já vem pronto" |
+| `Check` | Items da lista do que vem pronto |
+| `Target` | Seção "Para quem é ideal" |
 
-- **Contador de caracteres**: Exibe caracteres restantes em tempo real
-- **Preview em tempo real**: Mostra como a notificação aparecerá para o usuário
-- **Confirmação antes de enviar**: Dialog confirmando a quantidade de destinatários
-- **Feedback de sucesso**: Toast com número de notificações enviadas
-- **Loading state**: Botão desabilitado e spinner durante o envio
+### Visual Final Esperado
 
----
-
-### Segurança
-
-- Apenas usuários com role `admin` podem acessar esta funcionalidade
-- A verificação de admin já existe no componente Admin.tsx (`isAdmin` state)
-- RLS da tabela `notifications` já permite INSERT para qualquer usuário autenticado (via trigger/system)
+O card explicativo terá:
+- Fundo com gradiente sutil (`from-accent/10`)
+- Bordas suaves combinando com a seção
+- Texto organizado em seções claras
+- Ícones coloridos para facilitar leitura rápida
+- Destaque especial na seção "Para quem é ideal" com fundo diferenciado
 
