@@ -5,10 +5,18 @@ import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 export type NotificationType = 
   | 'invitation_received'
+  | 'invitation_accepted'
+  | 'invitation_rejected'
   | 'message_received'
   | 'round_updated'
   | 'new_suggestion'
   | 'plan_expiring'
+  | 'plan_expiring_30'
+  | 'plan_expiring_15'
+  | 'plan_expiring_7'
+  | 'plan_expiring_1'
+  | 'plan_expired'
+  | 'became_mestre'
   | 'new_participant'
   | 'moderator_action'
   | 'scores_updated';

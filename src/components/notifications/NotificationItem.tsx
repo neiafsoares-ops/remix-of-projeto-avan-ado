@@ -7,7 +7,11 @@ import {
   UserPlus, 
   Shield, 
   Trophy,
-  X
+  X,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Crown
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -17,10 +21,18 @@ import type { Notification, NotificationType } from '@/hooks/use-notifications';
 
 const iconMap: Record<NotificationType, { icon: typeof Mail; colorClass: string }> = {
   invitation_received: { icon: Mail, colorClass: 'text-primary' },
+  invitation_accepted: { icon: CheckCircle, colorClass: 'text-green-500' },
+  invitation_rejected: { icon: XCircle, colorClass: 'text-red-500' },
   message_received: { icon: MessageSquare, colorClass: 'text-blue-500' },
   round_updated: { icon: Calendar, colorClass: 'text-green-500' },
   new_suggestion: { icon: Star, colorClass: 'text-yellow-500' },
   plan_expiring: { icon: AlertTriangle, colorClass: 'text-orange-500' },
+  plan_expiring_30: { icon: Clock, colorClass: 'text-yellow-500' },
+  plan_expiring_15: { icon: Clock, colorClass: 'text-orange-400' },
+  plan_expiring_7: { icon: AlertTriangle, colorClass: 'text-orange-500' },
+  plan_expiring_1: { icon: AlertTriangle, colorClass: 'text-red-500' },
+  plan_expired: { icon: AlertTriangle, colorClass: 'text-red-600' },
+  became_mestre: { icon: Crown, colorClass: 'text-yellow-500' },
   new_participant: { icon: UserPlus, colorClass: 'text-green-500' },
   moderator_action: { icon: Shield, colorClass: 'text-purple-500' },
   scores_updated: { icon: Trophy, colorClass: 'text-primary' },
