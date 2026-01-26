@@ -1,231 +1,424 @@
 
-## Plano: Sistema de Notificações com Ícone de Sino
+
+## Plano: Expandir Sistema de Notificações
 
 ### Objetivo
 
-Criar um sistema centralizado de notificações com um ícone de sino (Bell) na Navbar, exibindo diferentes tipos de alertas para os usuários, com funcionalidades específicas para Mestres do Bolão.
+Adicionar novos tipos de notificações para cobrir cenários importantes do ciclo de vida de convites e assinaturas Mestre.
 
 ---
 
-### Tipos de Notificações
+### Novos Tipos de Notificação a Adicionar
 
 | Tipo | Destinatário | Descrição |
 |------|--------------|-----------|
-| `invitation_received` | Todos | Convite recebido para participar de bolão |
-| `message_received` | Todos | Mensagem recebida (futuro) |
-| `round_updated` | Participantes | Rodada atualizada com novos jogos ou placares |
-| `new_suggestion` | Todos | Nova sugestão Zapions adicionada |
-| `plan_expiring` | Mestres | Aviso 30 dias antes do vencimento do pacote |
-| `new_participant` | Mestres | Novo participante ou convite para bolão criado |
-| `moderator_action` | Mestres | Ações de moderadores (aprovação, remoção) |
-| `scores_updated` | Participantes | Placares atualizados em uma rodada |
+| `invitation_accepted` | Quem convidou | Convite aceito pelo destinatário |
+| `invitation_rejected` | Quem convidou | Convite recusado pelo destinatário |
+| `plan_expiring_30` | Mestre | Aviso 30 dias antes do vencimento |
+| `plan_expiring_15` | Mestre | Aviso 15 dias antes do vencimento |
+| `plan_expiring_7` | Mestre | Aviso 7 dias antes do vencimento |
+| `plan_expiring_1` | Mestre | Aviso 1 dia antes do vencimento |
+| `plan_expired` | Mestre | Pacote expirou |
+| `became_mestre` | Novo Mestre | Usuário se tornou Mestre do Bolão |
 
 ---
 
-### Estrutura do Banco de Dados
+### Fase 1: Atualizar Tipos no Frontend
 
-```text
-notifications
-├── id (uuid, PK)
-├── user_id (uuid, FK -> auth.users) - destinatário
-├── type (text) - tipo da notificação
-├── title (text) - título curto
-├── message (text) - descrição
-├── data (jsonb) - dados extras (pool_id, round_id, etc)
-├── is_read (boolean, default: false)
-├── created_at (timestamp)
-└── read_at (timestamp, nullable)
-```
+**Arquivo:** `src/hooks/use-notifications.ts`
 
-**RLS Policies:**
-- SELECT: usuário pode ver apenas suas notificações
-- UPDATE: usuário pode marcar como lida
-- DELETE: usuário pode remover suas notificações
-
-**Realtime:** Habilitar para atualizações em tempo real
-
----
-
-### Componentes a Criar
-
-#### 1. NotificationBell (Navbar)
-
-Ícone de sino com badge de contagem de não lidas:
-
-```text
-┌─────────────────────────────────────────────┐
-│  [Logo]  Bolões  Meus Palpites  [🔔3] [👤] │
-└─────────────────────────────────────────────┘
-```
-
-**Comportamento:**
-- Badge vermelho com número quando há notificações não lidas
-- Ao clicar, abre dropdown com lista de notificações recentes
-- Link "Ver todas" para página dedicada (opcional)
-
-#### 2. NotificationDropdown
-
-Lista de notificações recentes com:
-- Ícone por tipo (Mail, Trophy, Star, Clock, etc)
-- Título e preview da mensagem
-- Tempo relativo ("há 5 minutos")
-- Indicador visual de não lida
-- Ação de marcar como lida ao clicar
-
-#### 3. Hook: useNotifications
+Adicionar novos tipos ao union type:
 
 ```typescript
-// Funcionalidades:
-- Buscar notificações do usuário
-- Contagem de não lidas
-- Marcar como lida
-- Marcar todas como lidas
-- Subscription realtime para novas notificações
+export type NotificationType = 
+  | 'invitation_received'
+  | 'invitation_accepted'    // NOVO
+  | 'invitation_rejected'    // NOVO
+  | 'message_received'
+  | 'round_updated'
+  | 'new_suggestion'
+  | 'plan_expiring'
+  | 'plan_expiring_30'       // NOVO
+  | 'plan_expiring_15'       // NOVO
+  | 'plan_expiring_7'        // NOVO
+  | 'plan_expiring_1'        // NOVO
+  | 'plan_expired'           // NOVO
+  | 'became_mestre'          // NOVO
+  | 'new_participant'
+  | 'moderator_action'
+  | 'scores_updated';
 ```
 
 ---
 
-### Triggers para Criar Notificações
+### Fase 2: Atualizar Ícones no NotificationItem
 
-| Evento | Trigger/Função | Notificação Criada |
-|--------|----------------|-------------------|
-| Novo convite | INSERT em `pool_invitations` | Para o convidado |
-| Nova sugestão | INSERT em `suggested_pools` | Para todos Mestres |
-| Placar atualizado | UPDATE em `matches` (score changed) | Para participantes do pool |
-| Rodada atualizada | INSERT em `matches` | Para participantes do pool |
-| Novo participante | INSERT em `pool_participants` | Para criador do pool |
-| Plano expirando | CRON (verificar diariamente) | Para Mestres com < 30 dias |
+**Arquivo:** `src/components/notifications/NotificationItem.tsx`
 
----
+Adicionar novos ícones ao mapa:
 
-### Fluxo de Implementação
+```typescript
+import { 
+  // ... existentes
+  CheckCircle,
+  XCircle,
+  Clock,
+  Crown
+} from 'lucide-react';
 
-**Fase 1: Infraestrutura**
-1. Criar tabela `notifications` com RLS
-2. Habilitar realtime na tabela
-3. Criar funções helper para inserir notificações
-
-**Fase 2: UI**
-1. Criar hook `useNotifications`
-2. Criar componente `NotificationBell`
-3. Integrar na Navbar (desktop e mobile)
-
-**Fase 3: Triggers de Eventos**
-1. Trigger para convites
-2. Trigger para novas sugestões
-3. Trigger para atualizações de placar
-4. Trigger para novos participantes
-
-**Fase 4: Notificações de Mestres**
-1. Lógica para verificar expiração de plano
-2. Notificações de ações de moderadores
+const iconMap: Record<NotificationType, { icon: typeof Mail; colorClass: string }> = {
+  // ... existentes
+  invitation_accepted: { icon: CheckCircle, colorClass: 'text-green-500' },
+  invitation_rejected: { icon: XCircle, colorClass: 'text-red-500' },
+  plan_expiring_30: { icon: Clock, colorClass: 'text-yellow-500' },
+  plan_expiring_15: { icon: Clock, colorClass: 'text-orange-400' },
+  plan_expiring_7: { icon: AlertTriangle, colorClass: 'text-orange-500' },
+  plan_expiring_1: { icon: AlertTriangle, colorClass: 'text-red-500' },
+  plan_expired: { icon: AlertTriangle, colorClass: 'text-red-600' },
+  became_mestre: { icon: Crown, colorClass: 'text-yellow-500' },
+};
+```
 
 ---
 
-### Detalhes da UI
+### Fase 3: Trigger para Convite Aceito/Recusado
 
-**NotificationBell no Desktop:**
+**Migração SQL:**
+
+```sql
+-- Trigger function para notificar quando convite muda de status
+CREATE OR REPLACE FUNCTION public.notify_on_invitation_response()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  pool_name TEXT;
+  invitee_name TEXT;
+BEGIN
+  -- Só processa se status mudou para accepted ou rejected
+  IF OLD.status = 'pending' AND NEW.status IN ('accepted', 'rejected') THEN
+    
+    -- Get pool name
+    SELECT name INTO pool_name FROM public.pools WHERE id = NEW.pool_id;
+    
+    -- Get invitee name from username
+    SELECT public_id INTO invitee_name FROM public.profiles 
+    WHERE public_id = NEW.invitee_username;
+    
+    IF NEW.status = 'accepted' THEN
+      PERFORM public.create_notification(
+        NEW.inviter_id,
+        'invitation_accepted',
+        'Convite aceito!',
+        invitee_name || ' aceitou seu convite para ' || pool_name,
+        jsonb_build_object(
+          'pool_id', NEW.pool_id, 
+          'invitee_name', invitee_name,
+          'invitation_id', NEW.id
+        )
+      );
+    ELSIF NEW.status = 'rejected' THEN
+      PERFORM public.create_notification(
+        NEW.inviter_id,
+        'invitation_rejected',
+        'Convite recusado',
+        invitee_name || ' recusou seu convite para ' || pool_name,
+        jsonb_build_object(
+          'pool_id', NEW.pool_id, 
+          'invitee_name', invitee_name,
+          'invitation_id', NEW.id
+        )
+      );
+    END IF;
+  END IF;
+  
+  RETURN NEW;
+END;
+$$;
+
+-- Create trigger
+CREATE TRIGGER on_invitation_response
+AFTER UPDATE ON public.pool_invitations
+FOR EACH ROW
+EXECUTE FUNCTION public.notify_on_invitation_response();
+```
+
+---
+
+### Fase 4: Trigger para Novo Mestre
+
+**Migração SQL:**
+
+```sql
+-- Trigger para notificar quando usuário se torna Mestre
+CREATE OR REPLACE FUNCTION public.notify_on_became_mestre()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  plan_name TEXT;
+  user_name TEXT;
+BEGIN
+  -- Get plan name
+  SELECT name INTO plan_name FROM public.mestre_plans WHERE id = NEW.plan_id;
+  
+  -- Get user name
+  SELECT public_id INTO user_name FROM public.profiles WHERE id = NEW.user_id;
+  
+  PERFORM public.create_notification(
+    NEW.user_id,
+    'became_mestre',
+    'Parabéns! Você é Mestre do Bolão!',
+    'Seu plano ' || plan_name || ' está ativo. Aproveite todos os benefícios!',
+    jsonb_build_object(
+      'plan_type', plan_name,
+      'expires_at', NEW.expires_at,
+      'subscription_id', NEW.id
+    )
+  );
+  
+  RETURN NEW;
+END;
+$$;
+
+-- Create trigger
+CREATE TRIGGER on_mestre_subscription_created
+AFTER INSERT ON public.mestre_subscriptions
+FOR EACH ROW
+EXECUTE FUNCTION public.notify_on_became_mestre();
+```
+
+---
+
+### Fase 5: Função para Verificar Expiração de Planos
+
+Esta função será chamada por um CRON job diário:
+
+```sql
+-- Função para verificar e notificar sobre planos expirando
+CREATE OR REPLACE FUNCTION public.check_mestre_plan_expirations()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  sub RECORD;
+  days_remaining INTEGER;
+  notification_type TEXT;
+  notification_title TEXT;
+  notification_message TEXT;
+  already_notified BOOLEAN;
+BEGIN
+  -- Buscar todas as assinaturas ativas
+  FOR sub IN 
+    SELECT 
+      ms.id as subscription_id,
+      ms.user_id,
+      ms.expires_at,
+      mp.name as plan_name,
+      mp.plan_type
+    FROM public.mestre_subscriptions ms
+    JOIN public.mestre_plans mp ON ms.plan_id = mp.id
+    WHERE ms.expires_at > now()
+  LOOP
+    days_remaining := EXTRACT(DAY FROM (sub.expires_at - now()));
+    
+    -- Determinar tipo de notificação baseado nos dias
+    IF days_remaining = 30 THEN
+      notification_type := 'plan_expiring_30';
+      notification_title := 'Seu plano expira em 30 dias';
+      notification_message := 'Renove seu plano ' || sub.plan_name || ' para continuar aproveitando os benefícios!';
+    ELSIF days_remaining = 15 THEN
+      notification_type := 'plan_expiring_15';
+      notification_title := 'Seu plano expira em 15 dias';
+      notification_message := 'Não esqueça de renovar seu plano ' || sub.plan_name || '!';
+    ELSIF days_remaining = 7 THEN
+      notification_type := 'plan_expiring_7';
+      notification_title := 'Seu plano expira em 7 dias!';
+      notification_message := 'Seu plano ' || sub.plan_name || ' expira em breve. Renove agora!';
+    ELSIF days_remaining = 1 THEN
+      notification_type := 'plan_expiring_1';
+      notification_title := 'Seu plano expira AMANHÃ!';
+      notification_message := 'Último dia para renovar seu plano ' || sub.plan_name || '!';
+    ELSE
+      CONTINUE;
+    END IF;
+    
+    -- Verificar se já notificou hoje para este tipo
+    SELECT EXISTS (
+      SELECT 1 FROM public.notifications 
+      WHERE user_id = sub.user_id 
+      AND type = notification_type
+      AND data->>'subscription_id' = sub.subscription_id::text
+    ) INTO already_notified;
+    
+    IF NOT already_notified THEN
+      PERFORM public.create_notification(
+        sub.user_id,
+        notification_type,
+        notification_title,
+        notification_message,
+        jsonb_build_object(
+          'subscription_id', sub.subscription_id,
+          'plan_type', sub.plan_type,
+          'days_remaining', days_remaining,
+          'expires_at', sub.expires_at
+        )
+      );
+    END IF;
+  END LOOP;
+  
+  -- Verificar planos que expiraram hoje
+  FOR sub IN 
+    SELECT 
+      ms.id as subscription_id,
+      ms.user_id,
+      ms.expires_at,
+      mp.name as plan_name
+    FROM public.mestre_subscriptions ms
+    JOIN public.mestre_plans mp ON ms.plan_id = mp.id
+    WHERE ms.expires_at <= now()
+    AND ms.expires_at > now() - INTERVAL '1 day'
+  LOOP
+    -- Verificar se já notificou
+    SELECT EXISTS (
+      SELECT 1 FROM public.notifications 
+      WHERE user_id = sub.user_id 
+      AND type = 'plan_expired'
+      AND data->>'subscription_id' = sub.subscription_id::text
+    ) INTO already_notified;
+    
+    IF NOT already_notified THEN
+      PERFORM public.create_notification(
+        sub.user_id,
+        'plan_expired',
+        'Seu plano expirou',
+        'Seu plano ' || sub.plan_name || ' expirou. Renove para continuar criando bolões!',
+        jsonb_build_object(
+          'subscription_id', sub.subscription_id,
+          'expired_at', sub.expires_at
+        )
+      );
+    END IF;
+  END LOOP;
+END;
+$$;
+```
+
+---
+
+### Fase 6: Configurar CRON Job
+
+Agendar a função para rodar diariamente às 9:00 da manhã:
+
+```sql
+-- Habilitar extensões necessárias (se não estiverem)
+-- CREATE EXTENSION IF NOT EXISTS pg_cron;
+-- CREATE EXTENSION IF NOT EXISTS pg_net;
+
+-- Agendar verificação diária de expiração
+SELECT cron.schedule(
+  'check-mestre-plan-expirations',
+  '0 9 * * *',  -- Todo dia às 9:00 AM
+  $$SELECT public.check_mestre_plan_expirations()$$
+);
+```
+
+---
+
+### Resumo das Alterações
+
+| Componente | Alteração |
+|------------|-----------|
+| `use-notifications.ts` | Adicionar 8 novos tipos de notificação |
+| `NotificationItem.tsx` | Adicionar ícones e cores para novos tipos |
+| Migração SQL | Trigger para `invitation_accepted` e `invitation_rejected` |
+| Migração SQL | Trigger para `became_mestre` (nova assinatura) |
+| Migração SQL | Função `check_mestre_plan_expirations()` |
+| CRON (via insert) | Agendar verificação diária de planos |
+
+---
+
+### Fluxo de Notificações
+
 ```text
-┌──────────────────────────────────────┐
-│  🔔                                  │
-│  ├── Badge: número de não lidas      │
-│  └── Dropdown ao clicar:             │
-│      ┌─────────────────────────────┐ │
-│      │ Notificações           ✓All │ │
-│      ├─────────────────────────────┤ │
-│      │ 📧 Convite para Copa 2025   │ │
-│      │    de @zapions • há 5min    │ │
-│      ├─────────────────────────────┤ │
-│      │ ⭐ Nova sugestão Zapions    │ │
-│      │    Brasileirão 2026 • 1h    │ │
-│      ├─────────────────────────────┤ │
-│      │ 📊 Placares atualizados     │ │
-│      │    Copa Zapions • 2h        │ │
-│      └─────────────────────────────┘ │
-└──────────────────────────────────────┘
+CONVITE ACEITO/RECUSADO
+pool_invitations UPDATE (status: pending -> accepted/rejected)
+         |
+         v
+  on_invitation_response trigger
+         |
+         v
+  Notifica INVITER com resultado
+
+NOVO MESTRE
+mestre_subscriptions INSERT
+         |
+         v
+  on_mestre_subscription_created trigger
+         |
+         v
+  Notifica usuário com boas-vindas
+
+EXPIRAÇÃO DE PLANO
+CRON diário às 9:00
+         |
+         v
+  check_mestre_plan_expirations()
+         |
+         +---> 30 dias: plan_expiring_30
+         +---> 15 dias: plan_expiring_15
+         +---> 7 dias: plan_expiring_7
+         +---> 1 dia: plan_expiring_1
+         +---> 0 dias: plan_expired
 ```
-
-**Mobile:**
-- Sino aparece junto aos outros ícones
-- Toque abre sheet/drawer com lista completa
-
----
-
-### Arquivos a Criar/Modificar
-
-| Arquivo | Ação |
-|---------|------|
-| `supabase/migrations/notifications.sql` | Criar tabela e triggers |
-| `src/hooks/use-notifications.ts` | Hook para gerenciar notificações |
-| `src/components/notifications/NotificationBell.tsx` | Ícone com badge |
-| `src/components/notifications/NotificationDropdown.tsx` | Lista de notificações |
-| `src/components/notifications/NotificationItem.tsx` | Item individual |
-| `src/components/layout/Navbar.tsx` | Integrar NotificationBell |
-
----
-
-### Ícones por Tipo de Notificação
-
-| Tipo | Ícone | Cor |
-|------|-------|-----|
-| invitation_received | Mail | primary |
-| message_received | MessageSquare | blue |
-| round_updated | Calendar | green |
-| new_suggestion | Star | yellow |
-| plan_expiring | AlertTriangle | orange |
-| new_participant | UserPlus | green |
-| moderator_action | Shield | purple |
-| scores_updated | Trophy | primary |
 
 ---
 
 ### Exemplos de Notificações
 
-**Convite Recebido:**
+**Convite Aceito:**
 ```json
 {
-  "type": "invitation_received",
-  "title": "Convite para bolão",
-  "message": "zapions convidou você para Copa 2025",
-  "data": { "pool_id": "...", "inviter_name": "zapions" }
+  "type": "invitation_accepted",
+  "title": "Convite aceito!",
+  "message": "joaosilva aceitou seu convite para Copa 2025",
+  "data": { "pool_id": "...", "invitee_name": "joaosilva" }
 }
 ```
 
-**Plano Expirando (Mestre):**
+**Novo Mestre:**
 ```json
 {
-  "type": "plan_expiring",
-  "title": "Seu plano vence em breve",
-  "message": "Seu plano Mestre expira em 28 dias. Renove para continuar!",
-  "data": { "days_remaining": 28, "plan_type": "intermediario" }
+  "type": "became_mestre",
+  "title": "Parabéns! Você é Mestre do Bolão!",
+  "message": "Seu plano Intermediário está ativo. Aproveite todos os benefícios!",
+  "data": { "plan_type": "intermediario", "expires_at": "..." }
 }
 ```
 
-**Novo Participante (Mestre):**
+**Plano Expirando (7 dias):**
 ```json
 {
-  "type": "new_participant",
-  "title": "Novo participante",
-  "message": "joaosilva entrou no seu bolão Copa 2025",
-  "data": { "pool_id": "...", "participant_name": "joaosilva" }
+  "type": "plan_expiring_7",
+  "title": "Seu plano expira em 7 dias!",
+  "message": "Seu plano Supremo expira em breve. Renove agora!",
+  "data": { "days_remaining": 7, "plan_type": "supremo" }
 }
 ```
 
----
+**Plano Expirado:**
+```json
+{
+  "type": "plan_expired",
+  "title": "Seu plano expirou",
+  "message": "Seu plano Intermediário expirou. Renove para continuar criando bolões!",
+  "data": { "expired_at": "..." }
+}
+```
 
-### Comportamento Esperado
-
-1. **Ao receber notificação:** Badge aparece/atualiza no sino
-2. **Ao clicar no sino:** Dropdown abre com lista recente
-3. **Ao clicar em notificação:** Marca como lida e navega (se aplicável)
-4. **"Marcar todas como lidas":** Limpa o badge
-5. **Realtime:** Novas notificações aparecem instantaneamente
-
----
-
-### Considerações de Performance
-
-- Limitar dropdown a 10 notificações mais recentes
-- Paginação para página completa de notificações
-- Índices no banco: `user_id`, `is_read`, `created_at`
-- Subscription realtime filtrada por `user_id`
