@@ -48,11 +48,13 @@ import {
   ArrowLeft,
   AlertCircle,
   Sparkles,
-  Crown
+  Crown,
+  Bell
 } from 'lucide-react';
 import { LimitRequestsPanel } from '@/components/rounds/LimitRequestsPanel';
 import { SuggestedPoolsTab } from '@/components/admin/SuggestedPoolsTab';
 import { AssignMestrePlanDialog } from '@/components/admin/AssignMestrePlanDialog';
+import { CreateNotificationForm } from '@/components/admin/CreateNotificationForm';
 import { formatDateTimeBR, formatDateBR } from '@/lib/date-utils';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -383,7 +385,7 @@ export default function Admin() {
         </div>
 
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
+          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-flex">
             <TabsTrigger value="users" className="gap-2">
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Usuários</span>
@@ -399,6 +401,10 @@ export default function Admin() {
             <TabsTrigger value="approvals" className="gap-2">
               <AlertCircle className="h-4 w-4" />
               <span className="hidden sm:inline">Aprovações</span>
+            </TabsTrigger>
+            <TabsTrigger value="notifications" className="gap-2">
+              <Bell className="h-4 w-4" />
+              <span className="hidden sm:inline">Notificações</span>
             </TabsTrigger>
             <TabsTrigger value="logs" className="gap-2">
               <FileText className="h-4 w-4" />
@@ -645,6 +651,24 @@ export default function Admin() {
           {/* Approvals Tab */}
           <TabsContent value="approvals" className="space-y-6">
             <LimitRequestsPanel />
+          </TabsContent>
+
+          {/* Notifications Tab */}
+          <TabsContent value="notifications" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bell className="h-5 w-5" />
+                  Criar Notificação
+                </CardTitle>
+                <CardDescription>
+                  Envie notificações personalizadas para grupos de usuários
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <CreateNotificationForm />
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Logs Tab */}
