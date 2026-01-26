@@ -15,6 +15,7 @@ interface QuizQuestion {
   option_d: string | null;
   option_e: string | null;
   correct_answer: string | null;
+  is_hidden?: boolean;
 }
 
 interface QuizAnswer {
@@ -105,7 +106,10 @@ export function QuizCarouselView({
       )}>
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
-            <CardTitle className="text-base md:text-lg font-medium">
+            <CardTitle className={cn(
+              "text-base md:text-lg font-medium",
+              previewMode && question.is_hidden && "blur-sm select-none"
+            )}>
               {currentIndex + 1}. {question.question_text}
             </CardTitle>
             {showResultForQuestion && (
@@ -116,6 +120,11 @@ export function QuizCarouselView({
               )
             )}
           </div>
+          {previewMode && question.is_hidden && (
+            <p className="text-center text-sm text-muted-foreground mt-2">
+              Esta pergunta está oculta. Participe do quiz para visualizá-la!
+            </p>
+          )}
         </CardHeader>
         <CardContent>
           {previewMode ? (

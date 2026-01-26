@@ -78,6 +78,7 @@ interface QuizQuestion {
   option_d: string | null;
   option_e: string | null;
   correct_answer: string | null;
+  is_hidden?: boolean;
 }
 
 interface QuizAnswer {

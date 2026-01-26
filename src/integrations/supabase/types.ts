@@ -574,6 +574,7 @@ export type Database = {
           correct_answer: string | null
           created_at: string
           id: string
+          is_hidden: boolean | null
           option_a: string
           option_b: string
           option_c: string | null
@@ -588,6 +589,7 @@ export type Database = {
           correct_answer?: string | null
           created_at?: string
           id?: string
+          is_hidden?: boolean | null
           option_a: string
           option_b: string
           option_c?: string | null
@@ -602,6 +604,7 @@ export type Database = {
           correct_answer?: string | null
           created_at?: string
           id?: string
+          is_hidden?: boolean | null
           option_a?: string
           option_b?: string
           option_c?: string | null
