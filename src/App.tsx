@@ -15,6 +15,9 @@ import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
 import MestreDoBolao from "./pages/MestreDoBolao";
+import Quiz10 from "./pages/Quiz10";
+import QuizDetail from "./pages/QuizDetail";
+import QuizManage from "./pages/QuizManage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +37,9 @@ const App = () => (
               <Route path="/pools" element={<Pools />} />
               <Route path="/pools/:id" element={<PoolDetail />} />
               <Route path="/pools/:id/manage" element={<PoolManage />} />
+              <Route path="/quiz" element={<Quiz10 />} />
+              <Route path="/quiz/:id" element={<QuizDetail />} />
+              <Route path="/quiz/:id/manage" element={<QuizManage />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/admin" element={<Admin />} />

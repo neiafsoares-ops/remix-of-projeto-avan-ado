@@ -89,6 +89,9 @@ export function Navbar() {
           <Link to="/pools" className="text-muted-foreground hover:text-foreground transition-colors">
             Bolões
           </Link>
+          <Link to="/quiz" className="text-muted-foreground hover:text-foreground transition-colors">
+            Quiz 10
+          </Link>
           {user && (
             <Link to="/my-predictions" className="text-muted-foreground hover:text-foreground transition-colors">
               Meus Palpites
@@ -196,6 +199,13 @@ export function Navbar() {
               onClick={() => setMobileMenuOpen(false)}
             >
               Bolões
+            </Link>
+            <Link
+              to="/quiz"
+              className="px-4 py-2 rounded-lg hover:bg-muted transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Quiz 10
             </Link>
             {user && (
               <>
