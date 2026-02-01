@@ -27,6 +27,17 @@ export default function TorcidaMestre() {
       
       if (poolsError) throw poolsError;
       
+      // Fetch participant counts for all pools
+      const { data: participantCounts } = await supabase
+        .from('torcida_mestre_participants')
+        .select('pool_id, status')
+        .eq('status', 'active');
+      
+      const countMap = new Map<string, number>();
+      (participantCounts || []).forEach(p => {
+        countMap.set(p.pool_id, (countMap.get(p.pool_id) || 0) + 1);
+      });
+      
       // Fetch rounds for each pool
       const poolsWithRounds = await Promise.all(
         (poolsData || []).map(async (pool) => {
@@ -47,6 +58,7 @@ export default function TorcidaMestre() {
             rounds: rounds || [],
             current_round: currentRound,
             total_accumulated: totalAccumulated,
+            participants_count: countMap.get(pool.id) || 0,
           } as TorcidaMestrePoolWithRounds;
         })
       );

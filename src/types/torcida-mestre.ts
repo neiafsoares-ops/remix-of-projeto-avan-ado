@@ -74,4 +74,5 @@ export interface TorcidaMestrePoolWithRounds extends TorcidaMestrePool {
   rounds: TorcidaMestreRound[];
   current_round?: TorcidaMestreRound;
   total_accumulated?: number;
+  participants_count?: number;
 }

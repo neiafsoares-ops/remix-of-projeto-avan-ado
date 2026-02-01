@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,12 @@ export function TorcidaMestreRoundCard({
   const [homeScore, setHomeScore] = useState<string>(userPrediction?.home_score?.toString() ?? '');
   const [awayScore, setAwayScore] = useState<string>(userPrediction?.away_score?.toString() ?? '');
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Sincronizar estado quando userPrediction mudar (ex: após aprovação)
+  useEffect(() => {
+    setHomeScore(userPrediction?.home_score?.toString() ?? '');
+    setAwayScore(userPrediction?.away_score?.toString() ?? '');
+  }, [userPrediction]);
   
   const deadlinePassed = isPast(new Date(round.prediction_deadline));
   const matchDate = new Date(round.match_date);
