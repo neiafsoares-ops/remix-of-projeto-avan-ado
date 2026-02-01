@@ -45,10 +45,12 @@ import {
   Users,
   CalendarIcon,
   Clock,
-  EyeOff
+  EyeOff,
+  UserPlus
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { InviteQuizParticipantInline } from '@/components/quiz/InviteQuizParticipantInline';
 
 interface Quiz {
   id: string;
@@ -81,6 +83,16 @@ interface QuizQuestion {
   is_hidden: boolean;
 }
 
+interface QuizParticipant {
+  id: string;
+  user_id: string;
+  ticket_number: number;
+  total_points: number;
+  status: string;
+  public_id?: string;
+  full_name?: string | null;
+}
+
 export default function QuizManage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -93,6 +105,7 @@ export default function QuizManage() {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [participants, setParticipants] = useState<QuizParticipant[]>([]);
 
   // New round dialog
   const [newRoundOpen, setNewRoundOpen] = useState(false);
@@ -164,6 +177,9 @@ export default function QuizManage() {
 
       // Buscar rodadas
       await fetchRounds();
+      
+      // Buscar participantes
+      await fetchParticipants();
 
     } catch (error) {
       console.error('Error:', error);
@@ -184,6 +200,37 @@ export default function QuizManage() {
     if (roundsData && roundsData.length > 0 && !selectedRound) {
       setSelectedRound(roundsData[0]);
       await fetchQuestions(roundsData[0].id);
+    }
+  };
+
+  const fetchParticipants = async () => {
+    const { data: participantsData } = await supabase
+      .from('quiz_participants')
+      .select('id, user_id, ticket_number, total_points, status')
+      .eq('quiz_id', id)
+      .order('total_points', { ascending: false });
+
+    if (participantsData && participantsData.length > 0) {
+      const userIds = [...new Set(participantsData.map(p => p.user_id))];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, public_id, full_name')
+        .in('id', userIds);
+
+      const profilesMap = new Map((profilesData || []).map(p => [p.id, p]));
+
+      const participantsWithProfiles = participantsData.map(p => {
+        const profile = profilesMap.get(p.user_id);
+        return {
+          ...p,
+          public_id: profile?.public_id || 'Anônimo',
+          full_name: profile?.full_name || null,
+        };
+      });
+
+      setParticipants(participantsWithProfiles);
+    } else {
+      setParticipants([]);
     }
   };
 
@@ -504,6 +551,7 @@ export default function QuizManage() {
         <Tabs defaultValue="rounds" className="space-y-6">
           <TabsList>
             <TabsTrigger value="rounds">Rodadas e Perguntas</TabsTrigger>
+            <TabsTrigger value="participants">Participantes</TabsTrigger>
             <TabsTrigger value="settings">Configurações</TabsTrigger>
           </TabsList>
 
@@ -865,6 +913,68 @@ export default function QuizManage() {
                 )}
               </div>
             </div>
+          </TabsContent>
+
+          {/* Participants Tab */}
+          <TabsContent value="participants" className="space-y-6">
+            {/* Invite Section */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <h2 className="text-xl font-semibold">Participantes ({participants.length})</h2>
+              
+              <div className="flex items-center gap-2">
+                <InviteQuizParticipantInline 
+                  quizId={id!}
+                  existingParticipants={participants}
+                  onSuccess={fetchParticipants}
+                />
+              </div>
+            </div>
+
+            {participants.length === 0 ? (
+              <Card className="text-center py-12">
+                <CardContent>
+                  <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-xl font-semibold mb-2">Nenhum participante</h3>
+                  <p className="text-muted-foreground">
+                    Ainda não há participantes neste quiz. Convide alguém!
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {participants.map((participant) => (
+                  <Card key={participant.id}>
+                    <CardContent className="py-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Users className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium">@{participant.public_id}</p>
+                            {participant.full_name && (
+                              <p className="text-sm text-muted-foreground">{participant.full_name}</p>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              Ticket #{participant.ticket_number}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="font-bold">{participant.total_points} pts</p>
+                          </div>
+                          <Badge variant={participant.status === 'active' ? 'default' : 'secondary'}>
+                            {participant.status === 'active' ? 'Ativo' : participant.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           {/* Settings Tab */}
