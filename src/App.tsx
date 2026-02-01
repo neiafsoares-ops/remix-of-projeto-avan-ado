@@ -19,6 +19,7 @@ import Quiz10 from "./pages/Quiz10";
 import QuizDetail from "./pages/QuizDetail";
 import QuizManage from "./pages/QuizManage";
 import TermsOfUse from "./pages/TermsOfUse";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="/admin" element={<Admin />} />
               <Route path="/mestre-do-bolao" element={<MestreDoBolao />} />
               <Route path="/termos-de-uso" element={<TermsOfUse />} />
+              <Route path="/privacidade" element={<PrivacyPolicy />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
