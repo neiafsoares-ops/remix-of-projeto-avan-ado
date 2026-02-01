@@ -9,9 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/hooks/use-toast';
-import { User, Mail, AtSign, Calendar, Loader2, Save, Hash } from 'lucide-react';
+import { Mail, AtSign, Calendar, Loader2, Save, Hash, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { AvatarUpload } from '@/components/AvatarUpload';
 
 interface Profile {
   id: string;
@@ -69,6 +70,27 @@ export default function Profile() {
       console.error('Error fetching profile:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAvatarChange = async (url: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ avatar_url: url })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setProfile(prev => prev ? { ...prev, avatar_url: url } : null);
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message || 'Não foi possível salvar a foto.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -130,15 +152,21 @@ export default function Profile() {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full gradient-primary flex items-center justify-center">
-                  <User className="h-8 w-8 text-primary-foreground" />
-                </div>
+                <AvatarUpload
+                  value={profile.avatar_url}
+                  onChange={handleAvatarChange}
+                  userId={user?.id || ''}
+                  fallback={profile.public_id.charAt(0).toUpperCase()}
+                />
                 <div>
                   <CardTitle className="text-2xl">@{profile.public_id}</CardTitle>
                   <CardDescription className="flex items-center gap-2 mt-1">
                     <Calendar className="h-4 w-4" />
                     Membro desde {format(new Date(profile.created_at), "MMMM 'de' yyyy", { locale: ptBR })}
                   </CardDescription>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Clique ou arraste uma imagem para alterar
+                  </p>
                 </div>
               </div>
             </CardHeader>
