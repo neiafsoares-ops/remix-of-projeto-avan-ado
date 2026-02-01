@@ -92,8 +92,7 @@ export function Navbar() {
           <Link to="/quiz" className="text-muted-foreground hover:text-foreground transition-colors">
             Quiz 10
           </Link>
-          <Link to="/torcida-mestre" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
-            <Crown className="h-4 w-4 text-amber-500" />
+          <Link to="/torcida-mestre" className="text-muted-foreground hover:text-foreground transition-colors">
             Torcida Mestre
           </Link>
           {user && (
@@ -213,10 +212,9 @@ export function Navbar() {
             </Link>
             <Link
               to="/torcida-mestre"
-              className="px-4 py-2 rounded-lg hover:bg-muted transition-colors flex items-center gap-2"
+              className="px-4 py-2 rounded-lg hover:bg-muted transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
-              <Crown className="h-4 w-4 text-amber-500" />
               Torcida Mestre
             </Link>
             {user && (

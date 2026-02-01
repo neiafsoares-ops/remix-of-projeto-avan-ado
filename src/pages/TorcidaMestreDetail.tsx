@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TorcidaMestreRoundCard } from '@/components/torcida-mestre/TorcidaMestreRoundCard';
 import { TorcidaMestreRanking } from '@/components/torcida-mestre/TorcidaMestreRanking';
-import { Crown, ArrowLeft, Settings, Trophy, Calendar, Users, Loader2 } from 'lucide-react';
+import { RequestParticipationDialog } from '@/components/torcida-mestre/RequestParticipationDialog';
+import { Crown, ArrowLeft, Settings, Trophy, Calendar, Users, Loader2, Ticket } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { formatPrize, calculateTorcidaMestreWinners, getResultMessage } from '@/lib/torcida-mestre-utils';
@@ -132,7 +133,7 @@ export default function TorcidaMestreDetail() {
     }
   }, [user]);
   
-  const handleRequestParticipation = async (roundId: string) => {
+  const handleRequestParticipation = async (roundId: string, ticketCount: number = 1) => {
     if (!user || !pool) {
       toast.error('Você precisa estar logado');
       return;
@@ -149,25 +150,26 @@ export default function TorcidaMestreDetail() {
         return;
       }
       
-      // Get next ticket number
-      const userTickets = participants.filter(
-        p => p.round_id === roundId && p.user_id === user.id
-      );
-      const nextTicket = userTickets.length + 1;
-      
-      const { error } = await supabase
-        .from('torcida_mestre_participants')
-        .insert({
+      // Create multiple tickets
+      const ticketsToCreate = [];
+      for (let i = 1; i <= ticketCount; i++) {
+        ticketsToCreate.push({
           pool_id: pool.id,
           round_id: roundId,
           user_id: user.id,
-          ticket_number: nextTicket,
+          ticket_number: i,
           status: 'pending',
+          paid_amount: pool.entry_fee * ticketCount, // Total amount for first ticket only
         });
+      }
+
+      const { error } = await supabase
+        .from('torcida_mestre_participants')
+        .insert(ticketsToCreate);
       
       if (error) throw error;
       
-      toast.success('Solicitação enviada! Aguarde aprovação do administrador.');
+      toast.success(`Solicitação de ${ticketCount} ticket(s) enviada! Aguarde aprovação do administrador.`);
       fetchData();
     } catch (error: any) {
       console.error('Error requesting participation:', error);
@@ -375,14 +377,27 @@ export default function TorcidaMestreDetail() {
                     
                     {/* Request Participation Button */}
                     {user && !userParticipant && !round.is_finished && (
-                      <Button 
-                        onClick={() => handleRequestParticipation(round.id)}
-                        className="w-full"
-                        variant="outline"
-                      >
-                        <Users className="h-4 w-4 mr-2" />
-                        Solicitar Participação
-                      </Button>
+                      <RequestParticipationDialog
+                        entryFee={pool.entry_fee}
+                        onConfirm={async (ticketCount) => {
+                          await handleRequestParticipation(round.id, ticketCount);
+                        }}
+                        trigger={
+                          <Button className="w-full" variant="outline">
+                            <Ticket className="h-4 w-4 mr-2" />
+                            Solicitar Participação
+                          </Button>
+                        }
+                      />
+                    )}
+                    
+                    {/* Show pending status */}
+                    {user && participants.find(p => p.round_id === round.id && p.user_id === user.id && p.status === 'pending') && (
+                      <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-center">
+                        <p className="text-sm text-amber-600 dark:text-amber-400">
+                          Sua solicitação está pendente de aprovação
+                        </p>
+                      </div>
                     )}
                     
                     {!user && (
