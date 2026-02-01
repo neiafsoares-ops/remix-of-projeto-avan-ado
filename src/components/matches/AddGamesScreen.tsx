@@ -24,7 +24,7 @@ import {
   AlertCircle,
   Users
 } from 'lucide-react';
-import { formatDateTimeBR, isBeforeDeadline } from '@/lib/date-utils';
+import { formatDateTimeBR, isBeforeDeadline, formatToDateTimeLocal } from '@/lib/date-utils';
 
 // Types for auto-save tracking
 interface SavedSlotData {
@@ -608,7 +608,7 @@ export function AddGamesScreen({
       if (field === 'match_date' && value) {
         const matchTime = new Date(value);
         matchTime.setMinutes(matchTime.getMinutes() - 1);
-        updated.prediction_deadline = matchTime.toISOString().slice(0, 16);
+        updated.prediction_deadline = formatToDateTimeLocal(matchTime);
       }
       
       return updated;
@@ -628,7 +628,7 @@ export function AddGamesScreen({
         if (field === 'match_date' && value) {
           const matchTime = new Date(value);
           matchTime.setMinutes(matchTime.getMinutes() - 1);
-          updated.prediction_deadline = matchTime.toISOString().slice(0, 16);
+          updated.prediction_deadline = formatToDateTimeLocal(matchTime);
         }
         
         return updated;
@@ -952,7 +952,7 @@ export function AddGamesScreen({
     if (defaultMatchDate && !defaultPredictionDeadline) {
       const matchTime = new Date(defaultMatchDate);
       matchTime.setMinutes(matchTime.getMinutes() - 1);
-      deadlineToApply = matchTime.toISOString().slice(0, 16);
+      deadlineToApply = formatToDateTimeLocal(matchTime);
     }
     
     setMatchSlots(prev => prev.map(slot => ({

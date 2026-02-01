@@ -94,3 +94,16 @@ export function isAfterDeadline(deadline: Date | string): boolean {
 export function getNowBrazil(): Date {
   return toBrazilTime(new Date());
 }
+
+/**
+ * Formata uma data para o formato datetime-local (YYYY-MM-DDTHH:mm)
+ * usando horário LOCAL (não UTC) - para uso em inputs datetime-local
+ */
+export function formatToDateTimeLocal(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
