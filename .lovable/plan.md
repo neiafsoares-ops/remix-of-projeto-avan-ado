@@ -1,67 +1,142 @@
 
-## Plano: Corrigir Auto-preenchimento do Deadline
+## Plano: Adicionar Cards Introdutivos nos Produtos
 
-### Problema Identificado
-O horário de encerramento de palpites está sendo calculado incorretamente. Quando o jogo está marcado para 17:00, o deadline mostra 19:59 em vez de 16:59.
-
-**Causa:** O código usa `toISOString().slice(0, 16)` para formatar a data, mas `toISOString()` converte para UTC (adiciona 3 horas ao horário de Brasília).
-
-**Exemplo do bug:**
-- Usuário digita: 17:00 (horário de Brasília)
-- Sistema calcula: 17:00 - 1 minuto = 16:59 (correto)
-- Sistema formata com `toISOString()`: converte para UTC = 19:59
-- Campo mostra: 19:59 (ERRADO - deveria ser 16:59)
+### Objetivo
+Replicar o card de regras/resumo do Quiz 10 para as páginas de **Bolões** e **Torcida Mestre**, cada um com seu conteúdo específico.
 
 ---
 
-### Solução
-
-Criar uma função auxiliar que formata a data para o formato `datetime-local` usando o **horário local** (não UTC):
-
-```typescript
-function formatToDateTimeLocal(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-}
+### Referência: Card existente no Quiz 10 (linhas 228-249)
+```tsx
+<Card className="mb-8 bg-gradient-to-r from-accent/10 to-primary/5 border-accent/20">
+  <CardContent className="py-4">
+    <div className="flex flex-wrap items-center gap-6 text-sm">
+      <div className="flex items-center gap-2">
+        <HelpCircle className="h-4 w-4 text-accent" />
+        <span><strong>10 perguntas</strong> por rodada</span>
+      </div>
+      ...
+    </div>
+  </CardContent>
+</Card>
 ```
 
 ---
 
-### Arquivos a Atualizar
+### 1. Card para Torcida Mestre
 
-| Arquivo | Linha | Problema |
-|---------|-------|----------|
-| `src/pages/TorcidaMestreManage.tsx` | 461 | `matchTime.toISOString().slice(0, 16)` |
-| `src/components/matches/AddGamesScreen.tsx` | 611 | `matchTime.toISOString().slice(0, 16)` |
-| `src/components/matches/AddGamesScreen.tsx` | 631 | `matchTime.toISOString().slice(0, 16)` |
-| `src/components/matches/AddGamesScreen.tsx` | 955 | `matchTime.toISOString().slice(0, 16)` |
+**Arquivo:** `src/pages/TorcidaMestre.tsx`
 
-Cada ocorrência será substituída pela nova função que usa horário local.
+**Posição:** Entre o header (linha 120) e o campo de busca (linha 123)
+
+**Conteúdo sugerido:**
+
+| Ícone | Texto |
+|-------|-------|
+| Trophy | **Palpite** no jogo do seu time |
+| Target | Válido apenas **placar exato** |
+| Users | **Tickets ilimitados** por usuário |
+| Crown | Sem vencedor? **Prêmio acumula!** |
+
+**Estilo:** Gradiente âmbar (`from-amber-500/10 to-amber-600/5 border-amber-500/20`)
 
 ---
 
-### Validação Adicional
+### 2. Card para Bolões
 
-Vou adicionar uma validação para garantir que o deadline nunca seja superior ao horário do jogo:
+**Arquivo:** `src/pages/Pools.tsx`
 
-```typescript
-// Validação: deadline não pode ser após o horário do jogo
-if (new Date(prediction_deadline) >= new Date(match_date)) {
-  toast.error('O prazo para palpites deve ser anterior ao horário do jogo');
-  return;
-}
+**Posição:** Entre o header (linha 249) e as tabs/busca (linha 251)
+
+**Conteúdo sugerido:**
+
+| Ícone | Pontos | Descrição |
+|-------|--------|-----------|
+| Trophy | **5 pontos** | Placar exato |
+| Zap | **3 pontos** | Vencedor + diferença de gols |
+| Target | **1 ponto** | Apenas vencedor |
+
+**Título:** "Esquema de pontuação inteligente"
+
+**Estilo:** Gradiente primário (`from-primary/10 to-accent/5 border-primary/20`)
+
+---
+
+### Alterações por Arquivo
+
+#### `src/pages/TorcidaMestre.tsx`
+- Importar componentes: `Card`, `CardContent` de `@/components/ui/card`
+- Importar ícones: `Trophy`, `Target`, `Users` de `lucide-react`
+- Adicionar Card entre linhas 120-123
+
+#### `src/pages/Pools.tsx`
+- Importar `Card`, `CardContent` de `@/components/ui/card` (já importados)
+- Importar ícones: `Target`, `Zap` de `lucide-react` (precisam ser adicionados)
+- Adicionar Card entre linhas 249-251
+
+---
+
+### Código do Card - Torcida Mestre
+
+```tsx
+{/* Regras do jogo */}
+<Card className="mb-8 bg-gradient-to-r from-amber-500/10 to-amber-600/5 border-amber-500/20">
+  <CardContent className="py-4">
+    <div className="flex flex-wrap items-center gap-6 text-sm">
+      <div className="flex items-center gap-2">
+        <Trophy className="h-4 w-4 text-amber-500" />
+        <span><strong>Palpite</strong> no jogo do seu time</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Target className="h-4 w-4 text-amber-500" />
+        <span>Válido apenas <strong>placar exato</strong></span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Users className="h-4 w-4 text-amber-500" />
+        <span><strong>Tickets ilimitados</strong> por usuário</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Crown className="h-4 w-4 text-amber-500" />
+        <span>Sem vencedor? <strong>Prêmio acumula!</strong></span>
+      </div>
+    </div>
+  </CardContent>
+</Card>
 ```
 
 ---
 
-### Resultado Esperado
+### Código do Card - Bolões
 
-Quando o administrador configurar:
-- Jogo: 01/02/2026 às 17:00
-- Deadline automático: 01/02/2026 às **16:59** (1 minuto antes)
+```tsx
+{/* Sistema de Pontuação */}
+<Card className="mb-8 bg-gradient-to-r from-primary/10 to-accent/5 border-primary/20">
+  <CardContent className="py-4">
+    <div className="flex flex-wrap items-center gap-6 text-sm">
+      <span className="font-medium text-primary">Esquema de pontuação:</span>
+      <div className="flex items-center gap-2">
+        <Trophy className="h-4 w-4 text-accent" />
+        <span><strong>5 pontos</strong> placar exato</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Zap className="h-4 w-4 text-emerald-500" />
+        <span><strong>3 pontos</strong> vencedor + diferença de gols</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Target className="h-4 w-4 text-blue-500" />
+        <span><strong>1 ponto</strong> apenas vencedor</span>
+      </div>
+    </div>
+  </CardContent>
+</Card>
+```
 
-O usuário ainda poderá editar manualmente o deadline, mas o sistema garantirá que nunca seja posterior ao horário do jogo.
+---
+
+### Resumo Visual
+
+| Produto | Cor Principal | Itens no Card |
+|---------|---------------|---------------|
+| Quiz 10 | Accent (laranja) | 4 itens (existente) |
+| Torcida Mestre | Amber (dourado) | 4 itens (novo) |
+| Bolões | Primary/Accent | 3 itens + título (novo) |
