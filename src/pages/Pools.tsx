@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
-import { Trophy, Users, Calendar, Plus, Loader2, ChevronRight, Globe, Lock, Search, Clock, ArrowLeft } from 'lucide-react';
+import { Trophy, Users, Calendar, Plus, Loader2, ChevronRight, Globe, Lock, Search, Clock, ArrowLeft, Target, Zap } from 'lucide-react';
 import { calculateEstimatedPrize } from '@/lib/prize-utils';
 import { PrizeDisplayCard } from '@/components/PrizeDisplayCard';
 
@@ -247,6 +247,27 @@ export default function Pools() {
             </Button>
           )}
         </div>
+
+        {/* Sistema de Pontuação */}
+        <Card className="mb-8 bg-gradient-to-r from-primary/10 to-accent/5 border-primary/20">
+          <CardContent className="py-4">
+            <div className="flex flex-wrap items-center gap-6 text-sm">
+              <span className="font-medium text-primary">Esquema de pontuação:</span>
+              <div className="flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-accent" />
+                <span><strong>5 pontos</strong> placar exato</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-emerald-500" />
+                <span><strong>3 pontos</strong> vencedor + diferença de gols</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-blue-500" />
+                <span><strong>1 ponto</strong> apenas vencedor</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Tabs e Busca */}
         <div className="space-y-4 mb-8">
