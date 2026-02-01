@@ -45,6 +45,7 @@ import {
 import { format, formatDistanceToNow, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { calculateEstimatedPrize, formatBRL } from '@/lib/prize-utils';
+import { PrizeDisplayCard } from '@/components/PrizeDisplayCard';
 
 interface Quiz {
   id: string;
@@ -514,22 +515,16 @@ export default function QuizDetail() {
 
         {/* Entry Fee Info */}
         {quiz.entry_fee > 0 && (
-          <Card className="mb-8 bg-gradient-to-r from-accent/10 to-primary/5 border-accent/20">
-            <CardContent className="py-4">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">💰 Prêmio Estimado</p>
-                    <p className="text-2xl font-bold text-accent">{formatBRL(estimatedPrize)}</p>
-                  </div>
-                  <div className="text-sm text-muted-foreground border-l pl-4">
-                    <p>ℹ️ Taxa de entrada: {formatBRL(quiz.entry_fee)}</p>
-                    <p>{participants.length} participantes × {formatBRL(quiz.entry_fee)} - {quiz.admin_fee_percent || 0}% taxa admin</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="mb-8">
+            <PrizeDisplayCard
+              entryFee={quiz.entry_fee}
+              estimatedPrize={estimatedPrize}
+              accumulatedPrize={quiz.accumulated_prize}
+            />
+            <p className="text-sm text-muted-foreground mt-2 px-1">
+              {participants.length} participantes × {formatBRL(quiz.entry_fee)} - {quiz.admin_fee_percent || 0}% taxa admin
+            </p>
+          </div>
         )}
 
         {/* Main Content */}

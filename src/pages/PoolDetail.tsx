@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import { formatDateShortBR } from '@/lib/date-utils';
 import { calculateEstimatedPrize, formatBRL, requiresApproval } from '@/lib/prize-utils';
+import { PrizeDisplayCard } from '@/components/PrizeDisplayCard';
 
 interface Pool {
   id: string;
@@ -649,38 +650,18 @@ export default function PoolDetail() {
 
                 {/* Prize Information Card - Only for pools with entry fee */}
                 {pool.entry_fee > 0 && (
-                  <div className="p-4 rounded-lg bg-accent/10 border border-accent/20 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Trophy className="h-5 w-5 text-accent" />
-                      <span className="font-semibold">Informações do Prêmio</span>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Taxa de Inscrição</p>
-                        <p className="font-semibold">{formatBRL(pool.entry_fee)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Participantes Ativos</p>
-                        <p className="font-semibold">{participants.filter(p => p.status === 'active').length}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Taxa Administrativa</p>
-                        <p className="font-semibold">{pool.admin_fee_percent || 0}%</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Prêmio Estimado</p>
-                        <p className="font-bold text-accent text-lg">
-                          {formatBRL(calculateEstimatedPrize(
-                            pool.entry_fee,
-                            participants.filter(p => p.status === 'active').length,
-                            pool.admin_fee_percent || 0
-                          ))}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Clock className="h-4 w-4" />
-                      <span>Este bolão requer aprovação do administrador para participar</span>
+                  <div className="space-y-4">
+                    <PrizeDisplayCard
+                      entryFee={pool.entry_fee}
+                      estimatedPrize={calculateEstimatedPrize(
+                        pool.entry_fee,
+                        participants.filter(p => p.status === 'active').length,
+                        pool.admin_fee_percent || 0
+                      )}
+                    />
+                    <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
+                      <span>{participants.filter(p => p.status === 'active').length} participantes ativos</span>
+                      <span>Taxa admin: {pool.admin_fee_percent || 0}%</span>
                     </div>
                   </div>
                 )}

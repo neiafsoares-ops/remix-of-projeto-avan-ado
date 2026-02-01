@@ -9,22 +9,18 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
-import { calculateEstimatedPrize, formatBRL } from '@/lib/prize-utils';
+import { calculateEstimatedPrize } from '@/lib/prize-utils';
+import { PrizeDisplayCard } from '@/components/PrizeDisplayCard';
 import { 
   HelpCircle, 
   Users, 
   Calendar, 
-  Plus, 
   Loader2, 
   ChevronRight, 
-  Globe, 
-  Lock, 
-  Search, 
   Trophy,
   Target,
-  Clock,
   Zap,
-  DollarSign
+  Search
 } from 'lucide-react';
 
 interface Quiz {
@@ -366,40 +362,16 @@ export default function Quiz10() {
                   
                   {/* Prize Info */}
                   {(quiz.entry_fee > 0 || quiz.accumulated_prize > 0) && (
-                    <div className="p-3 bg-accent/10 rounded-lg border border-accent/20 space-y-1">
-                      {quiz.entry_fee > 0 && (
-                        <>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-muted-foreground flex items-center gap-1">
-                              <Trophy className="h-4 w-4" />
-                              Prêmio estimado:
-                            </span>
-                            <span className="font-bold text-accent">
-                              {formatBRL(calculateEstimatedPrize(
-                                quiz.entry_fee,
-                                quiz.participant_count || 0,
-                                quiz.admin_fee_percent || 0
-                              ))}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground flex items-center gap-1">
-                              <DollarSign className="h-3 w-3" />
-                              Taxa de entrada:
-                            </span>
-                            <span className="font-medium">{formatBRL(quiz.entry_fee)}</span>
-                          </div>
-                        </>
+                    <PrizeDisplayCard
+                      entryFee={quiz.entry_fee}
+                      estimatedPrize={calculateEstimatedPrize(
+                        quiz.entry_fee,
+                        quiz.participant_count || 0,
+                        quiz.admin_fee_percent || 0
                       )}
-                      {quiz.accumulated_prize > 0 && quiz.entry_fee <= 0 && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">Prêmio acumulado:</span>
-                          <span className="font-bold text-accent text-lg">
-                            {formatBRL(quiz.accumulated_prize)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                      accumulatedPrize={quiz.accumulated_prize}
+                      compact
+                    />
                   )}
                   
                   <Button 
