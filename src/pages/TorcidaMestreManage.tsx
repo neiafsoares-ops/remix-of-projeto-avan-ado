@@ -22,7 +22,7 @@ import { InviteParticipantInline } from '@/components/torcida-mestre/InviteParti
 import { Crown, ArrowLeft, Plus, Save, Users, CheckCircle, XCircle, Trophy, Loader2, Calendar, UserPlus, Ticket } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
-import { formatDateTimeBR } from '@/lib/date-utils';
+import { formatDateTimeBR, formatToDateTimeLocal } from '@/lib/date-utils';
 import { formatPrize, calculateTorcidaMestreWinners, calculatePrizePerWinner } from '@/lib/torcida-mestre-utils';
 import type { 
   TorcidaMestrePool, 
@@ -458,8 +458,7 @@ export default function TorcidaMestreManage() {
                             if (matchDate) {
                               const matchTime = new Date(matchDate);
                               matchTime.setMinutes(matchTime.getMinutes() - 1);
-                              const deadlineValue = matchTime.toISOString().slice(0, 16);
-                              updated.prediction_deadline = deadlineValue;
+                              updated.prediction_deadline = formatToDateTimeLocal(matchTime);
                             }
                             return updated;
                           });
