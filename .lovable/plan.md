@@ -1,254 +1,286 @@
 
-# Plano: Implementar Torcida Mestre
+# Plano: Melhorias no Torcida Mestre
 
-## Resumo do Produto
+## Resumo das Melhorias Solicitadas
 
-O **Torcida Mestre** e um novo tipo de bolao focado em um unico time (ex: Bolao do Cruzeiro). Diferente do bolao tradicional, nao ha sistema de pontos progressivos - apenas o placar exato conta como vitoria. Se ninguem acertar ou se o time perder, o premio acumula para a proxima rodada.
+1. Notificar administrador sobre nova solicitacao de participante
+2. Notificar usuario sobre aprovacao
+3. Verificar/corrigir campo de palpite apos aprovacao
+4. Adicionar "Torcida Mestre" no menu superior (Navbar)
+5. Adicionar botao "Solicitar Participacao" ao lado de "Ver Bolao" no card
+6. Mostrar numero de participantes e estimativa de premiacao no card
 
-## Regras de Negocio
+---
 
-- Cada bolao e vinculado a um time especifico (ex: Cruzeiro, Flamengo)
-- Participante palpita apenas no jogo em que foi aprovado pelo admin (apos pagamento)
-- Vitoria = placar exato E time vencedor (a menos que empates estejam habilitados)
-- Se ninguem acertar ou time perder: premio acumula
-- Premio dividido igualmente entre vencedores
-- Multiplos tickets permitidos por participante
-- Apenas administradores podem criar boloes Torcida Mestre
+## Analise Tecnica
+
+### Problema Identificado no Campo de Palpite
+
+Analisando o codigo, identifiquei que a logica de verificacao de participante aprovado esta correta:
+
+- Linha 240-242 em `TorcidaMestreDetail.tsx`: busca participante com status `active`
+- Linha 159 em `TorcidaMestreRoundCard.tsx`: so mostra input se `isApproved && !deadlinePassed`
+
+O problema pode ser que o `userParticipant` retorna `undefined` mesmo apos aprovacao porque o estado nao esta sendo atualizado corretamente apos a aprovacao. A pagina precisa recarregar os dados ou usar realtime.
 
 ---
 
 ## Mudancas Necessarias
 
-### 1. Novas Tabelas no Banco de Dados
+### 1. Migracao de Banco de Dados - Triggers de Notificacao
+
+Criar triggers similares aos existentes para pool_participants:
 
 ```sql
--- Tabela principal dos boloes Torcida Mestre
-CREATE TABLE public.torcida_mestre_pools (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  description TEXT,
-  cover_image TEXT,
-  club_id UUID REFERENCES public.clubs(id),
-  club_name TEXT NOT NULL,
-  club_image TEXT,
-  entry_fee NUMERIC DEFAULT 0,
-  admin_fee_percent NUMERIC DEFAULT 0,
-  allow_draws BOOLEAN DEFAULT FALSE,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_by UUID REFERENCES auth.users(id),
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+-- Trigger: Notificar admins quando novo participante solicita entrada
+CREATE OR REPLACE FUNCTION public.notify_torcida_mestre_participant_request()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  pool_creator_id UUID;
+  pool_name TEXT;
+  participant_name TEXT;
+  admin_users UUID[];
+BEGIN
+  -- Get pool info
+  SELECT created_by, name INTO pool_creator_id, pool_name 
+  FROM public.torcida_mestre_pools WHERE id = NEW.pool_id;
+  
+  -- Get participant name
+  SELECT public_id INTO participant_name FROM public.profiles WHERE id = NEW.user_id;
+  
+  -- Get all admin user IDs
+  SELECT ARRAY_AGG(user_id) INTO admin_users
+  FROM public.user_roles WHERE role = 'admin';
+  
+  -- Notify all admins
+  IF admin_users IS NOT NULL THEN
+    FOR i IN 1..array_length(admin_users, 1) LOOP
+      IF admin_users[i] != NEW.user_id THEN
+        PERFORM public.create_notification(
+          admin_users[i],
+          'torcida_mestre_participant_request',
+          'Nova solicitacao - Torcida Mestre',
+          participant_name || ' solicitou participacao no ' || pool_name,
+          jsonb_build_object(
+            'pool_id', NEW.pool_id, 
+            'round_id', NEW.round_id,
+            'participant_name', participant_name,
+            'participant_id', NEW.id
+          )
+        );
+      END IF;
+    END LOOP;
+  END IF;
+  
+  RETURN NEW;
+END;
+$$;
 
--- Rodadas do Torcida Mestre
-CREATE TABLE public.torcida_mestre_rounds (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  pool_id UUID REFERENCES public.torcida_mestre_pools(id) ON DELETE CASCADE NOT NULL,
-  round_number INTEGER NOT NULL,
-  name TEXT,
-  opponent_name TEXT NOT NULL,
-  opponent_club_id UUID REFERENCES public.clubs(id),
-  opponent_image TEXT,
-  match_date TIMESTAMPTZ NOT NULL,
-  prediction_deadline TIMESTAMPTZ NOT NULL,
-  is_home BOOLEAN DEFAULT TRUE,
-  home_score INTEGER,
-  away_score INTEGER,
-  is_finished BOOLEAN DEFAULT FALSE,
-  accumulated_prize NUMERIC DEFAULT 0,
-  previous_accumulated NUMERIC DEFAULT 0,
-  entry_fee_override NUMERIC,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+CREATE TRIGGER on_torcida_mestre_participant_request
+AFTER INSERT ON public.torcida_mestre_participants
+FOR EACH ROW
+EXECUTE FUNCTION public.notify_torcida_mestre_participant_request();
 
--- Participantes por rodada (diferente do bolao comum)
-CREATE TABLE public.torcida_mestre_participants (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  pool_id UUID REFERENCES public.torcida_mestre_pools(id) ON DELETE CASCADE NOT NULL,
-  round_id UUID REFERENCES public.torcida_mestre_rounds(id) ON DELETE CASCADE NOT NULL,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  ticket_number INTEGER DEFAULT 1,
-  status TEXT DEFAULT 'pending',
-  paid_amount NUMERIC DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+-- Trigger: Notificar usuario quando aprovado
+CREATE OR REPLACE FUNCTION public.notify_torcida_mestre_participant_approved()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  pool_name TEXT;
+  round_name TEXT;
+BEGIN
+  -- Only notify when status changes from pending to active
+  IF OLD.status = 'pending' AND NEW.status = 'active' THEN
+    -- Get pool name
+    SELECT name INTO pool_name 
+    FROM public.torcida_mestre_pools WHERE id = NEW.pool_id;
+    
+    -- Get round name
+    SELECT COALESCE(name, 'Rodada ' || round_number) INTO round_name
+    FROM public.torcida_mestre_rounds WHERE id = NEW.round_id;
+    
+    PERFORM public.create_notification(
+      NEW.user_id,
+      'torcida_mestre_approved',
+      'Participacao aprovada!',
+      'Voce foi aprovado para participar do ' || pool_name || ' - ' || round_name || '. Faca seu palpite!',
+      jsonb_build_object(
+        'pool_id', NEW.pool_id,
+        'round_id', NEW.round_id,
+        'participant_id', NEW.id
+      )
+    );
+  END IF;
+  
+  RETURN NEW;
+END;
+$$;
 
--- Palpites do Torcida Mestre
-CREATE TABLE public.torcida_mestre_predictions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  round_id UUID REFERENCES public.torcida_mestre_rounds(id) ON DELETE CASCADE NOT NULL,
-  participant_id UUID REFERENCES public.torcida_mestre_participants(id) ON DELETE CASCADE NOT NULL,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  home_score INTEGER NOT NULL,
-  away_score INTEGER NOT NULL,
-  is_winner BOOLEAN DEFAULT FALSE,
-  prize_won NUMERIC DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+CREATE TRIGGER on_torcida_mestre_participant_approved
+AFTER UPDATE ON public.torcida_mestre_participants
+FOR EACH ROW
+EXECUTE FUNCTION public.notify_torcida_mestre_participant_approved();
 ```
 
-### 2. Politicas RLS
+### 2. Navbar - Adicionar Link "Torcida Mestre"
 
-```sql
--- Admins podem gerenciar tudo
--- Usuarios autenticados podem ver pools ativos
--- Participantes aprovados podem fazer palpites
+**Arquivo:** `src/components/layout/Navbar.tsx`
+
+Adicionar link no menu desktop (apos "Quiz 10") e no menu mobile:
+
+```tsx
+// Desktop (linha ~93)
+<Link to="/torcida-mestre" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+  <Crown className="h-4 w-4 text-amber-500" />
+  Torcida Mestre
+</Link>
+
+// Mobile (apos Quiz 10)
+<Link
+  to="/torcida-mestre"
+  className="px-4 py-2 rounded-lg hover:bg-muted transition-colors flex items-center gap-2"
+  onClick={() => setMobileMenuOpen(false)}
+>
+  <Crown className="h-4 w-4 text-amber-500" />
+  Torcida Mestre
+</Link>
 ```
 
-### 3. Novas Paginas e Componentes
+### 3. TorcidaMestreCard - Adicionar Botao e Infos
 
-| Arquivo | Descricao |
+**Arquivo:** `src/components/torcida-mestre/TorcidaMestreCard.tsx`
+
+Adicionar:
+- Contagem de participantes ativos
+- Estimativa de premiacao
+- Botao "Participar" ao lado de "Ver Bolao"
+
+```tsx
+// No tipo TorcidaMestrePoolWithRounds, adicionar:
+participants_count?: number;
+
+// Calcular estimativa de premiacao
+const estimatedPrize = pool.entry_fee * (pool.participants_count || 0);
+
+// Mostrar info de participantes
+<div className="flex items-center justify-between text-sm">
+  <div className="flex items-center gap-1 text-muted-foreground">
+    <Users className="h-4 w-4" />
+    <span>{pool.participants_count || 0} participantes</span>
+  </div>
+  <div className="text-sm font-medium text-amber-600">
+    Premio: {formatPrize(estimatedPrize + (pool.total_accumulated || 0))}
+  </div>
+</div>
+
+// Botoes lado a lado
+<div className="flex gap-2">
+  <Button asChild variant="outline" className="flex-1">
+    <Link to={`/torcida-mestre/${pool.id}`}>
+      Ver Bolao
+    </Link>
+  </Button>
+  <Button className="flex-1 bg-amber-500">
+    <Link to={`/torcida-mestre/${pool.id}`}>
+      Participar
+    </Link>
+  </Button>
+</div>
+```
+
+### 4. TorcidaMestre.tsx - Buscar Contagem de Participantes
+
+**Arquivo:** `src/pages/TorcidaMestre.tsx`
+
+Atualizar a query para incluir contagem de participantes:
+
+```tsx
+// Apos buscar pools, buscar contagem de participantes
+const { data: participantCounts } = await supabase
+  .from('torcida_mestre_participants')
+  .select('pool_id, status')
+  .eq('status', 'active');
+
+const countMap = new Map<string, number>();
+(participantCounts || []).forEach(p => {
+  countMap.set(p.pool_id, (countMap.get(p.pool_id) || 0) + 1);
+});
+
+// Adicionar ao pool
+poolsWithRounds.map(pool => ({
+  ...pool,
+  participants_count: countMap.get(pool.id) || 0,
+}));
+```
+
+### 5. TorcidaMestreRoundCard - Corrigir Estado do Palpite
+
+**Arquivo:** `src/components/torcida-mestre/TorcidaMestreRoundCard.tsx`
+
+O componente ja esta correto. O problema pode ser que o estado `userPrediction` nao esta sincronizado. Vou adicionar um `useEffect` para atualizar os valores do input quando `userPrediction` mudar:
+
+```tsx
+useEffect(() => {
+  setHomeScore(userPrediction?.home_score?.toString() ?? '');
+  setAwayScore(userPrediction?.away_score?.toString() ?? '');
+}, [userPrediction]);
+```
+
+---
+
+## Resumo de Arquivos a Modificar
+
+| Arquivo | Alteracao |
 |---------|-----------|
-| `src/pages/TorcidaMestre.tsx` | Lista de boloes Torcida Mestre |
-| `src/pages/TorcidaMestreDetail.tsx` | Detalhes de um bolao especifico |
-| `src/pages/TorcidaMestreManage.tsx` | Gerenciamento para admins |
-| `src/components/torcida-mestre/TorcidaMestreCard.tsx` | Card de exibicao do bolao |
-| `src/components/torcida-mestre/TorcidaMestreRoundCard.tsx` | Card da rodada com palpite |
-| `src/components/torcida-mestre/CreateTorcidaMestreDialog.tsx` | Dialog para criar bolao |
-| `src/components/torcida-mestre/TorcidaMestreRanking.tsx` | Exibicao dos vencedores |
+| `migration.sql` | Criar triggers de notificacao |
+| `src/components/layout/Navbar.tsx` | Adicionar link Torcida Mestre |
+| `src/components/torcida-mestre/TorcidaMestreCard.tsx` | Mostrar participantes, premio e botao Participar |
+| `src/pages/TorcidaMestre.tsx` | Buscar contagem de participantes |
+| `src/components/torcida-mestre/TorcidaMestreRoundCard.tsx` | Adicionar useEffect para sincronizar estado |
+| `src/types/torcida-mestre.ts` | Adicionar `participants_count` ao tipo |
 
-### 4. Atualizacoes na Pagina Inicial
+---
 
-Adicionar um novo botao/card na Hero Section:
+## Fluxo de Notificacoes
 
-```tsx
-<Button variant="outline" size="lg" asChild>
-  <Link to="/torcida-mestre">
-    <Crown className="h-4 w-4 mr-2" />
-    Torcida Mestre
-  </Link>
-</Button>
+```
+Usuario solicita participacao
+        |
+        v
+Trigger INSERT -> Notifica todos os admins
+        |
+        v
+Admin aprova no painel
+        |
+        v
+Trigger UPDATE (pending -> active) -> Notifica usuario
+        |
+        v
+Usuario recebe notificacao e pode fazer palpite
 ```
 
-### 5. Rotas no App.tsx
+---
 
+## Detalhes Tecnicos
+
+### Import Necessario na Navbar
 ```tsx
-<Route path="/torcida-mestre" element={<TorcidaMestre />} />
-<Route path="/torcida-mestre/:id" element={<TorcidaMestreDetail />} />
-<Route path="/torcida-mestre/:id/manage" element={<TorcidaMestreManage />} />
+import { Crown } from 'lucide-react';
 ```
 
-### 6. Logica de Calculo de Premio
-
+### Tipo Atualizado
 ```typescript
-// torcida-mestre-utils.ts
-export function calculateTorcidaMestreWinners(
-  round: TorcidaMestreRound,
-  predictions: TorcidaMestrePrediction[],
-  allowDraws: boolean
-) {
-  const clubWon = round.is_home 
-    ? round.home_score > round.away_score
-    : round.away_score > round.home_score;
-  
-  const isDraw = round.home_score === round.away_score;
-  
-  // Se o time perdeu, acumula
-  if (!clubWon && !(allowDraws && isDraw)) {
-    return { winners: [], shouldAccumulate: true };
-  }
-  
-  // Filtrar quem acertou placar exato
-  const winners = predictions.filter(p => 
-    p.home_score === round.home_score && 
-    p.away_score === round.away_score
-  );
-  
-  // Se ninguem acertou, acumula
-  if (winners.length === 0) {
-    return { winners: [], shouldAccumulate: true };
-  }
-  
-  return { winners, shouldAccumulate: false };
-}
-
-export function dividePrize(
-  totalPrize: number,
-  winnersCount: number,
-  adminFeePercent: number
-): number {
-  const afterFee = totalPrize * (1 - adminFeePercent / 100);
-  return afterFee / winnersCount;
+export interface TorcidaMestrePoolWithRounds extends TorcidaMestrePool {
+  rounds: TorcidaMestreRound[];
+  current_round?: TorcidaMestreRound;
+  total_accumulated?: number;
+  participants_count?: number; // NOVO
 }
 ```
-
----
-
-## Fluxo de Usuario
-
-```text
-1. Usuario acessa /torcida-mestre
-2. Ve lista de boloes por time (Cruzeiro, Flamengo, etc)
-3. Clica em um bolao e ve as rodadas disponiveis
-4. Solicita participacao em uma rodada (clica "Participar")
-5. Status fica "Pendente" ate admin aprovar (apos pagamento)
-6. Apos aprovado, pode fazer palpite ate o deadline
-7. Apos o jogo:
-   - Se time venceu E acertou placar: VENCEDOR
-   - Se time perdeu ou nao acertou: Premio acumula
-```
-
----
-
-## Interface Visual
-
-### Card do Torcida Mestre na Pagina Inicial
-- Icone: Crown (Coroa)
-- Cor destaque: Dourado/Amarelo (#F59E0B)
-- Subtitulo: "Boloes por time - Acerte o placar exato!"
-
-### Pagina de Listagem
-- Filtro por time/clube
-- Cards com escudo do time
-- Exibir premio acumulado atual
-- Badge "X vencedores na ultima rodada" ou "Premio Acumulado!"
-
-### Detalhes da Rodada
-- Escudos dos times (time do bolao vs adversario)
-- Campo de palpite (similar ao MatchCard)
-- Lista de participantes aprovados
-- Se finalizado: Lista de VENCEDORES ou "Sem vencedores - Acumulou!"
-
----
-
-## Secao Administrativa
-
-Na aba Admin, adicionar sub-aba "Torcida Mestre" com:
-
-1. **Criar Novo Bolao**
-   - Selecionar clube (autocomplete)
-   - Nome do bolao
-   - Toggle "Considerar Empate"
-
-2. **Gerenciar Rodadas**
-   - Criar rodada (adversario, data, deadline)
-   - Aprovar participantes pendentes
-   - Lancar resultado
-   - Encerrar rodada (calcular vencedores)
-   - Criar proxima rodada (carrega acumulado)
-
-3. **Relatorios**
-   - Historico de vencedores
-   - Total arrecadado/distribuido
-
----
-
-## Resumo de Arquivos a Criar/Modificar
-
-| Acao | Arquivo |
-|------|---------|
-| Criar | `src/pages/TorcidaMestre.tsx` |
-| Criar | `src/pages/TorcidaMestreDetail.tsx` |
-| Criar | `src/pages/TorcidaMestreManage.tsx` |
-| Criar | `src/components/torcida-mestre/TorcidaMestreCard.tsx` |
-| Criar | `src/components/torcida-mestre/TorcidaMestreRoundCard.tsx` |
-| Criar | `src/components/torcida-mestre/CreateTorcidaMestreDialog.tsx` |
-| Criar | `src/components/torcida-mestre/TorcidaMestreRanking.tsx` |
-| Criar | `src/lib/torcida-mestre-utils.ts` |
-| Criar | `src/types/torcida-mestre.ts` |
-| Modificar | `src/pages/Index.tsx` - Adicionar botao |
-| Modificar | `src/pages/Admin.tsx` - Adicionar aba |
-| Modificar | `src/App.tsx` - Adicionar rotas |
-| Migracao | Criar tabelas no banco |
