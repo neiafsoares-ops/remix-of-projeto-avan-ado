@@ -18,7 +18,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { ClubAutocomplete } from '@/components/ClubAutocomplete';
-import { Crown, ArrowLeft, Plus, Save, Users, CheckCircle, XCircle, Trophy, Loader2, Calendar } from 'lucide-react';
+import { InviteParticipantInline } from '@/components/torcida-mestre/InviteParticipantInline';
+import { Crown, ArrowLeft, Plus, Save, Users, CheckCircle, XCircle, Trophy, Loader2, Calendar, UserPlus, Ticket } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { formatPrize, calculateTorcidaMestreWinners, calculatePrizePerWinner } from '@/lib/torcida-mestre-utils';
@@ -586,11 +587,13 @@ export default function TorcidaMestreManage() {
           <TabsContent value="participants" className="space-y-6">
             {/* Pending */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Pendentes de Aprovação ({pendingParticipants.length})
-                </CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Pendentes de Aprovação ({pendingParticipants.length})
+                  </CardTitle>
+                </div>
               </CardHeader>
               <CardContent>
                 {pendingParticipants.length === 0 ? (
@@ -604,7 +607,13 @@ export default function TorcidaMestreManage() {
                         <div>
                           <p className="font-medium">@{p.profiles?.public_id || 'Usuário'}</p>
                           <p className="text-sm text-muted-foreground">
+                            <Ticket className="h-3 w-3 inline mr-1" />
                             Ticket #{p.ticket_number} • {rounds.find(r => r.id === p.round_id)?.name || 'Rodada'}
+                            {p.paid_amount > 0 && (
+                              <span className="ml-2 text-amber-600">
+                                ({formatPrize(p.paid_amount)})
+                              </span>
+                            )}
                           </p>
                         </div>
                         <div className="flex gap-2">
@@ -622,6 +631,30 @@ export default function TorcidaMestreManage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Invite Participant */}
+            {selectedRound && !selectedRound.is_finished && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <UserPlus className="h-5 w-5" />
+                    Convidar Participante
+                  </CardTitle>
+                  <CardDescription>
+                    Adicione participantes diretamente por username ou ID
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <InviteParticipantInline
+                    poolId={pool.id}
+                    roundId={selectedRound.id}
+                    entryFee={pool.entry_fee}
+                    existingParticipants={participants.filter(p => p.round_id === selectedRound.id)}
+                    onSuccess={fetchData}
+                  />
+                </CardContent>
+              </Card>
+            )}
             
             {/* Active */}
             <Card>

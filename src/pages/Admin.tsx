@@ -59,6 +59,7 @@ import { AssignMestrePlanDialog } from '@/components/admin/AssignMestrePlanDialo
 import { CreateNotificationForm } from '@/components/admin/CreateNotificationForm';
 import { AuditPoolsTab } from '@/components/admin/AuditPoolsTab';
 import { QuizAdminTab } from '@/components/admin/QuizAdminTab';
+import { TorcidaMestreAdminTab } from '@/components/admin/TorcidaMestreAdminTab';
 import { formatDateTimeBR, formatDateBR } from '@/lib/date-utils';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -397,7 +398,7 @@ export default function Admin() {
         </div>
 
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8 lg:w-auto lg:inline-flex">
+          <TabsList className="grid w-full grid-cols-9 lg:w-auto lg:inline-flex">
             <TabsTrigger value="users" className="gap-2">
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Usuários</span>
@@ -405,6 +406,10 @@ export default function Admin() {
             <TabsTrigger value="pools" className="gap-2">
               <Trophy className="h-4 w-4" />
               <span className="hidden sm:inline">Bolões</span>
+            </TabsTrigger>
+            <TabsTrigger value="torcida" className="gap-2">
+              <Crown className="h-4 w-4" />
+              <span className="hidden sm:inline">Torcida</span>
             </TabsTrigger>
             <TabsTrigger value="quizzes" className="gap-2">
               <Target className="h-4 w-4" />
@@ -661,6 +666,11 @@ export default function Admin() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Torcida Mestre Tab */}
+          <TabsContent value="torcida" className="space-y-6">
+            <TorcidaMestreAdminTab />
           </TabsContent>
 
           {/* Quiz Tab */}
