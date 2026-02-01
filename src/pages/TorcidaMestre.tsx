@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TorcidaMestreCard } from '@/components/torcida-mestre/TorcidaMestreCard';
 import { CreateTorcidaMestreDialog } from '@/components/torcida-mestre/CreateTorcidaMestreDialog';
-import { Crown, Search, Loader2 } from 'lucide-react';
+import { Crown, Search, Loader2, Trophy, Target, Users } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import type { TorcidaMestrePoolWithRounds } from '@/types/torcida-mestre';
@@ -114,10 +115,34 @@ export default function TorcidaMestre() {
             </div>
           </div>
           
-          {isAdmin && (
+        {isAdmin && (
             <CreateTorcidaMestreDialog onCreated={fetchPools} />
           )}
         </div>
+        
+        {/* Regras do jogo */}
+        <Card className="mb-8 bg-gradient-to-r from-amber-500/10 to-amber-600/5 border-amber-500/20">
+          <CardContent className="py-4">
+            <div className="flex flex-wrap items-center gap-6 text-sm">
+              <div className="flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-amber-500" />
+                <span><strong>Palpite</strong> no jogo do seu time</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-amber-500" />
+                <span>Válido apenas <strong>placar exato</strong></span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-amber-500" />
+                <span><strong>Tickets ilimitados</strong> por usuário</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Crown className="h-4 w-4 text-amber-500" />
+                <span>Sem vencedor? <strong>Prêmio acumula!</strong></span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
         
         {/* Search */}
         <div className="relative max-w-md mb-8">
