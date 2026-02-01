@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Card } from '@/components/ui/card';
 import { ScrollText, AlertTriangle, Star } from 'lucide-react';
@@ -19,6 +20,10 @@ const sections = [
 ];
 
 export default function TermsOfUse() {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   return (
     <Layout>
       <div className="container py-12 max-w-4xl mx-auto">
