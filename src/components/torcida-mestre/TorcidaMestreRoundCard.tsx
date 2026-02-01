@@ -51,6 +51,20 @@ export function TorcidaMestreRoundCard({
       return;
     }
     
+    // Validar se o palpite é uma vitória do clube (ou empate se permitido)
+    const clubWins = round.is_home ? home > away : away > home;
+    const isDraw = home === away;
+    
+    if (!clubWins && !isDraw) {
+      toast.error(`Você não pode apostar em derrota do ${pool.club_name}!`);
+      return;
+    }
+    
+    if (isDraw && !pool.allow_draws) {
+      toast.error('Empates não são permitidos neste bolão. Aposte em vitória do clube!');
+      return;
+    }
+    
     setIsSaving(true);
     try {
       await onSavePrediction(home, away);
