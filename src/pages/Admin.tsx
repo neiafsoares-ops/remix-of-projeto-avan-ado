@@ -379,6 +379,14 @@ export default function Admin() {
     <Layout>
       <div className="container py-8 md:py-12">
         <div className="flex items-center gap-4 mb-8">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => navigate('/dashboard')}
+            className="shrink-0"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <div className="w-12 h-12 rounded-xl bg-accent flex items-center justify-center">
             <Shield className="h-6 w-6 text-accent-foreground" />
           </div>

@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
-import { Trophy, Users, Calendar, Plus, Loader2, ChevronRight, Globe, Lock, Search, Clock } from 'lucide-react';
+import { Trophy, Users, Calendar, Plus, Loader2, ChevronRight, Globe, Lock, Search, Clock, ArrowLeft } from 'lucide-react';
 import { calculateEstimatedPrize } from '@/lib/prize-utils';
 import { PrizeDisplayCard } from '@/components/PrizeDisplayCard';
 
@@ -223,11 +223,21 @@ export default function Pools() {
     <Layout>
       <div className="container py-8 md:py-12">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold mb-2">Bolões</h1>
-            <p className="text-muted-foreground">
-              Encontre um bolão para participar ou crie o seu próprio
-            </p>
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => navigate('/dashboard')}
+              className="shrink-0"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold mb-2">Bolões</h1>
+              <p className="text-muted-foreground">
+                Encontre um bolão para participar ou crie o seu próprio
+              </p>
+            </div>
           </div>
           
           {user && (
