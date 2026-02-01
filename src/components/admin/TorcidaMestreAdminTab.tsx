@@ -11,10 +11,22 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Crown, Users, Settings, Loader2, Eye } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Crown, Users, Settings, Loader2, Eye, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrize } from '@/lib/torcida-mestre-utils';
 import { formatDateBR } from '@/lib/date-utils';
+import { useToast } from '@/hooks/use-toast';
 import type { TorcidaMestrePool } from '@/types/torcida-mestre';
 
 interface PoolWithStats extends TorcidaMestrePool {
@@ -26,7 +38,8 @@ interface PoolWithStats extends TorcidaMestrePool {
 export function TorcidaMestreAdminTab() {
   const [pools, setPools] = useState<PoolWithStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { toast } = useToast();
   const fetchPools = async () => {
     setIsLoading(true);
     try {
@@ -80,6 +93,57 @@ export function TorcidaMestreAdminTab() {
     }
   };
 
+  const handleDeletePool = async (poolId: string) => {
+    try {
+      setDeletingId(poolId);
+      
+      // Get round IDs for this pool first
+      const { data: roundsToDelete } = await supabase
+        .from('torcida_mestre_rounds')
+        .select('id')
+        .eq('pool_id', poolId);
+      
+      const roundIds = roundsToDelete?.map(r => r.id) || [];
+      
+      // Delete predictions for these rounds
+      if (roundIds.length > 0) {
+        await supabase.from('torcida_mestre_predictions')
+          .delete()
+          .in('round_id', roundIds);
+      }
+        
+      await supabase.from('torcida_mestre_participants')
+        .delete()
+        .eq('pool_id', poolId);
+        
+      await supabase.from('torcida_mestre_rounds')
+        .delete()
+        .eq('pool_id', poolId);
+        
+      const { error } = await supabase.from('torcida_mestre_pools')
+        .delete()
+        .eq('id', poolId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Bolão excluído',
+        description: 'O bolão Torcida Mestre foi excluído com sucesso.',
+      });
+
+      setPools(prev => prev.filter(p => p.id !== poolId));
+    } catch (error: any) {
+      console.error('Error deleting pool:', error);
+      toast({
+        title: 'Erro',
+        description: error.message || 'Não foi possível excluir o bolão.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   useEffect(() => {
     fetchPools();
   }, []);
@@ -87,7 +151,7 @@ export function TorcidaMestreAdminTab() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -178,6 +242,36 @@ export function TorcidaMestreAdminTab() {
                             Gerenciar
                           </Link>
                         </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir bolão?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Esta ação não pode ser desfeita. Isso excluirá permanentemente o bolão "{pool.name}", 
+                                incluindo todas as rodadas, participantes e palpites.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeletePool(pool.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                disabled={deletingId === pool.id}
+                              >
+                                {deletingId === pool.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  'Excluir'
+                                )}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </TableCell>
                   </TableRow>

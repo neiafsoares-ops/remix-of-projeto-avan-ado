@@ -25,6 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { QuizCarouselView } from '@/components/quiz/QuizCarouselView';
+import { JoinWithTicketsDialog } from '@/components/JoinWithTicketsDialog';
 import { 
   Target, 
   Users, 
@@ -267,7 +268,7 @@ export default function QuizDetail() {
     }
   };
 
-  const handleJoinQuiz = async () => {
+  const handleJoinQuiz = async (ticketCount: number = 1) => {
     if (!user) {
       navigate('/auth');
       return;
@@ -276,21 +277,27 @@ export default function QuizDetail() {
     try {
       setJoining(true);
       
-      const { error } = await supabase
-        .from('quiz_participants')
-        .insert({
-          quiz_id: id,
-          user_id: user.id,
-        });
+      // Insert tickets based on count
+      for (let i = 0; i < ticketCount; i++) {
+        const { error } = await supabase
+          .from('quiz_participants')
+          .insert({
+            quiz_id: id,
+            user_id: user.id,
+            ticket_number: i + 1,
+          });
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
       setIsParticipating(true);
       await fetchParticipants();
       
       toast({
         title: 'Sucesso!',
-        description: 'Você entrou no quiz. Boa sorte!',
+        description: ticketCount > 1 
+          ? `Você entrou no quiz com ${ticketCount} palpites. Boa sorte!`
+          : 'Você entrou no quiz. Boa sorte!',
       });
     } catch (error: any) {
       console.error('Error joining quiz:', error);
@@ -450,12 +457,26 @@ export default function QuizDetail() {
                 </Button>
               )}
               {!isParticipating && quiz.is_active && (
-                <Button variant="hero" onClick={handleJoinQuiz} disabled={joining}>
-                  {joining ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : null}
-                  Participar do Quiz
-                </Button>
+                quiz.allow_multiple_tickets ? (
+                  <JoinWithTicketsDialog
+                    entryFee={quiz.entry_fee || 0}
+                    onConfirm={handleJoinQuiz}
+                    title="Participar do Quiz"
+                    description="Informe quantos palpites você deseja fazer neste quiz."
+                    requiresApproval={(quiz.entry_fee || 0) > 0}
+                    trigger={
+                      <Button variant="hero" disabled={joining}>
+                        {joining && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                        Participar do Quiz
+                      </Button>
+                    }
+                  />
+                ) : (
+                  <Button variant="hero" onClick={() => handleJoinQuiz(1)} disabled={joining}>
+                    {joining && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    Participar do Quiz
+                  </Button>
+                )
               )}
             </div>
           </div>
@@ -586,10 +607,26 @@ export default function QuizDetail() {
                             </Button>
                           )}
                           {quiz.is_active && (
-                            <Button variant="hero" onClick={handleJoinQuiz} disabled={joining}>
-                              {joining ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                              Participar do Quiz
-                            </Button>
+                            quiz.allow_multiple_tickets ? (
+                              <JoinWithTicketsDialog
+                                entryFee={quiz.entry_fee || 0}
+                                onConfirm={handleJoinQuiz}
+                                title="Participar do Quiz"
+                                description="Informe quantos palpites você deseja fazer neste quiz."
+                                requiresApproval={(quiz.entry_fee || 0) > 0}
+                                trigger={
+                                  <Button variant="hero" disabled={joining}>
+                                    {joining && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                                    Participar do Quiz
+                                  </Button>
+                                }
+                              />
+                            ) : (
+                              <Button variant="hero" onClick={() => handleJoinQuiz(1)} disabled={joining}>
+                                {joining && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                                Participar do Quiz
+                              </Button>
+                            )
                           )}
                         </div>
                       </AlertDescription>
