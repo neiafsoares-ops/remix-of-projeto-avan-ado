@@ -271,7 +271,10 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid md:grid-cols-3 gap-4">
-                    <Card className="border-2 border-dashed hover:border-primary/50 transition-colors cursor-pointer">
+                    <Card 
+                      className="border-2 border-dashed hover:border-primary/50 transition-colors cursor-pointer"
+                      onClick={() => navigate('/pools')}
+                    >
                       <CardContent className="py-6 text-center">
                         <Trophy className="h-8 w-8 mx-auto mb-2 text-primary" />
                         <h4 className="font-semibold">Gerenciar Jogos</h4>
@@ -281,7 +284,10 @@ export default function Dashboard() {
                       </CardContent>
                     </Card>
                     
-                    <Card className="border-2 border-dashed hover:border-primary/50 transition-colors cursor-pointer">
+                    <Card 
+                      className="border-2 border-dashed hover:border-primary/50 transition-colors cursor-pointer"
+                      onClick={() => navigate('/pools')}
+                    >
                       <CardContent className="py-6 text-center">
                         <Users className="h-8 w-8 mx-auto mb-2 text-primary" />
                         <h4 className="font-semibold">Participantes</h4>
@@ -292,7 +298,10 @@ export default function Dashboard() {
                     </Card>
                     
                     {isAdmin && (
-                      <Card className="border-2 border-dashed hover:border-primary/50 transition-colors cursor-pointer">
+                      <Card 
+                        className="border-2 border-dashed hover:border-primary/50 transition-colors cursor-pointer"
+                        onClick={() => navigate('/admin')}
+                      >
                         <CardContent className="py-6 text-center">
                           <Trophy className="h-8 w-8 mx-auto mb-2 text-accent" />
                           <h4 className="font-semibold">Administração</h4>
