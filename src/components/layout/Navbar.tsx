@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
-import { Sun, Moon, Menu, X, User, LogOut, LayoutDashboard, Shield, Star } from 'lucide-react';
+import { Sun, Moon, Menu, X, User, LogOut, LayoutDashboard, Shield, Star, Crown } from 'lucide-react';
 import logoZapions from '@/assets/logo-zapions.png';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -91,6 +91,10 @@ export function Navbar() {
           </Link>
           <Link to="/quiz" className="text-muted-foreground hover:text-foreground transition-colors">
             Quiz 10
+          </Link>
+          <Link to="/torcida-mestre" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+            <Crown className="h-4 w-4 text-amber-500" />
+            Torcida Mestre
           </Link>
           {user && (
             <Link to="/my-predictions" className="text-muted-foreground hover:text-foreground transition-colors">
@@ -206,6 +210,14 @@ export function Navbar() {
               onClick={() => setMobileMenuOpen(false)}
             >
               Quiz 10
+            </Link>
+            <Link
+              to="/torcida-mestre"
+              className="px-4 py-2 rounded-lg hover:bg-muted transition-colors flex items-center gap-2"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <Crown className="h-4 w-4 text-amber-500" />
+              Torcida Mestre
             </Link>
             {user && (
               <>
