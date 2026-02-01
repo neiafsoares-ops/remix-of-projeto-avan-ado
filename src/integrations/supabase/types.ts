@@ -358,6 +358,7 @@ export type Database = {
           description: string | null
           entry_fee: number | null
           id: string
+          initial_prize: number | null
           is_active: boolean | null
           is_public: boolean | null
           matches_per_round: number | null
@@ -376,6 +377,7 @@ export type Database = {
           description?: string | null
           entry_fee?: number | null
           id?: string
+          initial_prize?: number | null
           is_active?: boolean | null
           is_public?: boolean | null
           matches_per_round?: number | null
@@ -394,6 +396,7 @@ export type Database = {
           description?: string | null
           entry_fee?: number | null
           id?: string
+          initial_prize?: number | null
           is_active?: boolean | null
           is_public?: boolean | null
           matches_per_round?: number | null

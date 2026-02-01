@@ -1,17 +1,16 @@
 /**
  * Calculate the estimated prize for a betting pool
- * Formula: (Entry Fee × Active Participants) - Admin Fee
+ * Formula: Initial Prize + (Entry Fee × Active Participants) - Admin Fee
  */
 export function calculateEstimatedPrize(
   entryFee: number,
   participantCount: number,
-  adminFeePercent: number = 0
+  adminFeePercent: number = 0,
+  initialPrize: number = 0
 ): number {
-  if (entryFee <= 0 || participantCount <= 0) return 0;
-  
-  const totalPool = entryFee * participantCount;
-  const adminFee = totalPool * (adminFeePercent / 100);
-  return totalPool - adminFee;
+  const totalFromFees = entryFee * participantCount;
+  const adminFee = totalFromFees * (adminFeePercent / 100);
+  return initialPrize + totalFromFees - adminFee;
 }
 
 /**
