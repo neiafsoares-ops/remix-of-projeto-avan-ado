@@ -29,6 +29,7 @@ interface MatchCardProps {
   onPredictionChange?: (homeScore: number, awayScore: number) => Promise<void>;
   isParticipant?: boolean;
   showPredictionInputs?: boolean;
+  participantId?: string;
 }
 
 export function MatchCard({
@@ -37,6 +38,7 @@ export function MatchCard({
   onPredictionChange,
   isParticipant = false,
   showPredictionInputs = true,
+  participantId,
 }: MatchCardProps) {
   const [homeScore, setHomeScore] = useState<string>(prediction?.home_score?.toString() ?? '');
   const [awayScore, setAwayScore] = useState<string>(prediction?.away_score?.toString() ?? '');

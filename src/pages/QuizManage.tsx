@@ -56,6 +56,7 @@ interface Quiz {
   description: string | null;
   accumulated_prize: number;
   is_active: boolean;
+  allow_multiple_tickets?: boolean;
 }
 
 interface QuizRound {
@@ -875,7 +876,7 @@ export default function QuizManage() {
                   Ajuste as configurações gerais do quiz.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
                 <div className="space-y-2">
                   <Label>Prêmio Acumulado</Label>
                   <p className="text-2xl font-bold text-accent">
@@ -891,6 +892,46 @@ export default function QuizManage() {
                   <Badge variant={quiz.is_active ? 'default' : 'secondary'}>
                     {quiz.is_active ? 'Ativo' : 'Inativo'}
                   </Badge>
+                </div>
+
+                {/* Allow Multiple Tickets Toggle */}
+                <div className="flex items-center justify-between p-4 rounded-lg border">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="allow-multiple-tickets" className="text-base font-medium">
+                      Permitir múltiplos palpites
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Cada participante pode ter mais de um ticket/palpite no quiz.
+                    </p>
+                  </div>
+                  <Switch
+                    id="allow-multiple-tickets"
+                    checked={quiz.allow_multiple_tickets || false}
+                    onCheckedChange={async (checked) => {
+                      try {
+                        const { error } = await supabase
+                          .from('quizzes')
+                          .update({ allow_multiple_tickets: checked })
+                          .eq('id', id);
+                        
+                        if (error) throw error;
+                        
+                        setQuiz({ ...quiz, allow_multiple_tickets: checked });
+                        toast({
+                          title: 'Configuração atualizada',
+                          description: checked 
+                            ? 'Múltiplos palpites agora são permitidos.' 
+                            : 'Apenas um palpite por participante.',
+                        });
+                      } catch (error: any) {
+                        toast({
+                          title: 'Erro',
+                          description: error.message || 'Não foi possível atualizar.',
+                          variant: 'destructive',
+                        });
+                      }
+                    }}
+                  />
                 </div>
               </CardContent>
             </Card>
