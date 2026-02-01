@@ -248,6 +248,33 @@
   .badge-identity {
     @apply bg-primary text-primary-foreground;
   }
+
+  /* Sub-quadro escuro para taxa de inscrição */
+  .prize-box-dark {
+    background: hsl(160, 18%, 10%);
+    border: 1px solid hsl(160, 15%, 20%);
+    border-radius: 12px;
+    padding: 10px 14px;
+  }
+
+  /* Sub-quadro com destaque laranja para prêmio */
+  .prize-box-highlight {
+    background: linear-gradient(135deg, hsl(21, 90%, 48%, 0.15) 0%, hsl(48, 96%, 53%, 0.1) 100%);
+    border: 2px solid hsl(21, 90%, 48%);
+    border-radius: 12px;
+    padding: 10px 14px;
+  }
+
+  /* Light mode adjustments */
+  :root .prize-box-dark {
+    background: hsl(150, 20%, 95%);
+    border: 1px solid hsl(150, 20%, 88%);
+  }
+
+  :root .prize-box-highlight {
+    background: linear-gradient(135deg, hsl(43, 96%, 56%, 0.15) 0%, hsl(38, 92%, 50%, 0.1) 100%);
+    border: 2px solid hsl(43, 96%, 56%);
+  }
 }
 
 @layer utilities {

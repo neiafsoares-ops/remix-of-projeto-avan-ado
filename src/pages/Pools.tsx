@@ -9,8 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
-import { Trophy, Users, Calendar, Plus, Loader2, ChevronRight, Globe, Lock, Search, DollarSign, Clock } from 'lucide-react';
-import { calculateEstimatedPrize, formatBRL, requiresApproval } from '@/lib/prize-utils';
+import { Trophy, Users, Calendar, Plus, Loader2, ChevronRight, Globe, Lock, Search, Clock } from 'lucide-react';
+import { calculateEstimatedPrize } from '@/lib/prize-utils';
+import { PrizeDisplayCard } from '@/components/PrizeDisplayCard';
 
 interface Pool {
   id: string;
@@ -375,31 +376,15 @@ export default function Pools() {
                   </div>
                   
                   {pool.entry_fee > 0 && (
-                    <div className="space-y-2 p-3 bg-accent/10 rounded-lg border border-accent/20">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1 text-sm">
-                          <DollarSign className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">Taxa:</span>
-                          <span className="font-semibold">
-                            {formatBRL(pool.entry_fee)}
-                          </span>
-                        </div>
-                        <Badge variant="secondary" className="text-xs">
-                          <Clock className="h-3 w-3 mr-1" />
-                          Requer Aprovação
-                        </Badge>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Prêmio estimado:</span>
-                        <span className="font-bold text-accent">
-                          {formatBRL(calculateEstimatedPrize(
-                            pool.entry_fee,
-                            pool.participant_count || 0,
-                            pool.admin_fee_percent || 0
-                          ))}
-                        </span>
-                      </div>
-                    </div>
+                    <PrizeDisplayCard
+                      entryFee={pool.entry_fee}
+                      estimatedPrize={calculateEstimatedPrize(
+                        pool.entry_fee,
+                        pool.participant_count || 0,
+                        pool.admin_fee_percent || 0
+                      )}
+                      compact
+                    />
                   )}
                   
                   <Button 
