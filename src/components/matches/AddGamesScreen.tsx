@@ -599,18 +599,40 @@ export function AddGamesScreen({
   };
   
   const updateSlot = (index: number, field: keyof MatchSlot, value: string) => {
-    setMatchSlots(prev => prev.map((slot, i) => 
-      i === index ? { ...slot, [field]: value, isModified: true } : slot
-    ));
+    setMatchSlots(prev => prev.map((slot, i) => {
+      if (i !== index) return slot;
+      
+      const updated = { ...slot, [field]: value, isModified: true };
+      
+      // Auto-fill deadline to 1 minute before match when match_date changes
+      if (field === 'match_date' && value) {
+        const matchTime = new Date(value);
+        matchTime.setMinutes(matchTime.getMinutes() - 1);
+        updated.prediction_deadline = matchTime.toISOString().slice(0, 16);
+      }
+      
+      return updated;
+    }));
   };
 
   const updateGroupSlot = (groupName: string, roundId: string, index: number, field: keyof MatchSlot, value: string) => {
     const key = `${groupName}-${roundId}`;
     setGroupMatchSlots(prev => ({
       ...prev,
-      [key]: (prev[key] || []).map((slot, i) =>
-        i === index ? { ...slot, [field]: value, isModified: true } : slot
-      )
+      [key]: (prev[key] || []).map((slot, i) => {
+        if (i !== index) return slot;
+        
+        const updated = { ...slot, [field]: value, isModified: true };
+        
+        // Auto-fill deadline to 1 minute before match when match_date changes
+        if (field === 'match_date' && value) {
+          const matchTime = new Date(value);
+          matchTime.setMinutes(matchTime.getMinutes() - 1);
+          updated.prediction_deadline = matchTime.toISOString().slice(0, 16);
+        }
+        
+        return updated;
+      })
     }));
   };
   
@@ -925,16 +947,24 @@ export function AddGamesScreen({
       return;
     }
     
+    // If match date is provided but no deadline, auto-calculate deadline
+    let deadlineToApply = defaultPredictionDeadline;
+    if (defaultMatchDate && !defaultPredictionDeadline) {
+      const matchTime = new Date(defaultMatchDate);
+      matchTime.setMinutes(matchTime.getMinutes() - 1);
+      deadlineToApply = matchTime.toISOString().slice(0, 16);
+    }
+    
     setMatchSlots(prev => prev.map(slot => ({
       ...slot,
       ...(defaultMatchDate && { match_date: defaultMatchDate }),
-      ...(defaultPredictionDeadline && { prediction_deadline: defaultPredictionDeadline }),
+      ...(deadlineToApply && { prediction_deadline: deadlineToApply }),
       isModified: true,
     })));
     
     const applied = [];
     if (defaultMatchDate) applied.push('data/hora do jogo');
-    if (defaultPredictionDeadline) applied.push('prazo para palpites');
+    if (deadlineToApply) applied.push('prazo para palpites');
     
     toast({
       title: 'Horários aplicados',

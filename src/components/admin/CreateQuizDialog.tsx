@@ -39,7 +39,7 @@ export function CreateQuizDialog({ children, onSuccess }: CreateQuizDialogProps)
     name: '',
     description: '',
     entry_fee: 0,
-    admin_fee_percent: 0,
+    admin_fee_percent: 20,
     cover_image: '',
     is_public: true,
   });

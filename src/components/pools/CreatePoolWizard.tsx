@@ -94,7 +94,7 @@ export function CreatePoolWizard({ open, onOpenChange, onSuccess, userId }: Crea
   const [rules, setRules] = useState('');
   const [entryFee, setEntryFee] = useState('0');
   const [initialPrize, setInitialPrize] = useState('0');
-  const [adminFeePercent, setAdminFeePercent] = useState(0);
+  const [adminFeePercent, setAdminFeePercent] = useState(20);
   const [maxParticipants, setMaxParticipants] = useState('');
   const [isPublic, setIsPublic] = useState(true);
 
@@ -139,7 +139,7 @@ export function CreatePoolWizard({ open, onOpenChange, onSuccess, userId }: Crea
     setRules('');
     setEntryFee('0');
     setInitialPrize('0');
-    setAdminFeePercent(0);
+    setAdminFeePercent(20);
     setMaxParticipants('');
     setIsPublic(true);
     setFormat('standard');
