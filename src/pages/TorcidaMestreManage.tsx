@@ -450,7 +450,20 @@ export default function TorcidaMestreManage() {
                       <Input
                         type="datetime-local"
                         value={newRound.match_date}
-                        onChange={(e) => setNewRound({ ...newRound, match_date: e.target.value })}
+                        onChange={(e) => {
+                          const matchDate = e.target.value;
+                          setNewRound(prev => {
+                            const updated = { ...prev, match_date: matchDate };
+                            // Auto-fill deadline to 1 minute before match
+                            if (matchDate) {
+                              const matchTime = new Date(matchDate);
+                              matchTime.setMinutes(matchTime.getMinutes() - 1);
+                              const deadlineValue = matchTime.toISOString().slice(0, 16);
+                              updated.prediction_deadline = deadlineValue;
+                            }
+                            return updated;
+                          });
+                        }}
                       />
                       {newRound.match_date && (
                         <p className="text-xs text-muted-foreground mt-1">

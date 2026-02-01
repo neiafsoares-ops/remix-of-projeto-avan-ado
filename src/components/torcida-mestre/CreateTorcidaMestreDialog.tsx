@@ -62,7 +62,7 @@ export function CreateTorcidaMestreDialog({ onCreated }: CreateTorcidaMestreDial
       club_name: '',
       club_image: '',
       entry_fee: 0,
-      admin_fee_percent: 0,
+      admin_fee_percent: 20,
       allow_draws: false,
     },
   });
