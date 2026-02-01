@@ -140,12 +140,18 @@ export default function TorcidaMestreManage() {
       return;
     }
     
-    const { data } = await supabase.rpc('has_role', {
+    // Check if user is admin or moderator
+    const { data: adminRole } = await supabase.rpc('has_role', {
       _user_id: user.id,
       _role: 'admin'
     });
     
-    if (!data) {
+    const { data: moderatorRole } = await supabase.rpc('has_role', {
+      _user_id: user.id,
+      _role: 'moderator'
+    });
+    
+    if (!adminRole && !moderatorRole) {
       navigate('/torcida-mestre');
       return;
     }
