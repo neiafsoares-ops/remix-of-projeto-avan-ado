@@ -62,7 +62,7 @@ export function Footer() {
             <h4 className="font-semibold mb-4">Legal</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>
-                <Link to="/" className="hover:text-foreground transition-colors">
+                <Link to="/termos-de-uso" className="hover:text-foreground transition-colors">
                   Termos de Uso
                 </Link>
               </li>
