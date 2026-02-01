@@ -1,3 +1,4 @@
+import React from 'react';
 import { Bell, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -85,11 +86,16 @@ export function NotificationBell() {
     </div>
   );
 
-  const BellButton = ({ asChild = false }: { asChild?: boolean }) => {
-    const ButtonComponent = asChild ? 'div' : Button;
-    
-    return (
-      <Button variant="ghost" size="icon" className="relative" aria-label="Notificações">
+  const BellButton = React.forwardRef<HTMLButtonElement, React.ComponentPropsWithoutRef<typeof Button>>(
+    (props, ref) => (
+      <Button 
+        ref={ref}
+        variant="ghost" 
+        size="icon" 
+        className="relative" 
+        aria-label="Notificações"
+        {...props}
+      >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
           <Badge 
@@ -103,8 +109,9 @@ export function NotificationBell() {
           </Badge>
         )}
       </Button>
-    );
-  };
+    )
+  );
+  BellButton.displayName = 'BellButton';
 
   if (isMobile) {
     return (
