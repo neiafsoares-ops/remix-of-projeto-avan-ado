@@ -11,7 +11,8 @@ import {
   Star,
   PlusCircle,
   UserPlus,
-  Trophy
+  Trophy,
+  Crown
 } from 'lucide-react';
 import logoZapions from '@/assets/logo-zapions.png';
 import heroBackground from '@/assets/hero-background.png';
@@ -133,6 +134,17 @@ export default function Index() {
                 <Link to="/quiz">
                   <Target className="h-4 w-4 mr-2" />
                   Quiz 10
+                </Link>
+              </Button>
+              <Button 
+                variant="outline" 
+                size="lg" 
+                asChild 
+                className="bg-amber-500/20 backdrop-blur-sm border-amber-500/50 text-white hover:bg-amber-500/30 hover:text-white"
+              >
+                <Link to="/torcida-mestre">
+                  <Crown className="h-4 w-4 mr-2" />
+                  Torcida Mestre
                 </Link>
               </Button>
             </div>
