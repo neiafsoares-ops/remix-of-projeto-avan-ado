@@ -22,6 +22,7 @@ import { UserScoreDetails } from '@/components/UserScoreDetails';
 import { RankingParticipantDetails } from '@/components/RankingParticipantDetails';
 import { RoundSummary } from '@/components/RoundSummary';
 import { CupFormatView } from '@/components/cup/CupFormatView';
+import { TicketSelector } from '@/components/TicketSelector';
 import { usePoolInvitations } from '@/hooks/use-pool-invitations';
 import { 
   Trophy, 
@@ -55,6 +56,7 @@ interface Pool {
   created_at: string;
   created_by: string | null;
   cover_image: string | null;
+  allow_multiple_tickets?: boolean;
 }
 
 interface Match {
@@ -78,6 +80,7 @@ interface Participant {
   public_id: string;
   full_name: string | null;
   numeric_id: number;
+  ticket_number: number;
 }
 
 interface Prediction {
@@ -127,6 +130,24 @@ export default function PoolDetail() {
   
   // Track notified rounds/groups to prevent duplicate notifications
   const [notifiedRounds, setNotifiedRounds] = useState<Set<string>>(new Set());
+  
+  // Ticket management
+  const [activeTicketId, setActiveTicketId] = useState<string | undefined>();
+
+  // Get user tickets from participants
+  const userTickets = useMemo(() => {
+    if (!user) return [];
+    return participants
+      .filter(p => p.user_id === user.id)
+      .sort((a, b) => a.ticket_number - b.ticket_number);
+  }, [participants, user]);
+
+  // Set active ticket when userTickets changes
+  useEffect(() => {
+    if (userTickets.length > 0 && !activeTicketId) {
+      setActiveTicketId(userTickets[0].id);
+    }
+  }, [userTickets, activeTicketId]);
 
   // Handle invite token from URL
   useEffect(() => {
@@ -287,7 +308,7 @@ export default function PoolDetail() {
       // Fetch participants (query separada)
       const { data: participantsData, error: participantsError } = await supabase
         .from('pool_participants')
-        .select('id, user_id, status, total_points')
+        .select('id, user_id, status, total_points, ticket_number')
         .eq('pool_id', id)
         .eq('status', 'active')
         .order('total_points', { ascending: false });
@@ -310,6 +331,7 @@ export default function PoolDetail() {
             public_id: profile?.public_id || 'Anônimo',
             full_name: profile?.full_name || null,
             numeric_id: profile?.numeric_id || 0,
+            ticket_number: p.ticket_number || 1,
           };
         });
         setParticipants(participantsWithProfiles);
@@ -410,8 +432,46 @@ export default function PoolDetail() {
     }
   };
 
+  const handleCreateTicket = async () => {
+    if (!user || !id || !pool?.allow_multiple_tickets) return;
+
+    try {
+      const nextNumber = userTickets.length > 0 
+        ? Math.max(...userTickets.map(t => t.ticket_number)) + 1 
+        : 1;
+
+      const { error } = await supabase
+        .from('pool_participants')
+        .insert({
+          pool_id: id,
+          user_id: user.id,
+          ticket_number: nextNumber,
+          status: 'active' as const,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Novo palpite criado!',
+        description: `Palpite #${nextNumber} criado com sucesso.`,
+      });
+
+      // Refresh data to get the new ticket
+      fetchPoolData();
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message || 'Não foi possível criar novo palpite.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handlePredictionChange = async (matchId: string, homeScore: number, awayScore: number) => {
     if (!user || userParticipation?.status !== 'active') return;
+
+    // Use active ticket if multiple tickets are allowed
+    const participantIdToUse = pool?.allow_multiple_tickets ? activeTicketId : userTickets[0]?.id;
 
     try {
       const existing = predictions[matchId];
@@ -421,7 +481,8 @@ export default function PoolDetail() {
           .from('predictions')
           .update({ home_score: homeScore, away_score: awayScore })
           .eq('match_id', matchId)
-          .eq('user_id', user.id);
+          .eq('user_id', user.id)
+          .eq('participant_id', participantIdToUse || null);
 
         if (error) throw error;
       } else {
@@ -430,6 +491,7 @@ export default function PoolDetail() {
           .insert({
             match_id: matchId,
             user_id: user.id,
+            participant_id: participantIdToUse,
             home_score: homeScore,
             away_score: awayScore,
           });
@@ -660,18 +722,32 @@ export default function PoolDetail() {
                 )}
 
                 {userParticipation?.status === 'active' && (
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <Badge variant="default" className="text-base px-4 py-2 bg-green-600">
-                      Você está participando
-                    </Badge>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setMyScoreDialogOpen(true)}
-                    >
-                      <Trophy className="h-4 w-4 mr-2" />
-                      Minha Pontuação
-                    </Button>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <Badge variant="default" className="text-base px-4 py-2 bg-green-600">
+                        Você está participando
+                      </Badge>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setMyScoreDialogOpen(true)}
+                      >
+                        <Trophy className="h-4 w-4 mr-2" />
+                        Minha Pontuação
+                      </Button>
+                    </div>
+                    
+                    {/* Ticket Selector for multiple guesses */}
+                    {pool.allow_multiple_tickets && (
+                      <TicketSelector
+                        tickets={userTickets}
+                        activeTicketId={activeTicketId}
+                        onTicketChange={setActiveTicketId}
+                        onCreateTicket={handleCreateTicket}
+                        allowMultipleTickets={pool.allow_multiple_tickets}
+                        maxTickets={10}
+                      />
+                    )}
                   </div>
                 )}
 
@@ -904,6 +980,8 @@ export default function PoolDetail() {
           participantPublicId={selectedParticipant.public_id}
           participantNumericId={selectedParticipant.numeric_id}
           totalPoints={selectedParticipant.total_points}
+          ticketNumber={selectedParticipant.ticket_number}
+          allowMultipleTickets={pool?.allow_multiple_tickets}
         />
       )}
 

@@ -316,6 +316,7 @@ export type Database = {
           id: string
           pool_id: string
           status: Database["public"]["Enums"]["participant_status"] | null
+          ticket_number: number
           total_points: number | null
           user_id: string
         }
@@ -324,6 +325,7 @@ export type Database = {
           id?: string
           pool_id: string
           status?: Database["public"]["Enums"]["participant_status"] | null
+          ticket_number?: number
           total_points?: number | null
           user_id: string
         }
@@ -332,6 +334,7 @@ export type Database = {
           id?: string
           pool_id?: string
           status?: Database["public"]["Enums"]["participant_status"] | null
+          ticket_number?: number
           total_points?: number | null
           user_id?: string
         }
@@ -348,6 +351,7 @@ export type Database = {
       pools: {
         Row: {
           admin_fee_percent: number | null
+          allow_multiple_tickets: boolean | null
           cover_image: string | null
           created_at: string
           created_by: string | null
@@ -365,6 +369,7 @@ export type Database = {
         }
         Insert: {
           admin_fee_percent?: number | null
+          allow_multiple_tickets?: boolean | null
           cover_image?: string | null
           created_at?: string
           created_by?: string | null
@@ -382,6 +387,7 @@ export type Database = {
         }
         Update: {
           admin_fee_percent?: number | null
+          allow_multiple_tickets?: boolean | null
           cover_image?: string | null
           created_at?: string
           created_by?: string | null
@@ -406,6 +412,7 @@ export type Database = {
           home_score: number
           id: string
           match_id: string
+          participant_id: string | null
           points: number | null
           points_earned: number | null
           updated_at: string
@@ -417,6 +424,7 @@ export type Database = {
           home_score: number
           id?: string
           match_id: string
+          participant_id?: string | null
           points?: number | null
           points_earned?: number | null
           updated_at?: string
@@ -428,6 +436,7 @@ export type Database = {
           home_score?: number
           id?: string
           match_id?: string
+          participant_id?: string | null
           points?: number | null
           points_earned?: number | null
           updated_at?: string
@@ -439,6 +448,13 @@ export type Database = {
             columns: ["match_id"]
             isOneToOne: false
             referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "predictions_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "pool_participants"
             referencedColumns: ["id"]
           },
         ]
@@ -481,6 +497,7 @@ export type Database = {
           created_at: string
           id: string
           is_correct: boolean | null
+          participant_id: string | null
           points_earned: number | null
           question_id: string
           quiz_id: string
@@ -492,6 +509,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_correct?: boolean | null
+          participant_id?: string | null
           points_earned?: number | null
           question_id: string
           quiz_id: string
@@ -503,6 +521,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_correct?: boolean | null
+          participant_id?: string | null
           points_earned?: number | null
           question_id?: string
           quiz_id?: string
@@ -511,6 +530,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "quiz_answers_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_participants"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "quiz_answers_question_id_fkey"
             columns: ["question_id"]
@@ -540,6 +566,7 @@ export type Database = {
           joined_at: string
           quiz_id: string
           status: string | null
+          ticket_number: number
           total_points: number | null
           user_id: string
         }
@@ -548,6 +575,7 @@ export type Database = {
           joined_at?: string
           quiz_id: string
           status?: string | null
+          ticket_number?: number
           total_points?: number | null
           user_id: string
         }
@@ -556,6 +584,7 @@ export type Database = {
           joined_at?: string
           quiz_id?: string
           status?: string | null
+          ticket_number?: number
           total_points?: number | null
           user_id?: string
         }
@@ -677,6 +706,7 @@ export type Database = {
         Row: {
           accumulated_prize: number | null
           admin_fee_percent: number | null
+          allow_multiple_tickets: boolean | null
           cover_image: string | null
           created_at: string
           created_by: string | null
@@ -691,6 +721,7 @@ export type Database = {
         Insert: {
           accumulated_prize?: number | null
           admin_fee_percent?: number | null
+          allow_multiple_tickets?: boolean | null
           cover_image?: string | null
           created_at?: string
           created_by?: string | null
@@ -705,6 +736,7 @@ export type Database = {
         Update: {
           accumulated_prize?: number | null
           admin_fee_percent?: number | null
+          allow_multiple_tickets?: boolean | null
           cover_image?: string | null
           created_at?: string
           created_by?: string | null

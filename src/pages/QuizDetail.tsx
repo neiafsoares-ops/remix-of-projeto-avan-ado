@@ -57,6 +57,7 @@ interface Quiz {
   is_active: boolean;
   created_by: string | null;
   created_at: string;
+  allow_multiple_tickets?: boolean;
 }
 
 interface QuizRound {
@@ -93,6 +94,7 @@ interface Participant {
   total_points: number;
   public_id: string;
   avatar_url: string | null;
+  ticket_number: number;
 }
 
 export default function QuizDetail() {
@@ -241,7 +243,7 @@ export default function QuizDetail() {
   const fetchParticipants = async () => {
     const { data: participantsData } = await supabase
       .from('quiz_participants')
-      .select('id, user_id, total_points')
+      .select('id, user_id, total_points, ticket_number')
       .eq('quiz_id', id)
       .order('total_points', { ascending: false });
 
@@ -257,6 +259,7 @@ export default function QuizDetail() {
         ...p,
         public_id: profiles?.find(pr => pr.id === p.user_id)?.public_id || 'Anônimo',
         avatar_url: profiles?.find(pr => pr.id === p.user_id)?.avatar_url || null,
+        ticket_number: p.ticket_number || 1,
       }));
 
       setParticipants(enrichedParticipants);

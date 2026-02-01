@@ -41,6 +41,8 @@ interface RankingParticipantDetailsProps {
   participantPublicId: string;
   participantNumericId: number;
   totalPoints: number;
+  ticketNumber?: number;
+  allowMultipleTickets?: boolean;
 }
 
 export function RankingParticipantDetails({ 
@@ -51,7 +53,9 @@ export function RankingParticipantDetails({
   participantName,
   participantPublicId,
   participantNumericId,
-  totalPoints 
+  totalPoints,
+  ticketNumber,
+  allowMultipleTickets,
 }: RankingParticipantDetailsProps) {
   const [loading, setLoading] = useState(true);
   const [rounds, setRounds] = useState<Round[]>([]);
@@ -215,6 +219,11 @@ export function RankingParticipantDetails({
             <Badge variant="outline" className="font-mono text-xs">
               ID: {String(participantNumericId).padStart(5, '0')}
             </Badge>
+            {allowMultipleTickets && ticketNumber !== undefined && (
+              <Badge variant="secondary" className="font-mono text-xs">
+                Palpite #{ticketNumber}
+              </Badge>
+            )}
             <span className="text-muted-foreground">•</span>
             <span>Detalhamento da pontuação</span>
           </DialogDescription>
