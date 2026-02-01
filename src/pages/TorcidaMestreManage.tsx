@@ -22,6 +22,7 @@ import { InviteParticipantInline } from '@/components/torcida-mestre/InviteParti
 import { Crown, ArrowLeft, Plus, Save, Users, CheckCircle, XCircle, Trophy, Loader2, Calendar, UserPlus, Ticket } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
+import { formatDateTimeBR } from '@/lib/date-utils';
 import { formatPrize, calculateTorcidaMestreWinners, calculatePrizePerWinner } from '@/lib/torcida-mestre-utils';
 import type { 
   TorcidaMestrePool, 
@@ -177,6 +178,11 @@ export default function TorcidaMestreManage() {
         ? (previousRound.accumulated_prize || 0) + (previousRound.previous_accumulated || 0)
         : 0;
       
+      // Convert local datetime-local value to proper ISO string
+      // datetime-local returns value without timezone, so we treat it as Brasília time
+      const matchDateISO = new Date(newRound.match_date).toISOString();
+      const deadlineISO = new Date(newRound.prediction_deadline).toISOString();
+      
       const { error } = await supabase
         .from('torcida_mestre_rounds')
         .insert({
@@ -186,8 +192,8 @@ export default function TorcidaMestreManage() {
           opponent_name: newRound.opponent_name,
           opponent_club_id: newRound.opponent_club_id || null,
           opponent_image: newRound.opponent_image || null,
-          match_date: newRound.match_date,
-          prediction_deadline: newRound.prediction_deadline,
+          match_date: matchDateISO,
+          prediction_deadline: deadlineISO,
           is_home: newRound.is_home,
           previous_accumulated: previousAccumulated,
         });
@@ -446,6 +452,11 @@ export default function TorcidaMestreManage() {
                         value={newRound.match_date}
                         onChange={(e) => setNewRound({ ...newRound, match_date: e.target.value })}
                       />
+                      {newRound.match_date && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Jogo: {formatDateTimeBR(new Date(newRound.match_date))}
+                        </p>
+                      )}
                     </div>
                     
                     <div>
@@ -455,6 +466,11 @@ export default function TorcidaMestreManage() {
                         value={newRound.prediction_deadline}
                         onChange={(e) => setNewRound({ ...newRound, prediction_deadline: e.target.value })}
                       />
+                      {newRound.prediction_deadline && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Prazo: {formatDateTimeBR(new Date(newRound.prediction_deadline))}
+                        </p>
+                      )}
                     </div>
                   </div>
                   
