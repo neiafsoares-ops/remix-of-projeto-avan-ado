@@ -86,14 +86,14 @@ export default function Index() {
         
         <div className="container py-16 md:py-24 lg:py-32 relative z-10">
           <div className="max-w-3xl mx-auto text-center space-y-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm text-white text-sm font-medium animate-fade-in border border-white/20">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/20 backdrop-blur-sm text-emerald-300 text-sm font-medium animate-fade-in border border-emerald-500/30">
               <Star className="h-4 w-4 fill-current" />
               A melhor plataforma de bolões esportivos
             </div>
             
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight animate-slide-up text-white drop-shadow-lg">
               Crie bolões, faça{' '}
-              <span className="text-primary">palpites</span>
+              <span className="text-[#A78BFA]">palpites</span>
               {' '}e dispute com amigos
             </h1>
             
@@ -181,7 +181,7 @@ export default function Index() {
         <div className="container">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-12">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 text-emerald-500 text-sm font-medium mb-4">
                 <Zap className="h-4 w-4" />
                 Diferencial do produto
               </div>
