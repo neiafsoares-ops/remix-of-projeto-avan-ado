@@ -13,7 +13,8 @@ import { CupFormatStep, CupFormatConfig } from './CupFormatStep';
 import { KnockoutOnlyStep, KnockoutOnlyConfig } from './KnockoutOnlyStep';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { ArrowLeft, ArrowRight, Loader2, Trophy, Layers, Award, AlertTriangle, Crown, Lock, Swords } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, Trophy, Layers, Award, AlertTriangle, Crown, Lock, Swords, HelpCircle } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNavigate } from 'react-router-dom';
 import { useMestreSubscription } from '@/hooks/use-mestre-subscription';
 import { Badge } from '@/components/ui/badge';
@@ -92,6 +93,7 @@ export function CreatePoolWizard({ open, onOpenChange, onSuccess, userId }: Crea
   const [description, setDescription] = useState('');
   const [rules, setRules] = useState('');
   const [entryFee, setEntryFee] = useState('0');
+  const [initialPrize, setInitialPrize] = useState('0');
   const [adminFeePercent, setAdminFeePercent] = useState(0);
   const [maxParticipants, setMaxParticipants] = useState('');
   const [isPublic, setIsPublic] = useState(true);
@@ -136,6 +138,7 @@ export function CreatePoolWizard({ open, onOpenChange, onSuccess, userId }: Crea
     setDescription('');
     setRules('');
     setEntryFee('0');
+    setInitialPrize('0');
     setAdminFeePercent(0);
     setMaxParticipants('');
     setIsPublic(true);
@@ -553,6 +556,7 @@ export function CreatePoolWizard({ open, onOpenChange, onSuccess, userId }: Crea
           description: description.trim() || null,
           rules: rules.trim() || null,
           entry_fee: parseFloat(entryFee) || 0,
+          initial_prize: parseFloat(initialPrize) || 0,
           admin_fee_percent: parseFloat(entryFee) > 0 ? adminFeePercent : 0,
           max_participants: maxParticipants ? parseInt(maxParticipants) : null,
           is_public: isPublic,
@@ -740,16 +744,43 @@ export function CreatePoolWizard({ open, onOpenChange, onSuccess, userId }: Crea
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="maxParticipants">Máx. Participantes</Label>
+                <div className="flex items-center gap-1.5">
+                  <Label htmlFor="initialPrize">Premiação Inicial (R$)</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p>Valor garantido pelo organizador que será somado ao total arrecadado com as taxas de inscrição. Útil para atrair participantes com um prêmio inicial atrativo.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
                 <Input
-                  id="maxParticipants"
+                  id="initialPrize"
                   type="number"
-                  min="2"
-                  value={maxParticipants}
-                  onChange={(e) => setMaxParticipants(e.target.value)}
-                  placeholder="Ilimitado"
+                  min="0"
+                  step="0.01"
+                  value={initialPrize}
+                  onChange={(e) => setInitialPrize(e.target.value)}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Valor garantido pelo organizador
+                </p>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="maxParticipants">Máx. Participantes</Label>
+              <Input
+                id="maxParticipants"
+                type="number"
+                min="2"
+                value={maxParticipants}
+                onChange={(e) => setMaxParticipants(e.target.value)}
+                placeholder="Ilimitado"
+              />
             </div>
 
             {/* Admin Fee - Only visible when entry fee > 0 */}
@@ -787,11 +818,11 @@ export function CreatePoolWizard({ open, onOpenChange, onSuccess, userId }: Crea
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm text-muted-foreground">Prêmio estimado (10 participantes):</span>
                     <span className="font-bold text-accent">
-                      R$ {((parseFloat(entryFee) * 10) * (1 - adminFeePercent / 100)).toFixed(2)}
+                      R$ {((parseFloat(initialPrize) || 0) + (parseFloat(entryFee) * 10) * (1 - adminFeePercent / 100)).toFixed(2)}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Fórmula: (Taxa × Participantes) - {adminFeePercent}% taxa administrativa
+                    Fórmula: Premiação Inicial + (Taxa × Participantes) - {adminFeePercent}% taxa administrativa
                   </p>
                 </div>
 
