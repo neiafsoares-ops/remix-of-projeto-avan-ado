@@ -1,203 +1,158 @@
 
 
-## Plano: Adicionar Opção para Ocultar Perguntas no Quiz 10
+## Plano: Criar Página de Termos de Uso
 
 ### Objetivo
 
-Permitir que o administrador marque perguntas específicas como "ocultas" durante a criação. Perguntas ocultas aparecerão com o **texto da pergunta borrado** na visualização prévia (para não-participantes), enquanto as respostas permanecem visíveis.
+Criar uma página dedicada para os Termos de Uso da Zapions, acessível através do link na aba "Legal" do Footer.
 
 ---
 
-### Situação Atual
+### Estrutura da Página
 
-- O modo preview (`previewMode=true`) já borra **todas as opções de resposta**
-- Não existe campo no banco para controlar quais perguntas devem ser ocultadas
-- O administrador não tem controle individual sobre o que mostrar/ocultar
+A página seguirá o mesmo padrão visual das outras páginas do projeto, usando o componente `Layout` e estilização consistente.
+
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│                         [Navbar]                                    │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  📜 TERMOS DE USO – ZAPIONS                                        │
+│  ────────────────────────────                                       │
+│                                                                     │
+│  Última atualização: [data]                                         │
+│                                                                     │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │ Índice (links de navegação rápida)                            │ │
+│  │ • 1. Aceitação dos Termos                                     │ │
+│  │ • 2. Objeto da Plataforma                                     │ │
+│  │ • 3. Cadastro e Elegibilidade                                 │ │
+│  │ • ... (demais seções)                                         │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                     │
+│  1. Aceitação dos Termos                                           │
+│  ─────────────────────────                                          │
+│  Ao acessar ou utilizar a plataforma Zapions, o usuário            │
+│  declara que leu, compreendeu e concorda integralmente...          │
+│                                                                     │
+│  2. Objeto da Plataforma                                           │
+│  ─────────────────────────                                          │
+│  A Zapions é uma plataforma digital destinada à criação...         │
+│                                                                     │
+│  ... (demais seções)                                               │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+│                         [Footer]                                    │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ### Alterações Necessárias
 
-#### 1. Migração de Banco de Dados
+#### 1. Criar Nova Página: `src/pages/TermsOfUse.tsx`
 
-Adicionar coluna `is_hidden` na tabela `quiz_questions`:
+Conteúdo estruturado com:
+- Cabeçalho com título e data de atualização
+- Card com índice navegável (âncoras para cada seção)
+- 13 seções formatadas com tipografia adequada
+- Cards de destaque para pontos importantes (como regras exclusivas)
 
-```sql
-ALTER TABLE quiz_questions 
-ADD COLUMN is_hidden BOOLEAN DEFAULT false;
+Seções a incluir:
+1. Aceitação dos Termos
+2. Objeto da Plataforma
+3. Cadastro e Elegibilidade
+4. Condutas Permitidas e Proibidas
+5. Campeonatos, Bolões e Taxas
+6. Palpites e Prazos
+7. Pontuação e Resultados
+8. Quizzes e Natureza Recreativa
+9. Premiações (Regra Exclusiva)
+10. Responsabilidades
+11. Suspensão e Encerramento de Contas
+12. Foro
+13. Disposições Finais
+
+---
+
+#### 2. Adicionar Rota no App.tsx
+
+```tsx
+import TermsOfUse from "./pages/TermsOfUse";
+
+// Na lista de rotas:
+<Route path="/termos-de-uso" element={<TermsOfUse />} />
 ```
 
 ---
 
-#### 2. Modificar Formulário de Criação de Pergunta (QuizManage.tsx)
+#### 3. Atualizar Link no Footer
 
-**Adicionar switch para "Ocultar Pergunta":**
-
-```text
-┌────────────────────────────────────────────────────────────────────────┐
-│                          Nova Pergunta                                  │
-├────────────────────────────────────────────────────────────────────────┤
-│                                                                        │
-│ Pergunta                                                               │
-│ [Qual time venceu a Copa do Brasil 2025?____________________]          │
-│                                                                        │
-│ ┌────────────────────────────────┐  ┌────────────────────────────────┐│
-│ │ Opção A *                      │  │ Opção B *                      ││
-│ │ [Flamengo_________]            │  │ [Palmeiras_________]           ││
-│ └────────────────────────────────┘  └────────────────────────────────┘│
-│ ...                                                                    │
-│                                                                        │
-│ ┌──────────────────────────────────────────────────────────────────┐  │
-│ │ 🙈 Ocultar Pergunta                                   [○ OFF ]   │  │
-│ │    O texto da pergunta ficará borrado para                       │  │
-│ │    quem visualizar antes de participar                           │  │
-│ └──────────────────────────────────────────────────────────────────┘  │
-│                                                                        │
-│                                        [Cancelar]  [Adicionar]        │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
-**Alterações no estado:**
+Alterar o link de "Termos de Uso" de `/` para `/termos-de-uso`:
 
 ```tsx
-const [newQuestion, setNewQuestion] = useState({
-  question_text: '',
-  option_a: '',
-  option_b: '',
-  option_c: '',
-  option_d: '',
-  option_e: '',
-  is_hidden: false, // NOVO
-});
-```
-
-**Componente Switch:**
-
-```tsx
-<div className="flex items-center justify-between p-4 border rounded-lg">
-  <div className="flex items-center gap-3">
-    <EyeOff className="h-5 w-5 text-muted-foreground" />
-    <div>
-      <p className="font-medium">Ocultar Pergunta</p>
-      <p className="text-sm text-muted-foreground">
-        O texto da pergunta ficará borrado na visualização prévia
-      </p>
-    </div>
-  </div>
-  <Switch
-    checked={newQuestion.is_hidden}
-    onCheckedChange={(checked) => setNewQuestion({ ...newQuestion, is_hidden: checked })}
-  />
-</div>
+<Link to="/termos-de-uso" className="hover:text-foreground transition-colors">
+  Termos de Uso
+</Link>
 ```
 
 ---
 
-#### 3. Atualizar Interface QuizQuestion
+### Design Visual
 
-Adicionar campo `is_hidden` na interface:
+| Elemento | Estilo |
+|----------|--------|
+| Título principal | `text-3xl md:text-4xl font-bold` |
+| Subtítulos de seção | `text-xl font-semibold` com ícone de âncora |
+| Texto | `text-muted-foreground` com boa legibilidade |
+| Índice | Card com fundo `bg-muted/30` |
+| Destaques | Cards com `border-accent` para regras exclusivas |
+| Lista de proibições | Com ícones de alerta ou bullets estilizados |
+
+---
+
+### Estrutura do Componente
 
 ```tsx
-interface QuizQuestion {
-  id: string;
-  question_number: number;
-  question_text: string;
-  option_a: string;
-  option_b: string;
-  option_c: string | null;
-  option_d: string | null;
-  option_e: string | null;
-  correct_answer: string | null;
-  is_hidden: boolean; // NOVO
+export default function TermsOfUse() {
+  return (
+    <Layout>
+      <div className="container py-12 max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <ScrollText className="h-12 w-12 mx-auto mb-4 text-primary" />
+          <h1>Termos de Uso – Zapions</h1>
+          <p>Última atualização: Fevereiro de 2026</p>
+        </div>
+
+        {/* Índice navegável */}
+        <Card className="mb-8 p-6 bg-muted/30">
+          <h2>Índice</h2>
+          <nav>
+            <ul>
+              {sections.map((section) => (
+                <li>
+                  <a href={`#section-${section.id}`}>{section.title}</a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </Card>
+
+        {/* Seções */}
+        <div className="space-y-8">
+          {sections.map((section) => (
+            <section id={`section-${section.id}`}>
+              <h2>{section.number}. {section.title}</h2>
+              <div>{section.content}</div>
+            </section>
+          ))}
+        </div>
+      </div>
+    </Layout>
+  );
 }
 ```
-
----
-
-#### 4. Indicador Visual na Lista de Perguntas (QuizManage.tsx)
-
-Mostrar badge quando pergunta está oculta:
-
-```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│ 1. Qual time venceu a Copa do Brasil 2025?             [🙈 Oculta] [🗑]│
-├─────────────────────────────────────────────────────────────────────────┤
-│ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐        │
-│ │ A) Flamengo │ │ B) Palmeiras│ │ C) Corinthians│ │ D) São Paulo│       │
-│ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘        │
-│                                                                         │
-│ Resposta Correta: [Opção B ▼]                                          │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-**Código:**
-
-```tsx
-<div className="flex items-start justify-between">
-  <div className="flex items-center gap-2">
-    <CardTitle className="text-base">
-      {index + 1}. {question.question_text}
-    </CardTitle>
-    {question.is_hidden && (
-      <Badge variant="secondary" className="flex items-center gap-1">
-        <EyeOff className="h-3 w-3" />
-        Oculta
-      </Badge>
-    )}
-  </div>
-  {/* botão delete */}
-</div>
-```
-
----
-
-#### 5. Modificar QuizCarouselView.tsx
-
-Adicionar prop `is_hidden` na interface e lógica para borrar apenas perguntas marcadas:
-
-```tsx
-interface QuizQuestion {
-  // ... campos existentes
-  is_hidden?: boolean; // NOVO
-}
-
-interface QuizCarouselViewProps {
-  // ... props existentes
-  previewMode?: boolean;
-}
-```
-
-**Lógica de blur seletivo:**
-
-```tsx
-// No CardHeader - título da pergunta
-<CardTitle className={cn(
-  "text-base md:text-lg font-medium",
-  previewMode && question.is_hidden && "blur-sm select-none"
-)}>
-  {currentIndex + 1}. {question.question_text}
-</CardTitle>
-
-// Mensagem quando pergunta está oculta
-{previewMode && question.is_hidden && (
-  <p className="text-center text-sm text-muted-foreground mt-2">
-    Esta pergunta está oculta. Participe do quiz para visualizá-la!
-  </p>
-)}
-```
-
-**Comportamento no Preview Mode:**
-
-| Configuração | Texto da Pergunta | Opções de Resposta |
-|--------------|-------------------|-------------------|
-| `is_hidden: false` | Normal | Borradas (comportamento atual) |
-| `is_hidden: true` | **Borrado** | Borradas (comportamento atual) |
-
----
-
-#### 6. Atualizar QuizDetail.tsx
-
-A lógica já utiliza `QuizCarouselView` com `previewMode={true}` para não-participantes. A mudança será aplicada automaticamente após atualizar o componente.
 
 ---
 
@@ -205,69 +160,16 @@ A lógica já utiliza `QuizCarouselView` com `previewMode={true}` para não-part
 
 | Arquivo | Ação | Descrição |
 |---------|------|-----------|
-| Migração SQL | Criar | Adicionar coluna `is_hidden` em `quiz_questions` |
-| `src/pages/QuizManage.tsx` | Modificar | Adicionar Switch no formulário e badge na lista |
-| `src/pages/QuizDetail.tsx` | Modificar | Atualizar interface `QuizQuestion` |
-| `src/components/quiz/QuizCarouselView.tsx` | Modificar | Implementar blur seletivo por pergunta |
+| `src/pages/TermsOfUse.tsx` | Criar | Página completa com os Termos de Uso |
+| `src/App.tsx` | Modificar | Adicionar rota `/termos-de-uso` |
+| `src/components/layout/Footer.tsx` | Modificar | Atualizar link para `/termos-de-uso` |
 
 ---
 
-### Fluxo do Administrador
+### Acessibilidade
 
-```text
-1. Admin cria nova pergunta
-   ↓
-2. Decide se quer ocultar → Ativa switch "Ocultar Pergunta"
-   ↓
-3. Pergunta salva com is_hidden = true
-   ↓
-4. Na lista de perguntas, aparece badge "🙈 Oculta"
-   ↓
-5. Usuário não-participante visualiza preview
-   ↓
-6. Perguntas com is_hidden=true aparecem borradas
-   Perguntas com is_hidden=false aparecem normais
-   (Todas as opções de resposta permanecem borradas no preview)
-```
-
----
-
-### Visualização Comparativa
-
-**Pergunta Normal no Preview:**
-
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│ 1. Qual time venceu a Copa do Brasil 2025?                         │ ← visível
-├─────────────────────────────────────────────────────────────────────┤
-│  A) ████████████                                                    │ ← borrado
-│  B) ████████████                                                    │ ← borrado
-│  C) ████████████                                                    │ ← borrado
-│  D) ████████████                                                    │ ← borrado
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-**Pergunta Oculta no Preview:**
-
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│ 1. ██████████████████████████████████████████████?                 │ ← BORRADO
-├─────────────────────────────────────────────────────────────────────┤
-│  Esta pergunta está oculta. Participe do quiz para visualizá-la!   │
-│                                                                     │
-│  A) ████████████                                                    │ ← borrado
-│  B) ████████████                                                    │ ← borrado
-│  C) ████████████                                                    │ ← borrado
-│  D) ████████████                                                    │ ← borrado
-└─────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-### Benefícios
-
-- Administrador tem controle granular sobre o que mostrar
-- Perguntas-chave podem ser ocultadas para gerar curiosidade
-- Melhora a experiência de "teaser" antes de participar
-- Mantém consistência com o padrão existente de blur
+- Âncoras de navegação para cada seção
+- Contraste adequado para leitura
+- Estrutura semântica com headings corretos (h1, h2)
+- Responsivo para mobile
 
