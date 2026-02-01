@@ -639,28 +639,37 @@ export default function TorcidaMestreManage() {
             </Card>
 
             {/* Invite Participant */}
-            {selectedRound && !selectedRound.is_finished && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <UserPlus className="h-5 w-5" />
-                    Convidar Participante
-                  </CardTitle>
-                  <CardDescription>
-                    Adicione participantes diretamente por username ou ID
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <InviteParticipantInline
-                    poolId={pool.id}
-                    roundId={selectedRound.id}
-                    entryFee={pool.entry_fee}
-                    existingParticipants={participants.filter(p => p.round_id === selectedRound.id)}
-                    onSuccess={fetchData}
-                  />
-                </CardContent>
-              </Card>
-            )}
+            {(() => {
+              // Find the first active (non-finished) round for inviting participants
+              const activeRound = selectedRound && !selectedRound.is_finished 
+                ? selectedRound 
+                : rounds.find(r => !r.is_finished);
+              
+              if (!activeRound) return null;
+              
+              return (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <UserPlus className="h-5 w-5" />
+                      Convidar Participante
+                    </CardTitle>
+                    <CardDescription>
+                      Adicione participantes diretamente por @username ou ID numérico para a rodada "{activeRound.name || `Rodada ${activeRound.round_number}`}"
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <InviteParticipantInline
+                      poolId={pool.id}
+                      roundId={activeRound.id}
+                      entryFee={pool.entry_fee}
+                      existingParticipants={participants.filter(p => p.round_id === activeRound.id)}
+                      onSuccess={fetchData}
+                    />
+                  </CardContent>
+                </Card>
+              );
+            })()}
             
             {/* Active */}
             <Card>
