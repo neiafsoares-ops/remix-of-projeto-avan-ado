@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Card } from '@/components/ui/card';
 import { Shield, Database, Lock, Users, Cookie, Clock, UserCheck, Mail, RefreshCw, FileCheck } from 'lucide-react';
@@ -18,6 +19,10 @@ const sections = [
 ];
 
 export default function PrivacyPolicy() {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   return (
     <Layout>
       <div className="container py-12 max-w-4xl mx-auto">
