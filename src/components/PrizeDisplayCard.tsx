@@ -32,7 +32,7 @@ export function PrizeDisplayCard({
               <DollarSign className="h-3.5 w-3.5" />
               Taxa de Inscrição
             </span>
-            <span className="font-bold text-foreground">
+            <span className="font-bold text-foreground text-base">
               {formatBRL(entryFee)}
             </span>
           </div>
