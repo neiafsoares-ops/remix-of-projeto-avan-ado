@@ -47,6 +47,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, publicId: string, fullName: string) => {
+    // Verificar se o public_id já existe antes de tentar criar o usuário
+    const { data: existingUser } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('public_id', publicId)
+      .maybeSingle();
+    
+    if (existingUser) {
+      return { error: new Error('USERNAME_ALREADY_EXISTS') };
+    }
+    
     const redirectUrl = `${window.location.origin}/`;
     
     const { error } = await supabase.auth.signUp({

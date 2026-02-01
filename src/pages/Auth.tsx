@@ -104,12 +104,14 @@ export default function Auth() {
     setLoading(false);
     
     if (error) {
-      if (error.message.includes('already registered')) {
+      if (error.message === 'USERNAME_ALREADY_EXISTS') {
+        setError('Este nome de usuário já está em uso. Por favor, escolha outro.');
+      } else if (error.message.includes('already registered') || error.message.includes('User already registered')) {
         setError('Este email já está cadastrado. Tente fazer login ou recuperar sua senha.');
+      } else if (error.message.includes('duplicate key') && error.message.includes('public_id')) {
+        setError('Este nome de usuário já está em uso. Por favor, escolha outro.');
       } else if (error.message.includes('rate') || error.message.includes('429')) {
         setError('Muitas tentativas. Aguarde alguns segundos e tente novamente.');
-      } else if (error.message.includes('public_id')) {
-        setError('Este ID público já está em uso');
       } else {
         setError('Erro ao criar conta. Tente novamente.');
       }
