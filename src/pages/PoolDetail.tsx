@@ -23,6 +23,7 @@ import { RankingParticipantDetails } from '@/components/RankingParticipantDetail
 import { RoundSummary } from '@/components/RoundSummary';
 import { CupFormatView } from '@/components/cup/CupFormatView';
 import { TicketSelector } from '@/components/TicketSelector';
+import { JoinWithTicketsDialog } from '@/components/JoinWithTicketsDialog';
 import { usePoolInvitations } from '@/hooks/use-pool-invitations';
 import { 
   Trophy, 
@@ -386,7 +387,7 @@ export default function PoolDetail() {
     setShowJoinDisclaimer(true);
   };
 
-  const handleJoinPool = async () => {
+  const handleJoinPool = async (ticketCount: number = 1) => {
     setShowJoinDisclaimer(false);
     setJoining(true);
     try {
@@ -397,27 +398,35 @@ export default function PoolDetail() {
       const needsApproval = requiresApproval(pool?.entry_fee || 0, pool?.is_public ?? true);
       const initialStatus = needsApproval ? 'pending' : 'active';
       
-      const { error } = await supabase
-        .from('pool_participants')
-        .insert({
-          pool_id: id,
-          user_id: user!.id,
-          status: initialStatus,
-        });
+      // Insert tickets based on count
+      for (let i = 0; i < ticketCount; i++) {
+        const { error } = await supabase
+          .from('pool_participants')
+          .insert({
+            pool_id: id,
+            user_id: user!.id,
+            status: initialStatus,
+            ticket_number: i + 1,
+          });
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
       if (initialStatus === 'active') {
         toast({
           title: 'Sucesso!',
-          description: 'Você entrou no bolão!',
+          description: ticketCount > 1 
+            ? `Você entrou no bolão com ${ticketCount} palpites!`
+            : 'Você entrou no bolão!',
         });
       } else {
         toast({
           title: 'Solicitação enviada!',
-          description: pool?.entry_fee && pool.entry_fee > 0 
-            ? 'Este bolão possui taxa de inscrição. Aguarde a aprovação do administrador.'
-            : 'Aguarde a aprovação do administrador.',
+          description: ticketCount > 1 
+            ? `Você solicitou ${ticketCount} palpites. Aguarde a aprovação do administrador.`
+            : pool?.entry_fee && pool.entry_fee > 0 
+              ? 'Este bolão possui taxa de inscrição. Aguarde a aprovação do administrador.'
+              : 'Aguarde a aprovação do administrador.',
         });
       }
 
@@ -667,19 +676,36 @@ export default function PoolDetail() {
                 )}
 
                 {!userParticipation && (
-                  <Button 
-                    variant="hero" 
-                    className="w-full md:w-auto"
-                    onClick={handleJoinClick}
-                    disabled={joining}
-                  >
-                    {joining ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Users className="h-4 w-4 mr-2" />
-                    )}
-                    Participar deste Bolão
-                  </Button>
+                  pool.allow_multiple_tickets ? (
+                    <JoinWithTicketsDialog
+                      entryFee={pool.entry_fee || 0}
+                      onConfirm={handleJoinPool}
+                      title="Participar do Bolão"
+                      description="Informe quantos palpites você deseja fazer neste bolão."
+                      requiresApproval={requiresApproval(pool.entry_fee || 0, pool.is_public ?? true)}
+                      trigger={
+                        <Button variant="hero" className="w-full md:w-auto" disabled={joining}>
+                          {joining && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                          <Users className="h-4 w-4 mr-2" />
+                          Participar deste Bolão
+                        </Button>
+                      }
+                    />
+                  ) : (
+                    <Button 
+                      variant="hero" 
+                      className="w-full md:w-auto"
+                      onClick={handleJoinClick}
+                      disabled={joining}
+                    >
+                      {joining ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Users className="h-4 w-4 mr-2" />
+                      )}
+                      Participar deste Bolão
+                    </Button>
+                  )
                 )}
 
                 {userParticipation?.status === 'pending' && (
@@ -996,7 +1022,7 @@ export default function PoolDetail() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleJoinPool}>
+            <AlertDialogAction onClick={() => handleJoinPool(1)}>
               Entendi, quero participar
             </AlertDialogAction>
           </AlertDialogFooter>
