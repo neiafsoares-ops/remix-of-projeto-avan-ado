@@ -1,79 +1,96 @@
 
-# Plano: Corrigir Campainha de Notificações que Não Abre
+# Plano: Adicionar Campo de Premiacao Inicial na Criacao de Boloes
 
-## Problema Identificado
+## Contexto
 
-O componente `BellButton` no arquivo `NotificationBell.tsx` não está repassando corretamente as props e a referência (`ref`) necessárias para que o `DropdownMenuTrigger` e `SheetTrigger` funcionem com `asChild`.
+O criador do bolao atualmente nao consegue definir um valor de premiacao inicial garantida. O ideal e que esse campo fique na primeira etapa do wizard de criacao, com um tooltip explicativo ao passar o mouse.
 
-### Causa Raiz
+## Mudancas Necessarias
 
-Quando usamos `asChild` em triggers do Radix UI (DropdownMenuTrigger, SheetTrigger), o componente precisa:
-1. Aceitar e repassar uma `ref` via `forwardRef`
-2. Repassar todas as props recebidas (especialmente eventos de clique)
+### 1. Migracao de Banco de Dados
 
-O `BellButton` atual:
-- Aceita `asChild` mas não faz nada com ela
-- Não usa `forwardRef`
-- Não repassa as props do trigger para o Button
+Adicionar coluna `initial_prize` na tabela `pools`:
 
-## Solucao
+```sql
+ALTER TABLE public.pools 
+ADD COLUMN initial_prize numeric DEFAULT 0;
 
-Refatorar o componente `BellButton` para usar `React.forwardRef` e repassar todas as props necessarias.
-
-## Mudancas Tecnicas
-
-### Arquivo: `src/components/notifications/NotificationBell.tsx`
-
-**Antes:**
-```typescript
-const BellButton = ({ asChild = false }: { asChild?: boolean }) => {
-  const ButtonComponent = asChild ? 'div' : Button;
-  
-  return (
-    <Button variant="ghost" size="icon" className="relative" aria-label="Notificacoes">
-      <Bell className="h-5 w-5" />
-      {unreadCount > 0 && (
-        <Badge ...>
-          {unreadCount > 99 ? '99+' : unreadCount}
-        </Badge>
-      )}
-    </Button>
-  );
-};
+COMMENT ON COLUMN public.pools.initial_prize IS 'Valor de premiacao inicial garantido pelo criador, somado a arrecadacao das taxas de inscricao';
 ```
 
-**Depois:**
-```typescript
-const BellButton = React.forwardRef<HTMLButtonElement, React.ComponentPropsWithoutRef<typeof Button>>(
-  (props, ref) => (
-    <Button 
-      ref={ref}
-      variant="ghost" 
-      size="icon" 
-      className="relative" 
-      aria-label="Notificacoes"
-      {...props}
-    >
-      <Bell className="h-5 w-5" />
-      {unreadCount > 0 && (
-        <Badge ...>
-          {unreadCount > 99 ? '99+' : unreadCount}
-        </Badge>
-      )}
-    </Button>
-  )
-);
-BellButton.displayName = 'BellButton';
+### 2. Atualizar Wizard de Criacao
+
+**Arquivo:** `src/components/pools/CreatePoolWizard.tsx`
+
+Adicoes na Etapa 1:
+- Novo estado `initialPrize` com valor padrao `'0'`
+- Campo de input com Label + Tooltip explicativo
+- Incluir campo no reset do formulario
+- Incluir campo na insercao do pool
+
+**Interface do campo:**
+
+```text
++--------------------------------------------------+
+| Premiacao Inicial (R$)           [?] (tooltip)   |
+| +----------------------------------------------+ |
+| |  0.00                                        | |
+| +----------------------------------------------+ |
+| Texto: "Valor garantido pelo organizador..."     |
++--------------------------------------------------+
 ```
+
+**Tooltip ao passar o mouse:**
+> "Valor garantido pelo organizador que sera somado ao total arrecadado com as taxas de inscricao. Util para atrair participantes com um premio inicial atrativo."
+
+### 3. Atualizar Calculo de Premio
+
+**Arquivo:** `src/lib/prize-utils.ts`
+
+Atualizar a funcao `calculateEstimatedPrize` para incluir o premio inicial:
+
+```typescript
+export function calculateEstimatedPrize(
+  entryFee: number,
+  participantCount: number,
+  adminFeePercent: number = 0,
+  initialPrize: number = 0  // Novo parametro
+): number {
+  const totalFromFees = entryFee * participantCount;
+  const adminFee = totalFromFees * (adminFeePercent / 100);
+  return initialPrize + totalFromFees - adminFee;
+}
+```
+
+### 4. Atualizar Preview de Premio no Wizard
+
+O preview atual mostra:
+> "Premio estimado (10 participantes): R$ X"
+
+Atualizar para incluir o premio inicial na formula:
+> "Formula: Premiacao Inicial + (Taxa x Participantes) - Taxa Administrativa"
 
 ## Resumo das Alteracoes
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/components/notifications/NotificationBell.tsx` | Refatorar `BellButton` para usar `forwardRef` e repassar props |
+| `migrations/add_initial_prize.sql` | Criar coluna `initial_prize` na tabela `pools` |
+| `src/components/pools/CreatePoolWizard.tsx` | Adicionar campo com tooltip na etapa 1 |
+| `src/lib/prize-utils.ts` | Atualizar funcao para somar premio inicial |
 
-## Resultado Esperado
+## Detalhes Tecnicos
 
-- Clicar na campainha no desktop abrira o dropdown com as notificacoes
-- Clicar na campainha no mobile abrira o sheet lateral com as notificacoes
-- Badge de contagem continuara funcionando normalmente
+### Imports Necessarios no Wizard
+- `Tooltip`, `TooltipContent`, `TooltipProvider`, `TooltipTrigger` de `@/components/ui/tooltip`
+- Icone `HelpCircle` de `lucide-react`
+
+### Posicao do Campo
+O campo sera inserido dentro do grid de 2 colunas, junto com a "Taxa de Entrada", na seguinte ordem:
+1. Taxa de Entrada (R$)
+2. Premiacao Inicial (R$) - **NOVO**
+3. Max. Participantes
+
+### Validacao
+- Valor minimo: 0
+- Tipo: number com step de 0.01
+- Campo opcional (default 0)
