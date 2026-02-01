@@ -1045,6 +1045,245 @@ export type Database = {
         }
         Relationships: []
       }
+      torcida_mestre_participants: {
+        Row: {
+          created_at: string | null
+          id: string
+          paid_amount: number | null
+          pool_id: string
+          round_id: string
+          status: string | null
+          ticket_number: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          paid_amount?: number | null
+          pool_id: string
+          round_id: string
+          status?: string | null
+          ticket_number?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          paid_amount?: number | null
+          pool_id?: string
+          round_id?: string
+          status?: string | null
+          ticket_number?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "torcida_mestre_participants_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "torcida_mestre_pools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "torcida_mestre_participants_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "torcida_mestre_rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      torcida_mestre_pools: {
+        Row: {
+          admin_fee_percent: number | null
+          allow_draws: boolean | null
+          club_id: string | null
+          club_image: string | null
+          club_name: string
+          cover_image: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          entry_fee: number | null
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          admin_fee_percent?: number | null
+          allow_draws?: boolean | null
+          club_id?: string | null
+          club_image?: string | null
+          club_name: string
+          cover_image?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          entry_fee?: number | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          admin_fee_percent?: number | null
+          allow_draws?: boolean | null
+          club_id?: string | null
+          club_image?: string | null
+          club_name?: string
+          cover_image?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          entry_fee?: number | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "torcida_mestre_pools_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      torcida_mestre_predictions: {
+        Row: {
+          away_score: number
+          created_at: string | null
+          home_score: number
+          id: string
+          is_winner: boolean | null
+          participant_id: string
+          prize_won: number | null
+          round_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          away_score: number
+          created_at?: string | null
+          home_score: number
+          id?: string
+          is_winner?: boolean | null
+          participant_id: string
+          prize_won?: number | null
+          round_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          away_score?: number
+          created_at?: string | null
+          home_score?: number
+          id?: string
+          is_winner?: boolean | null
+          participant_id?: string
+          prize_won?: number | null
+          round_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "torcida_mestre_predictions_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "torcida_mestre_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "torcida_mestre_predictions_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "torcida_mestre_rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      torcida_mestre_rounds: {
+        Row: {
+          accumulated_prize: number | null
+          away_score: number | null
+          created_at: string | null
+          entry_fee_override: number | null
+          home_score: number | null
+          id: string
+          is_finished: boolean | null
+          is_home: boolean | null
+          match_date: string
+          name: string | null
+          opponent_club_id: string | null
+          opponent_image: string | null
+          opponent_name: string
+          pool_id: string
+          prediction_deadline: string
+          previous_accumulated: number | null
+          round_number: number
+          updated_at: string | null
+        }
+        Insert: {
+          accumulated_prize?: number | null
+          away_score?: number | null
+          created_at?: string | null
+          entry_fee_override?: number | null
+          home_score?: number | null
+          id?: string
+          is_finished?: boolean | null
+          is_home?: boolean | null
+          match_date: string
+          name?: string | null
+          opponent_club_id?: string | null
+          opponent_image?: string | null
+          opponent_name: string
+          pool_id: string
+          prediction_deadline: string
+          previous_accumulated?: number | null
+          round_number: number
+          updated_at?: string | null
+        }
+        Update: {
+          accumulated_prize?: number | null
+          away_score?: number | null
+          created_at?: string | null
+          entry_fee_override?: number | null
+          home_score?: number | null
+          id?: string
+          is_finished?: boolean | null
+          is_home?: boolean | null
+          match_date?: string
+          name?: string | null
+          opponent_club_id?: string | null
+          opponent_image?: string | null
+          opponent_name?: string
+          pool_id?: string
+          prediction_deadline?: string
+          previous_accumulated?: number | null
+          round_number?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "torcida_mestre_rounds_opponent_club_id_fkey"
+            columns: ["opponent_club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "torcida_mestre_rounds_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "torcida_mestre_pools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string

@@ -18,6 +18,9 @@ import MestreDoBolao from "./pages/MestreDoBolao";
 import Quiz10 from "./pages/Quiz10";
 import QuizDetail from "./pages/QuizDetail";
 import QuizManage from "./pages/QuizManage";
+import TorcidaMestre from "./pages/TorcidaMestre";
+import TorcidaMestreDetail from "./pages/TorcidaMestreDetail";
+import TorcidaMestreManage from "./pages/TorcidaMestreManage";
 import TermsOfUse from "./pages/TermsOfUse";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import NotFound from "./pages/NotFound";
@@ -42,6 +45,9 @@ const App = () => (
               <Route path="/quiz" element={<Quiz10 />} />
               <Route path="/quiz/:id" element={<QuizDetail />} />
               <Route path="/quiz/:id/manage" element={<QuizManage />} />
+              <Route path="/torcida-mestre" element={<TorcidaMestre />} />
+              <Route path="/torcida-mestre/:id" element={<TorcidaMestreDetail />} />
+              <Route path="/torcida-mestre/:id/manage" element={<TorcidaMestreManage />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/admin" element={<Admin />} />
