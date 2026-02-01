@@ -47,6 +47,11 @@ export default {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        lilac: {
+          DEFAULT: "hsl(var(--lilac))",
+          foreground: "hsl(var(--lilac-foreground))",
+          soft: "hsl(var(--lilac-soft))",
+        },
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
@@ -70,6 +75,7 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        "2xl": "16px",
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
