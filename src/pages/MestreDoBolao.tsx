@@ -14,10 +14,7 @@ const plans = [
     duration: '3 meses',
     durationDays: 90,
     poolLimit: 3,
-    color: 'from-blue-500/20 to-blue-600/10',
-    borderColor: 'border-blue-500/30',
-    iconColor: 'text-blue-500',
-    badgeVariant: 'secondary' as const,
+    iconColor: 'text-lilac',
   },
   {
     id: 'intermediario',
@@ -27,10 +24,7 @@ const plans = [
     duration: '6 meses',
     durationDays: 180,
     poolLimit: 8,
-    color: 'from-purple-500/20 to-purple-600/10',
-    borderColor: 'border-purple-500/30',
-    iconColor: 'text-purple-500',
-    badgeVariant: 'secondary' as const,
+    iconColor: 'text-primary',
     popular: true,
   },
   {
@@ -41,10 +35,7 @@ const plans = [
     duration: '1 ano',
     durationDays: 365,
     poolLimit: null, // unlimited
-    color: 'from-accent/20 to-accent/10',
-    borderColor: 'border-accent/50',
-    iconColor: 'text-accent',
-    badgeVariant: 'default' as const,
+    iconColor: 'text-warning',
   },
 ];
 
@@ -61,8 +52,8 @@ export default function MestreDoBolao() {
         <div className="container py-12 max-w-5xl mx-auto relative z-10">
           {/* Header */}
           <div className="text-center mb-12">
-            <div className="w-20 h-20 mx-auto rounded-full bg-accent/20 flex items-center justify-center mb-6">
-              <Star className="h-10 w-10 text-accent" />
+            <div className="w-20 h-20 mx-auto rounded-full bg-primary/20 flex items-center justify-center mb-6">
+              <Star className="h-10 w-10 text-primary" />
             </div>
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
               Mestre do Bolão ⚽
@@ -77,29 +68,31 @@ export default function MestreDoBolao() {
           <div className="grid md:grid-cols-3 gap-6 mb-12">
             {plans.map((plan) => {
               const IconComponent = plan.icon;
+              const isHighlighted = plan.popular;
+              
               return (
-                <Card 
-                  key={plan.id} 
-                  className={`relative border-2 ${plan.borderColor} bg-gradient-to-br ${plan.color} transition-all hover:scale-[1.02] hover:shadow-xl`}
+                <div
+                  key={plan.id}
+                  className={`relative ${isHighlighted ? 'card-highlight' : 'card-default'} transition-all hover:scale-[1.02] hover:shadow-xl`}
                 >
                   {plan.popular && (
-                    <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-purple-500">
+                    <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 bg-primary text-primary-foreground">
                       Mais Popular
                     </Badge>
                   )}
-                  <CardContent className="py-8 px-6">
+                  <div className="p-6 pt-8 bg-card rounded-2xl h-full">
                     <div className="text-center mb-6">
-                      <div className={`w-14 h-14 mx-auto rounded-full bg-background/50 flex items-center justify-center mb-4`}>
+                      <div className={`w-14 h-14 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-4`}>
                         <IconComponent className={`h-7 w-7 ${plan.iconColor}`} />
                       </div>
                       <h3 className="text-xl font-bold mb-1">{plan.name}</h3>
-                      <Badge variant={plan.badgeVariant} className="mb-4">
+                      <Badge variant="secondary" className="mb-4 bg-primary/20 text-primary border-primary/30">
                         {plan.duration}
                       </Badge>
                     </div>
 
                     <div className="text-center mb-6">
-                      <p className="text-4xl font-bold">
+                      <p className="text-4xl font-bold text-foreground">
                         R$ {plan.price.toFixed(2).replace('.', ',')}
                       </p>
                       <p className="text-sm text-muted-foreground mt-1">
@@ -108,42 +101,42 @@ export default function MestreDoBolao() {
                     </div>
 
                     <div className="space-y-3 mb-6">
-                      <div className="flex items-center gap-3 p-2 rounded-lg bg-background/30">
+                      <div className="flex items-center gap-3 p-2 rounded-lg bg-primary/5">
                         {plan.poolLimit === null ? (
                           <>
-                            <Infinity className="h-5 w-5 text-accent shrink-0" />
+                            <Infinity className="h-5 w-5 text-warning shrink-0" />
                             <span className="font-medium">Bolões ilimitados</span>
                           </>
                         ) : (
                           <>
-                            <CheckCircle className="h-5 w-5 text-green-500 shrink-0" />
+                            <CheckCircle className="h-5 w-5 text-success shrink-0" />
                             <span>Até <strong>{plan.poolLimit} bolões</strong> simultâneos</span>
                           </>
                         )}
                       </div>
                       <div className="flex items-center gap-3">
-                        <CheckCircle className="h-5 w-5 text-green-500 shrink-0" />
+                        <CheckCircle className="h-5 w-5 text-success shrink-0" />
                         <span>Jogos ilimitados</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <CheckCircle className="h-5 w-5 text-green-500 shrink-0" />
+                        <CheckCircle className="h-5 w-5 text-success shrink-0" />
                         <span>Rodadas ilimitadas</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <CheckCircle className="h-5 w-5 text-green-500 shrink-0" />
+                        <CheckCircle className="h-5 w-5 text-success shrink-0" />
                         <span>Participantes ilimitados</span>
                       </div>
                     </div>
 
                     <Button 
-                      variant={plan.id === 'supremo' ? 'hero' : 'outline'} 
+                      variant="accent" 
                       className="w-full"
                     >
                       <Mail className="h-4 w-4 mr-2" />
                       Contratar
                     </Button>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -170,7 +163,7 @@ export default function MestreDoBolao() {
                 { icon: "👥", title: "Gerencie participantes", desc: "Controle entradas, saídas e participação dos membros." },
                 { icon: "🔐", title: "Liga aberta ou privada", desc: "Escolha quem pode participar do seu bolão." },
               ].map((item, index) => (
-                <Card key={index} className="p-4 flex items-start gap-4 hover:bg-accent/5 transition-colors">
+                <Card key={index} className="p-4 flex items-start gap-4 hover:bg-primary/5 transition-colors">
                   <span className="text-2xl shrink-0">{item.icon}</span>
                   <div>
                     <h3 className="font-semibold mb-1">{item.title}</h3>
