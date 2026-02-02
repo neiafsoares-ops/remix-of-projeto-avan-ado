@@ -34,9 +34,23 @@ export function NotificationBell() {
   const isMobile = useIsMobile();
 
   const handleNotificationClick = (notification: typeof notifications[0]) => {
-    // Navigate based on notification type
-    if (notification.data?.pool_id) {
-      navigate(`/pools/${notification.data.pool_id}`);
+    const poolId = notification.data?.pool_id as string | undefined;
+    
+    switch (notification.type) {
+      // Torcida Mestre notifications - navigate to management
+      case 'torcida_mestre_participant_request':
+        if (poolId) navigate(`/torcida-mestre/${poolId}/manage`);
+        break;
+      
+      // User approved - navigate to pool detail
+      case 'torcida_mestre_approved':
+        if (poolId) navigate(`/torcida-mestre/${poolId}`);
+        break;
+      
+      // Regular pool notifications
+      default:
+        if (poolId) navigate(`/pools/${poolId}`);
+        break;
     }
   };
 
