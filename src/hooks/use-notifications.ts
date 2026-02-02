@@ -20,7 +20,9 @@ export type NotificationType =
   | 'new_participant'
   | 'moderator_action'
   | 'scores_updated'
-  | 'admin_broadcast';
+  | 'admin_broadcast'
+  | 'torcida_mestre_participant_request'
+  | 'torcida_mestre_approved';
 
 export interface Notification {
   id: string;

@@ -38,6 +38,8 @@ const iconMap: Record<NotificationType, { icon: typeof Mail; colorClass: string 
   moderator_action: { icon: Shield, colorClass: 'text-purple-500' },
   scores_updated: { icon: Trophy, colorClass: 'text-primary' },
   admin_broadcast: { icon: Megaphone, colorClass: 'text-accent' },
+  torcida_mestre_participant_request: { icon: UserPlus, colorClass: 'text-amber-500' },
+  torcida_mestre_approved: { icon: CheckCircle, colorClass: 'text-green-500' },
 };
 
 interface NotificationItemProps {
