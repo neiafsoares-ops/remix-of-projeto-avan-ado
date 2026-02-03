@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TorcidaMestreRoundCard } from '@/components/torcida-mestre/TorcidaMestreRoundCard';
 import { TorcidaMestreRanking } from '@/components/torcida-mestre/TorcidaMestreRanking';
 import { RequestParticipationDialog } from '@/components/torcida-mestre/RequestParticipationDialog';
-import { Crown, ArrowLeft, Settings, Trophy, Calendar, Users, Loader2, Ticket } from 'lucide-react';
+import { TicketStatusPanel, TicketStatus } from '@/components/TicketStatusPanel';
+import { DuplicatePredictionAlert } from '@/components/DuplicatePredictionAlert';
+import { RoundPredictionsTable } from '@/components/torcida-mestre/RoundPredictionsTable';
+import { Crown, ArrowLeft, Settings, Trophy, Calendar, Users, Loader2, Ticket, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { formatPrize, calculateTorcidaMestreWinners, getResultMessage } from '@/lib/torcida-mestre-utils';
@@ -19,6 +22,16 @@ import type {
   TorcidaMestrePrediction 
 } from '@/types/torcida-mestre';
 import { toast } from 'sonner';
+import { isPast } from 'date-fns';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export default function TorcidaMestreDetail() {
   const { id } = useParams<{ id: string }>();
@@ -32,6 +45,59 @@ export default function TorcidaMestreDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedRound, setSelectedRound] = useState<TorcidaMestreRound | null>(null);
+  
+  // Ticket management
+  const [activeTicketId, setActiveTicketId] = useState<string | undefined>();
+  
+  // Duplicate prediction alert
+  const [duplicateAlertOpen, setDuplicateAlertOpen] = useState(false);
+  const [pendingPrediction, setPendingPrediction] = useState<{
+    roundId: string;
+    participantId: string;
+    homeScore: number;
+    awayScore: number;
+    duplicateTicketNumber: number;
+  } | null>(null);
+  
+  // Unused tickets warning
+  const [unusedTicketsWarningOpen, setUnusedTicketsWarningOpen] = useState(false);
+  
+  // Get user tickets for current round
+  const userTickets = useMemo(() => {
+    if (!user || !selectedRound) return [];
+    return participants
+      .filter(p => p.round_id === selectedRound.id && p.user_id === user.id && p.status === 'active')
+      .sort((a, b) => (a.ticket_number || 1) - (b.ticket_number || 1));
+  }, [participants, user, selectedRound]);
+  
+  // Convert to TicketStatus format for the panel
+  const ticketStatusList = useMemo<TicketStatus[]>(() => {
+    return userTickets.map(ticket => {
+      const prediction = predictions.find(p => p.participant_id === ticket.id);
+      return {
+        id: ticket.id,
+        ticket_number: ticket.ticket_number || 1,
+        prediction: prediction ? { home_score: prediction.home_score, away_score: prediction.away_score } : null,
+        status: prediction ? 'filled' : 'empty',
+      };
+    });
+  }, [userTickets, predictions]);
+  
+  // Auto-select first empty ticket or first ticket
+  useEffect(() => {
+    if (ticketStatusList.length > 0 && !activeTicketId) {
+      const firstEmpty = ticketStatusList.find(t => t.status === 'empty');
+      setActiveTicketId(firstEmpty?.id || ticketStatusList[0].id);
+    }
+  }, [ticketStatusList, activeTicketId]);
+  
+  // Reset active ticket when round changes
+  useEffect(() => {
+    setActiveTicketId(undefined);
+  }, [selectedRound?.id]);
+  
+  // Count unused tickets for warning
+  const unusedTicketsCount = ticketStatusList.filter(t => t.status === 'empty').length;
   
   const fetchData = async () => {
     if (!id) return;
@@ -177,7 +243,42 @@ export default function TorcidaMestreDetail() {
     }
   };
   
+  const checkDuplicatePrediction = (roundId: string, participantId: string, homeScore: number, awayScore: number) => {
+    // Find other predictions in the same round by the same user with the same score
+    const userPredictionsInRound = predictions.filter(p => {
+      if (p.round_id !== roundId) return false;
+      if (p.participant_id === participantId) return false; // Exclude current ticket
+      
+      const participant = participants.find(part => part.id === p.participant_id);
+      if (!participant || participant.user_id !== user?.id) return false;
+      
+      return p.home_score === homeScore && p.away_score === awayScore;
+    });
+    
+    if (userPredictionsInRound.length > 0) {
+      const duplicateParticipant = participants.find(p => p.id === userPredictionsInRound[0].participant_id);
+      return duplicateParticipant?.ticket_number || 1;
+    }
+    
+    return null;
+  };
+  
   const handleSavePrediction = async (roundId: string, participantId: string, homeScore: number, awayScore: number) => {
+    if (!user) return;
+    
+    // Check for duplicate score
+    const duplicateTicketNumber = checkDuplicatePrediction(roundId, participantId, homeScore, awayScore);
+    
+    if (duplicateTicketNumber !== null) {
+      setPendingPrediction({ roundId, participantId, homeScore, awayScore, duplicateTicketNumber });
+      setDuplicateAlertOpen(true);
+      return;
+    }
+    
+    await executeSavePrediction(roundId, participantId, homeScore, awayScore);
+  };
+  
+  const executeSavePrediction = async (roundId: string, participantId: string, homeScore: number, awayScore: number) => {
     if (!user) return;
     
     try {
@@ -209,10 +310,43 @@ export default function TorcidaMestreDetail() {
         if (error) throw error;
       }
       
-      fetchData();
+      await fetchData();
+      
+      // After saving, auto-advance to next empty ticket
+      const currentTicketIndex = ticketStatusList.findIndex(t => t.id === participantId);
+      const nextEmptyTicket = ticketStatusList.slice(currentTicketIndex + 1).find(t => t.status === 'empty');
+      
+      if (nextEmptyTicket) {
+        setActiveTicketId(nextEmptyTicket.id);
+        toast.success(`Palpite salvo! Avançando para Ticket #${nextEmptyTicket.ticket_number}...`);
+      } else {
+        // Check if all tickets are filled
+        const allFilled = ticketStatusList.every(t => t.id === participantId || t.status === 'filled');
+        if (allFilled && ticketStatusList.length > 1) {
+          toast.success('Palpite salvo! Todos os tickets foram preenchidos.');
+        }
+      }
     } catch (error) {
       throw error;
     }
+  };
+  
+  const handleConfirmDuplicate = async () => {
+    if (!pendingPrediction) return;
+    
+    setDuplicateAlertOpen(false);
+    await executeSavePrediction(
+      pendingPrediction.roundId,
+      pendingPrediction.participantId,
+      pendingPrediction.homeScore,
+      pendingPrediction.awayScore
+    );
+    setPendingPrediction(null);
+  };
+  
+  const handleCancelDuplicate = () => {
+    setDuplicateAlertOpen(false);
+    setPendingPrediction(null);
   };
   
   if (isLoading) {
@@ -239,12 +373,10 @@ export default function TorcidaMestreDetail() {
     );
   }
   
-  const userParticipant = selectedRound 
-    ? participants.find(p => p.round_id === selectedRound.id && p.user_id === user?.id && p.status === 'active')
-    : null;
+  const activeParticipant = userTickets.find(t => t.id === activeTicketId);
   
-  const userPrediction = userParticipant
-    ? predictions.find(p => p.participant_id === userParticipant.id)
+  const activePrediction = activeParticipant
+    ? predictions.find(p => p.participant_id === activeParticipant.id)
     : null;
   
   const roundPredictions = selectedRound
@@ -261,6 +393,11 @@ export default function TorcidaMestreDetail() {
   
   const winnerResult = selectedRound?.is_finished
     ? calculateTorcidaMestreWinners(selectedRound, roundPredictions, pool.allow_draws)
+    : null;
+  
+  const isDeadlinePassed = selectedRound ? isPast(new Date(selectedRound.prediction_deadline)) : false;
+  const actualScore = selectedRound?.is_finished && selectedRound.home_score !== null && selectedRound.away_score !== null
+    ? { home: selectedRound.home_score, away: selectedRound.away_score }
     : null;
   
   return (
@@ -362,21 +499,42 @@ export default function TorcidaMestreDetail() {
             {rounds.map(round => (
               <TabsContent key={round.id} value={round.id}>
                 <div className="grid md:grid-cols-2 gap-6">
-                  {/* Round Card */}
+                  {/* Left Column: Tickets + Round Card */}
                   <div className="space-y-4">
+                    {/* Ticket Status Panel */}
+                    {userTickets.length > 1 && (
+                      <TicketStatusPanel
+                        tickets={ticketStatusList}
+                        activeTicketId={activeTicketId || ''}
+                        onTicketSelect={setActiveTicketId}
+                        variant="torcida-mestre"
+                        disabled={isDeadlinePassed || round.is_finished}
+                      />
+                    )}
+                    
+                    {/* Unused tickets warning */}
+                    {unusedTicketsCount > 0 && !isDeadlinePassed && !round.is_finished && userTickets.length > 1 && (
+                      <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                        <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                        <p className="text-sm text-amber-600 dark:text-amber-400">
+                          Você ainda possui {unusedTicketsCount} ticket(s) não utilizados nesta rodada.
+                        </p>
+                      </div>
+                    )}
+                    
                     <TorcidaMestreRoundCard
                       round={round}
                       pool={pool}
-                      userPrediction={userPrediction}
-                      isApproved={!!userParticipant}
-                      onSavePrediction={userParticipant 
-                        ? (h, a) => handleSavePrediction(round.id, userParticipant.id, h, a)
+                      userPrediction={activePrediction}
+                      isApproved={!!activeParticipant}
+                      onSavePrediction={activeParticipant 
+                        ? (h, a) => handleSavePrediction(round.id, activeParticipant.id, h, a)
                         : undefined
                       }
                     />
                     
                     {/* Request Participation Button */}
-                    {user && !userParticipant && !round.is_finished && (
+                    {user && userTickets.length === 0 && !round.is_finished && (
                       <RequestParticipationDialog
                         entryFee={pool.entry_fee}
                         onConfirm={async (ticketCount) => {
@@ -407,7 +565,7 @@ export default function TorcidaMestreDetail() {
                     )}
                   </div>
                   
-                  {/* Winners/Ranking */}
+                  {/* Right Column: Winners/Ranking */}
                   <TorcidaMestreRanking
                     winners={winnerResult?.winners || []}
                     totalPrize={totalPrize}
@@ -416,6 +574,14 @@ export default function TorcidaMestreDetail() {
                     resultMessage={winnerResult ? getResultMessage(winnerResult, pool.club_name) : undefined}
                   />
                 </div>
+                
+                {/* Transparency Table - After Deadline */}
+                <RoundPredictionsTable
+                  predictions={roundPredictions}
+                  participants={roundParticipants}
+                  isDeadlinePassed={isDeadlinePassed}
+                  actualScore={actualScore}
+                />
                 
                 {/* Participants List */}
                 <Card className="mt-6">
@@ -446,7 +612,7 @@ export default function TorcidaMestreDetail() {
                                 <p className="text-sm font-medium truncate">
                                   @{participant.profiles?.public_id || 'Usuário'}
                                 </p>
-                                {participant.ticket_number > 1 && (
+                                {(participant.ticket_number || 1) > 1 && (
                                   <p className="text-xs text-muted-foreground">
                                     Ticket {participant.ticket_number}
                                   </p>
@@ -463,6 +629,18 @@ export default function TorcidaMestreDetail() {
           </Tabs>
         )}
       </div>
+      
+      {/* Duplicate Prediction Alert */}
+      {pendingPrediction && (
+        <DuplicatePredictionAlert
+          open={duplicateAlertOpen}
+          onOpenChange={setDuplicateAlertOpen}
+          onConfirm={handleConfirmDuplicate}
+          onCancel={handleCancelDuplicate}
+          duplicateScore={{ home: pendingPrediction.homeScore, away: pendingPrediction.awayScore }}
+          existingTicketNumber={pendingPrediction.duplicateTicketNumber}
+        />
+      )}
     </Layout>
   );
 }
