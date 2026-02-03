@@ -26,6 +26,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { QuizCarouselView } from '@/components/quiz/QuizCarouselView';
 import { JoinWithTicketsDialog } from '@/components/JoinWithTicketsDialog';
+import { TicketStatusPanel, TicketStatus } from '@/components/TicketStatusPanel';
 import { 
   Target, 
   Users, 
@@ -125,7 +126,43 @@ export default function QuizDetail() {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
+  
+  // Ticket management
+  const [activeTicketId, setActiveTicketId] = useState<string | undefined>();
+  
+  // Get user tickets
+  const userTickets = useMemo(() => {
+    if (!user) return [];
+    return participants
+      .filter(p => p.user_id === user.id)
+      .sort((a, b) => a.ticket_number - b.ticket_number);
+  }, [participants, user]);
 
+  // Calculate ticket status for panel
+  const ticketStatusList = useMemo<TicketStatus[]>(() => {
+    if (!userTickets.length || !questions.length) return [];
+    
+    const totalQuestions = questions.length;
+    
+    return userTickets.map(ticket => {
+      // Count answers for this ticket
+      const answeredCount = Object.keys(answers).length;
+      
+      return {
+        id: ticket.id,
+        ticket_number: ticket.ticket_number,
+        status: answeredCount === totalQuestions ? 'filled' : 'empty',
+        progress: { filled: answeredCount, total: totalQuestions },
+      } as TicketStatus;
+    });
+  }, [userTickets, questions, answers]);
+
+  // Set active ticket
+  useEffect(() => {
+    if (userTickets.length > 0 && !activeTicketId) {
+      setActiveTicketId(userTickets[0].id);
+    }
+  }, [userTickets, activeTicketId]);
   useEffect(() => {
     if (id) {
       fetchQuizData();
@@ -634,6 +671,16 @@ export default function QuizDetail() {
                   </div>
                 ) : (
                   <>
+                    {/* Ticket Status Panel */}
+                    {quiz?.allow_multiple_tickets && ticketStatusList.length > 1 && (
+                      <TicketStatusPanel
+                        tickets={ticketStatusList}
+                        activeTicketId={activeTicketId || ''}
+                        onTicketSelect={setActiveTicketId}
+                        variant="quiz"
+                      />
+                    )}
+                    
                     {/* View Mode Toggle */}
                     {questions.length > 0 && canAnswer && (
                       <div className="flex items-center justify-between gap-4 flex-wrap">

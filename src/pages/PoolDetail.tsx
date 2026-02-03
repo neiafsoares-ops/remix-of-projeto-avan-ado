@@ -23,6 +23,7 @@ import { RankingParticipantDetails } from '@/components/RankingParticipantDetail
 import { RoundSummary } from '@/components/RoundSummary';
 import { CupFormatView } from '@/components/cup/CupFormatView';
 import { TicketSelector } from '@/components/TicketSelector';
+import { TicketStatusPanel, TicketStatus } from '@/components/TicketStatusPanel';
 import { JoinWithTicketsDialog } from '@/components/JoinWithTicketsDialog';
 import { usePoolInvitations } from '@/hooks/use-pool-invitations';
 import { 
@@ -143,6 +144,34 @@ export default function PoolDetail() {
       .filter(p => p.user_id === user.id)
       .sort((a, b) => a.ticket_number - b.ticket_number);
   }, [participants, user]);
+
+  // Calculate ticket progress for status panel
+  const ticketStatusList = useMemo<TicketStatus[]>(() => {
+    if (!userTickets.length || !rounds.length || selectedRoundIndex === null) return [];
+    
+    const selectedRound = rounds[selectedRoundIndex];
+    if (!selectedRound) return [];
+    
+    const roundMatches = matches.filter(m => (m as any).round_id === selectedRound.id);
+    const totalMatches = roundMatches.length;
+    
+    return userTickets.map(ticket => {
+      // Count predictions for this ticket in the current round
+      const ticketPredictions = Object.keys(predictions).filter(matchId => {
+        const match = roundMatches.find(m => m.id === matchId);
+        return match && predictions[matchId];
+      });
+      
+      const filledCount = ticketPredictions.length;
+      
+      return {
+        id: ticket.id,
+        ticket_number: ticket.ticket_number,
+        status: (filledCount === totalMatches && totalMatches > 0) ? 'filled' : 'empty',
+        progress: { filled: filledCount, total: totalMatches },
+      } as TicketStatus;
+    });
+  }, [userTickets, rounds, selectedRoundIndex, matches, predictions]);
 
   // Set active ticket when userTickets changes
   useEffect(() => {
@@ -744,8 +773,18 @@ export default function PoolDetail() {
                       </Button>
                     </div>
                     
-                    {/* Ticket Selector for multiple guesses */}
-                    {pool.allow_multiple_tickets && (
+                    {/* Ticket Status Panel for multiple guesses */}
+                    {pool.allow_multiple_tickets && ticketStatusList.length > 1 && (
+                      <TicketStatusPanel
+                        tickets={ticketStatusList}
+                        activeTicketId={activeTicketId || ''}
+                        onTicketSelect={setActiveTicketId}
+                        variant="pool"
+                      />
+                    )}
+                    
+                    {/* Legacy Ticket Selector for single ticket operations */}
+                    {pool.allow_multiple_tickets && ticketStatusList.length <= 1 && (
                       <TicketSelector
                         tickets={userTickets}
                         activeTicketId={activeTicketId}
