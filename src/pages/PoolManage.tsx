@@ -915,8 +915,16 @@ export default function PoolManage() {
     
     setDeletingPool(true);
     try {
-      // First delete all predictions for matches in this pool
+      // 1. Buscar IDs necessários para exclusão em cascata
+      const { data: rounds } = await supabase
+        .from('rounds')
+        .select('id')
+        .eq('pool_id', pool.id);
+
+      const roundIds = rounds?.map(r => r.id) || [];
       const matchIds = matches.map(m => m.id);
+
+      // 2. Excluir predictions (via match_id)
       if (matchIds.length > 0) {
         const { error: predError } = await supabase
           .from('predictions')
@@ -925,28 +933,51 @@ export default function PoolManage() {
         if (predError) throw predError;
       }
 
-      // Delete all matches
+      // 3. Excluir round_limit_requests (via round_id)
+      if (roundIds.length > 0) {
+        const { error: limitError } = await supabase
+          .from('round_limit_requests')
+          .delete()
+          .in('round_id', roundIds);
+        if (limitError) throw limitError;
+      }
+
+      // 4. Excluir matches
       const { error: matchError } = await supabase
         .from('matches')
         .delete()
         .eq('pool_id', pool.id);
       if (matchError) throw matchError;
 
-      // Delete all rounds
+      // 5. Excluir rounds
       const { error: roundError } = await supabase
         .from('rounds')
         .delete()
         .eq('pool_id', pool.id);
       if (roundError) throw roundError;
 
-      // Delete all participants
+      // 6. Excluir pool_invitations
+      const { error: invError } = await supabase
+        .from('pool_invitations')
+        .delete()
+        .eq('pool_id', pool.id);
+      if (invError) throw invError;
+
+      // 7. Excluir pool_participants
       const { error: partError } = await supabase
         .from('pool_participants')
         .delete()
         .eq('pool_id', pool.id);
       if (partError) throw partError;
 
-      // Finally delete the pool
+      // 8. Excluir mestre_pool_instances
+      const { error: mestreError } = await supabase
+        .from('mestre_pool_instances')
+        .delete()
+        .eq('pool_id', pool.id);
+      if (mestreError) throw mestreError;
+
+      // 9. Finalmente excluir o pool
       const { error: poolError } = await supabase
         .from('pools')
         .delete()

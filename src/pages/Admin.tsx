@@ -60,6 +60,7 @@ import { CreateNotificationForm } from '@/components/admin/CreateNotificationFor
 import { AuditPoolsTab } from '@/components/admin/AuditPoolsTab';
 import { QuizAdminTab } from '@/components/admin/QuizAdminTab';
 import { TorcidaMestreAdminTab } from '@/components/admin/TorcidaMestreAdminTab';
+import { DeletePoolDialog } from '@/components/admin/DeletePoolDialog';
 import { formatDateTimeBR, formatDateBR } from '@/lib/date-utils';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -276,32 +277,7 @@ export default function Admin() {
     }
   };
 
-  const handleDeletePool = async (poolId: string) => {
-    setActionLoading(`delete-pool-${poolId}`);
-    try {
-      const { error } = await supabase
-        .from('pools')
-        .delete()
-        .eq('id', poolId);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Bolão excluído!',
-        description: 'O bolão foi excluído com sucesso.',
-      });
-
-      await fetchPools();
-    } catch (error: any) {
-      toast({
-        title: 'Erro',
-        description: error.message || 'Não foi possível excluir o bolão.',
-        variant: 'destructive',
-      });
-    } finally {
-      setActionLoading(null);
-    }
-  };
+  // handleDeletePool agora é tratado pelo DeletePoolDialog
 
   const handleTogglePoolStatus = async (poolId: string, currentStatus: boolean) => {
     setActionLoading(`toggle-${poolId}`);
@@ -625,38 +601,24 @@ export default function Admin() {
                                 )}
                               </Button>
 
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    disabled={actionLoading === `delete-pool-${pool.id}`}
-                                  >
-                                    {actionLoading === `delete-pool-${pool.id}` ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <Trash2 className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Excluir Bolão</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Tem certeza que deseja excluir o bolão "{pool.name}"? Esta ação não pode ser desfeita.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => handleDeletePool(pool.id)}
-                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    >
-                                      Excluir
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
+                              <DeletePoolDialog
+                                pool={{
+                                  id: pool.id,
+                                  name: pool.name,
+                                  created_by: pool.created_by,
+                                  creator_public_id: pool.creator_public_id,
+                                }}
+                                currentUserId={user?.id || ''}
+                                currentUserEmail={user?.email || ''}
+                                onSuccess={fetchPools}
+                              >
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </DeletePoolDialog>
                             </div>
                           </TableCell>
                         </TableRow>
