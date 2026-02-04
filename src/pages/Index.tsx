@@ -14,7 +14,7 @@ import {
   Trophy,
   Crown
 } from 'lucide-react';
-import logoZapions from '@/assets/logo-zapions.png';
+import { CircularLogo } from '@/components/CircularLogo';
 import heroBackground from '@/assets/hero-background.png';
 
 // Features reorganized following user journey
@@ -335,7 +335,7 @@ export default function Index() {
             <CardContent className="py-12 md:py-16 text-center relative">
               <div className="absolute inset-0 bg-[url('/placeholder.svg')] opacity-5" />
               <div className="relative z-10 max-w-2xl mx-auto space-y-6">
-                <img src={logoZapions} alt="Bolão Zapions" className="h-[100px] md:h-[120px] w-auto mx-auto" />
+                <CircularLogo size={100} className="mx-auto md:w-[120px] md:h-[120px]" />
                 <h2 className="text-3xl md:text-4xl font-bold">
                   Pronto para começar?
                 </h2>

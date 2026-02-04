@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertCircle, Loader2, Eye, EyeOff, CheckCircle, Mail } from 'lucide-react';
-import logoZapions from '@/assets/logo-zapions.png';
+import { CircularLogo } from '@/components/CircularLogo';
 import { z } from 'zod';
 
 const loginSchema = z.object({
@@ -161,7 +161,7 @@ export default function Auth() {
       <Card className="w-full max-w-md shadow-xl animate-scale-in">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto w-fit">
-            <img src={logoZapions} alt="Zapions Liga" className="h-14 w-14 object-contain" />
+            <CircularLogo size={56} />
           </div>
           <div>
             <CardTitle className="text-2xl">ZAPIONS LIGA</CardTitle>

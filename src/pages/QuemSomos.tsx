@@ -21,7 +21,7 @@ import {
   Pencil,
   Trash2
 } from 'lucide-react';
-import logoZapions from '@/assets/logo-zapions.png';
+import { CircularLogo } from '@/components/CircularLogo';
 
 interface GalleryImage {
   id: string;
@@ -292,11 +292,9 @@ export default function QuemSomos() {
       <div className="container py-8 md:py-12">
         {/* Header */}
         <div className="text-center mb-12">
-          <img 
-            src={logoZapions} 
-            alt="Bolão Zapions" 
-            className="h-[80px] md:h-[100px] w-auto mx-auto mb-6" 
-          />
+          <div className="flex justify-center mb-6">
+            <CircularLogo size={80} className="md:w-[100px] md:h-[100px]" />
+          </div>
           <h1 className="text-3xl md:text-4xl font-bold mb-4">
             Quem Somos
           </h1>
