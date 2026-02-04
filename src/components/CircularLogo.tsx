@@ -17,7 +17,7 @@ export function CircularLogo({
   src = logoZapions,
   alt = "Bolão Zapions"
 }: CircularLogoProps) {
-  const [scale, setScale] = useState(1.3);
+  const [scale, setScale] = useState(1.2);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
