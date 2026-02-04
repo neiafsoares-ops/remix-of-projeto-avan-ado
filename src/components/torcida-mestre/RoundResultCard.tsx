@@ -12,6 +12,7 @@ interface RoundResultCardProps {
   shouldAccumulate: boolean;
   accumulationReason?: 'team_lost' | 'no_winners' | 'draw_not_allowed';
   totalPrize: number; // Calculated externally: entry_fee × participants + previous_accumulated
+  participantsCount: number;
 }
 
 export function RoundResultCard({
@@ -21,8 +22,10 @@ export function RoundResultCard({
   shouldAccumulate,
   accumulationReason,
   totalPrize,
+  participantsCount,
 }: RoundResultCardProps) {
-  const netPrize = totalPrize * (1 - pool.admin_fee_percent / 100);
+  const adminFee = totalPrize * (pool.admin_fee_percent / 100);
+  const netPrize = totalPrize - adminFee;
   const prizePerWinner = winners.length > 0 ? netPrize / winners.length : 0;
 
   if (!round.is_finished) {
@@ -93,6 +96,26 @@ export function RoundResultCard({
               </div>
             )}
             <p className="text-sm font-medium">{round.opponent_name}</p>
+          </div>
+        </div>
+
+        {/* Financial Breakdown */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
+          <div className="p-2 rounded-lg bg-muted/50">
+            <p className="text-xs text-muted-foreground">Participantes</p>
+            <p className="font-bold text-base">{participantsCount}</p>
+          </div>
+          <div className="p-2 rounded-lg bg-muted/50">
+            <p className="text-xs text-muted-foreground">Valor Bruto</p>
+            <p className="font-bold text-base">{formatPrize(totalPrize)}</p>
+          </div>
+          <div className="p-2 rounded-lg bg-muted/50">
+            <p className="text-xs text-muted-foreground">Taxa ({pool.admin_fee_percent}%)</p>
+            <p className="font-bold text-base text-amber-600">{formatPrize(adminFee)}</p>
+          </div>
+          <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+            <p className="text-xs text-muted-foreground">Prêmio Líquido</p>
+            <p className="font-bold text-base text-emerald-600">{formatPrize(netPrize)}</p>
           </div>
         </div>
 
