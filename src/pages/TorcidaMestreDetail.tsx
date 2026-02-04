@@ -243,6 +243,47 @@ export default function TorcidaMestreDetail() {
     }
   };
   
+  const handleRequestAdditionalTickets = async (roundId: string, ticketCount: number = 1) => {
+    if (!user || !pool) {
+      toast.error('Você precisa estar logado');
+      return;
+    }
+    
+    try {
+      // Get current max ticket number for this user in this round
+      const userTicketsInRound = participants.filter(
+        p => p.round_id === roundId && p.user_id === user.id
+      );
+      
+      const maxTicketNumber = Math.max(...userTicketsInRound.map(t => t.ticket_number || 1), 0);
+      
+      // Create additional tickets starting from next number
+      const ticketsToCreate = [];
+      for (let i = 1; i <= ticketCount; i++) {
+        ticketsToCreate.push({
+          pool_id: pool.id,
+          round_id: roundId,
+          user_id: user.id,
+          ticket_number: maxTicketNumber + i,
+          status: 'pending',
+          paid_amount: pool.entry_fee * ticketCount,
+        });
+      }
+
+      const { error } = await supabase
+        .from('torcida_mestre_participants')
+        .insert(ticketsToCreate);
+      
+      if (error) throw error;
+      
+      toast.success(`Solicitação de ${ticketCount} ticket(s) adicional(is) enviada! Aguarde aprovação.`);
+      fetchData();
+    } catch (error: any) {
+      console.error('Error requesting additional tickets:', error);
+      toast.error(error.message || 'Erro ao solicitar tickets adicionais');
+    }
+  };
+  
   const checkDuplicatePrediction = (roundId: string, participantId: string, homeScore: number, awayScore: number) => {
     // Find other predictions in the same round by the same user with the same score
     const userPredictionsInRound = predictions.filter(p => {
@@ -527,35 +568,43 @@ export default function TorcidaMestreDetail() {
                       pool={pool}
                       userPrediction={activePrediction}
                       isApproved={!!activeParticipant}
+                      hasPendingRequest={!!participants.find(p => p.round_id === round.id && p.user_id === user?.id && p.status === 'pending')}
                       onSavePrediction={activeParticipant 
                         ? (h, a) => handleSavePrediction(round.id, activeParticipant.id, h, a)
                         : undefined
                       }
                     />
                     
-                    {/* Request Participation Button */}
-                    {user && userTickets.length === 0 && !round.is_finished && (
+                    {/* Request First Participation Button - Only show if no tickets at all */}
+                    {user && userTickets.length === 0 && !participants.find(p => p.round_id === round.id && p.user_id === user.id) && !round.is_finished && !isDeadlinePassed && (
                       <RequestParticipationDialog
                         entryFee={pool.entry_fee}
                         onConfirm={async (ticketCount) => {
                           await handleRequestParticipation(round.id, ticketCount);
                         }}
                         trigger={
-                          <Button className="w-full" variant="outline">
+                          <Button className="w-full bg-amber-500 hover:bg-amber-600 text-amber-950">
                             <Ticket className="h-4 w-4 mr-2" />
-                            Solicitar Participação
+                            Participar desta Rodada
                           </Button>
                         }
                       />
                     )}
                     
-                    {/* Show pending status */}
-                    {user && participants.find(p => p.round_id === round.id && p.user_id === user.id && p.status === 'pending') && (
-                      <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-center">
-                        <p className="text-sm text-amber-600 dark:text-amber-400">
-                          Sua solicitação está pendente de aprovação
-                        </p>
-                      </div>
+                    {/* Request Additional Tickets Button - Show when user already has approved tickets */}
+                    {user && userTickets.length > 0 && !round.is_finished && !isDeadlinePassed && (
+                      <RequestParticipationDialog
+                        entryFee={pool.entry_fee}
+                        onConfirm={async (ticketCount) => {
+                          await handleRequestAdditionalTickets(round.id, ticketCount);
+                        }}
+                        trigger={
+                          <Button className="w-full" variant="outline">
+                            <Ticket className="h-4 w-4 mr-2" />
+                            Solicitar Tickets Adicionais
+                          </Button>
+                        }
+                      />
                     )}
                     
                     {!user && (
