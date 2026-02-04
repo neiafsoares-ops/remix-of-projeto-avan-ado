@@ -19,7 +19,8 @@ import {
 } from '@/components/ui/dialog';
 import { ClubAutocomplete } from '@/components/ClubAutocomplete';
 import { InviteParticipantInline } from '@/components/torcida-mestre/InviteParticipantInline';
-import { Crown, ArrowLeft, Plus, Save, Users, CheckCircle, XCircle, Trophy, Loader2, Calendar, UserPlus, Ticket } from 'lucide-react';
+import { Crown, ArrowLeft, Plus, Save, Users, CheckCircle, XCircle, Trophy, Loader2, Calendar, UserPlus, Ticket, RotateCcw } from 'lucide-react';
+import { RoundFinancialSummary } from '@/components/torcida-mestre/RoundFinancialSummary';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { formatDateTimeBR, formatToDateTimeLocal, isAfterDeadline } from '@/lib/date-utils';
@@ -209,11 +210,20 @@ export default function TorcidaMestreManage() {
     try {
       const roundNumber = rounds.length + 1;
       
-      // Get previous accumulated if exists
-      const previousRound = rounds.find(r => r.is_finished);
-      const previousAccumulated = previousRound 
-        ? (previousRound.accumulated_prize || 0) + (previousRound.previous_accumulated || 0)
-        : 0;
+      // Get accumulated prize from last FINISHED round that had shouldAccumulate = true
+      // Only carry over if the previous round had no winners
+      let previousAccumulated = 0;
+      const lastFinishedRound = rounds.find(r => r.is_finished);
+      
+      if (lastFinishedRound) {
+        const lastRoundPredictions = predictions.filter(p => p.round_id === lastFinishedRound.id);
+        const lastResult = calculateTorcidaMestreWinners(lastFinishedRound, lastRoundPredictions, pool.allow_draws);
+        
+        // Only accumulate if there were no winners
+        if (lastResult.shouldAccumulate) {
+          previousAccumulated = (lastFinishedRound.accumulated_prize || 0) + (lastFinishedRound.previous_accumulated || 0);
+        }
+      }
       
       // Convert local datetime-local value to proper ISO string
       // datetime-local returns value without timezone, so we treat it as Brasília time
@@ -581,75 +591,107 @@ export default function TorcidaMestreManage() {
                 </div>
                 
                 {/* Round Details */}
-                {selectedRound && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>{selectedRound.name || `Rodada ${selectedRound.round_number}`}</CardTitle>
-                      <CardDescription>
-                        {pool.club_name} vs {selectedRound.opponent_name}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {/* Score Input */}
-                      <div>
-                        <Label>Placar Final</Label>
-                        <div className="flex items-center gap-3 mt-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            value={homeScore}
-                            onChange={(e) => setHomeScore(e.target.value)}
-                            className="w-16 text-center"
-                            placeholder="-"
-                            disabled={selectedRound.is_finished}
-                          />
-                          <span className="font-bold">x</span>
-                          <Input
-                            type="number"
-                            min="0"
-                            value={awayScore}
-                            onChange={(e) => setAwayScore(e.target.value)}
-                            className="w-16 text-center"
-                            placeholder="-"
-                            disabled={selectedRound.is_finished}
-                          />
+                {selectedRound && (() => {
+                  const roundPredictions = predictions.filter(p => p.round_id === selectedRound.id);
+                  const winnerResult = selectedRound.is_finished 
+                    ? calculateTorcidaMestreWinners(selectedRound, roundPredictions, pool.allow_draws)
+                    : null;
+                  
+                  return (
+                    <div className="space-y-4">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>{selectedRound.name || `Rodada ${selectedRound.round_number}`}</CardTitle>
+                          <CardDescription>
+                            {pool.club_name} vs {selectedRound.opponent_name}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          {/* Score Input */}
+                          <div>
+                            <Label>Placar Final</Label>
+                            <div className="flex items-center gap-3 mt-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                value={homeScore}
+                                onChange={(e) => setHomeScore(e.target.value)}
+                                className="w-16 text-center"
+                                placeholder="-"
+                                disabled={selectedRound.is_finished}
+                              />
+                              <span className="font-bold">x</span>
+                              <Input
+                                type="number"
+                                min="0"
+                                value={awayScore}
+                                onChange={(e) => setAwayScore(e.target.value)}
+                                className="w-16 text-center"
+                                placeholder="-"
+                                disabled={selectedRound.is_finished}
+                              />
+                              {!selectedRound.is_finished && (
+                                <Button onClick={handleSaveScore} size="sm">
+                                  <Save className="h-4 w-4 mr-1" />
+                                  Salvar
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Stats */}
+                          <div className="grid grid-cols-2 gap-4 text-center">
+                            <div className="p-3 rounded-lg bg-muted/50">
+                              <p className="text-sm text-muted-foreground">Participantes</p>
+                              <p className="text-xl font-bold">{activeParticipants.length}</p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-amber-500/10">
+                              <p className="text-sm text-muted-foreground">Prêmio</p>
+                              <p className="text-xl font-bold text-amber-600 dark:text-amber-400">
+                                {formatPrize((selectedRound.accumulated_prize || 0) + (selectedRound.previous_accumulated || 0))}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          {/* Finish Button */}
                           {!selectedRound.is_finished && (
-                            <Button onClick={handleSaveScore} size="sm">
-                              <Save className="h-4 w-4 mr-1" />
-                              Salvar
+                            <Button 
+                              onClick={handleFinishRound}
+                              className="w-full bg-red-500 hover:bg-red-600"
+                              disabled={selectedRound.home_score === null}
+                            >
+                              <Trophy className="h-4 w-4 mr-2" />
+                              Encerrar Rodada e Calcular Vencedores
                             </Button>
                           )}
-                        </div>
-                      </div>
+                          
+                          {/* Create New Round Button (only when finished) */}
+                          {selectedRound.is_finished && (
+                            <Button 
+                              onClick={() => setShowCreateRound(true)}
+                              className="w-full bg-amber-500 hover:bg-amber-600 text-amber-950"
+                            >
+                              <RotateCcw className="h-4 w-4 mr-2" />
+                              Criar Nova Rodada
+                            </Button>
+                          )}
+                        </CardContent>
+                      </Card>
                       
-                      {/* Stats */}
-                      <div className="grid grid-cols-2 gap-4 text-center">
-                        <div className="p-3 rounded-lg bg-muted/50">
-                          <p className="text-sm text-muted-foreground">Participantes</p>
-                          <p className="text-xl font-bold">{activeParticipants.length}</p>
-                        </div>
-                        <div className="p-3 rounded-lg bg-amber-500/10">
-                          <p className="text-sm text-muted-foreground">Prêmio</p>
-                          <p className="text-xl font-bold text-amber-600 dark:text-amber-400">
-                            {formatPrize((selectedRound.accumulated_prize || 0) + (selectedRound.previous_accumulated || 0))}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      {/* Finish Button */}
-                      {!selectedRound.is_finished && (
-                        <Button 
-                          onClick={handleFinishRound}
-                          className="w-full bg-red-500 hover:bg-red-600"
-                          disabled={selectedRound.home_score === null}
-                        >
-                          <Trophy className="h-4 w-4 mr-2" />
-                          Encerrar Rodada e Calcular Vencedores
-                        </Button>
+                      {/* Financial Summary (only when finished) */}
+                      {selectedRound.is_finished && winnerResult && (
+                        <RoundFinancialSummary
+                          round={selectedRound}
+                          pool={pool}
+                          winners={winnerResult.winners}
+                          participantsCount={activeParticipants.length}
+                          shouldAccumulate={winnerResult.shouldAccumulate}
+                          accumulationReason={winnerResult.reason}
+                        />
                       )}
-                    </CardContent>
-                  </Card>
-                )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </TabsContent>
