@@ -24,6 +24,7 @@ import TorcidaMestreManage from "./pages/TorcidaMestreManage";
 import TermsOfUse from "./pages/TermsOfUse";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import FAQ from "./pages/FAQ";
+import QuemSomos from "./pages/QuemSomos";
 import NotFound from "./pages/NotFound";
 import MyPredictions from "./pages/MyPredictions";
 
@@ -57,6 +58,7 @@ const App = () => (
               <Route path="/termos-de-uso" element={<TermsOfUse />} />
               <Route path="/privacidade" element={<PrivacyPolicy />} />
               <Route path="/faq" element={<FAQ />} />
+              <Route path="/quem-somos" element={<QuemSomos />} />
               <Route path="/my-predictions" element={<MyPredictions />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
