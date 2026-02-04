@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TorcidaMestreRoundCard } from '@/components/torcida-mestre/TorcidaMestreRoundCard';
 import { TorcidaMestreRanking } from '@/components/torcida-mestre/TorcidaMestreRanking';
+import { RoundResultCard } from '@/components/torcida-mestre/RoundResultCard';
 import { RequestParticipationDialog } from '@/components/torcida-mestre/RequestParticipationDialog';
 import { TicketStatusPanel, TicketStatus } from '@/components/TicketStatusPanel';
 import { DuplicatePredictionAlert } from '@/components/DuplicatePredictionAlert';
@@ -614,14 +615,30 @@ export default function TorcidaMestreDetail() {
                     )}
                   </div>
                   
-                  {/* Right Column: Winners/Ranking */}
-                  <TorcidaMestreRanking
-                    winners={winnerResult?.winners || []}
-                    totalPrize={totalPrize}
-                    adminFeePercent={pool.admin_fee_percent}
-                    isFinished={round.is_finished}
-                    resultMessage={winnerResult ? getResultMessage(winnerResult, pool.club_name) : undefined}
-                  />
+                  {/* Right Column: Result Card + Ranking */}
+                  <div className="space-y-4">
+                    {/* Result Card (only when finished) */}
+                    {round.is_finished && winnerResult && (
+                      <RoundResultCard
+                        round={round}
+                        pool={pool}
+                        winners={winnerResult.winners}
+                        shouldAccumulate={winnerResult.shouldAccumulate}
+                        accumulationReason={winnerResult.reason}
+                      />
+                    )}
+                    
+                    {/* Ranking (shown when not finished) */}
+                    {!round.is_finished && (
+                      <TorcidaMestreRanking
+                        winners={winnerResult?.winners || []}
+                        totalPrize={totalPrize}
+                        adminFeePercent={pool.admin_fee_percent}
+                        isFinished={round.is_finished}
+                        resultMessage={winnerResult ? getResultMessage(winnerResult, pool.club_name) : undefined}
+                      />
+                    )}
+                  </div>
                 </div>
                 
                 {/* Transparency Table - After Deadline */}
