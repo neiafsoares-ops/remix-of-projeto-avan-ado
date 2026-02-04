@@ -44,10 +44,11 @@ import {
   Eye,
   AlertTriangle
 } from 'lucide-react';
-import { format, formatDistanceToNow, isPast } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { calculateEstimatedPrize, formatBRL } from '@/lib/prize-utils';
 import { PrizeDisplayCard } from '@/components/PrizeDisplayCard';
+import { isAfterDeadline, formatDateTimeBR, formatRelativeTimeBR } from '@/lib/date-utils';
 
 interface Quiz {
   id: string;
@@ -417,7 +418,7 @@ export default function QuizDetail() {
   const answeredCount = Object.keys(answers).length;
   const unansweredCount = questions.length - answeredCount;
 
-  const isDeadlinePassed = currentRound ? isPast(new Date(currentRound.deadline)) : false;
+  const isDeadlinePassed = currentRound ? isAfterDeadline(currentRound.deadline) : false;
   const canAnswer = isParticipating && currentRound && !isDeadlinePassed && !currentRound.is_finished;
 
   // Calculate estimated prize
@@ -617,14 +618,14 @@ export default function QuizDetail() {
                           {isDeadlinePassed ? (
                             <span className="text-destructive">Prazo encerrado</span>
                           ) : (
-                            <>Prazo: {format(new Date(currentRound.deadline), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</>
+                            <>Prazo: {formatDateTimeBR(currentRound.deadline)}</>
                           )}
                         </p>
                       </div>
                       {!isDeadlinePassed && (
                         <Badge variant="outline" className="w-fit">
                           <Clock className="h-3 w-3 mr-1" />
-                          {formatDistanceToNow(new Date(currentRound.deadline), { addSuffix: true, locale: ptBR })}
+                          {formatRelativeTimeBR(currentRound.deadline)}
                         </Badge>
                       )}
                     </div>
@@ -910,7 +911,7 @@ export default function QuizDetail() {
                         )}
                         {round.is_finished ? (
                           <Badge variant="secondary">Finalizada</Badge>
-                        ) : isPast(new Date(round.deadline)) ? (
+                        ) : isAfterDeadline(round.deadline) ? (
                           <Badge variant="outline" className="text-destructive border-destructive">Prazo encerrado</Badge>
                         ) : (
                           <Badge variant="default">Em andamento</Badge>
