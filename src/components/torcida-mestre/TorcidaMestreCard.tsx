@@ -15,8 +15,10 @@ export function TorcidaMestreCard({ pool }: TorcidaMestreCardProps) {
   const hasAccumulated = (pool.total_accumulated ?? 0) > 0;
   const participantsCount = pool.participants_count ?? 0;
   
-  // Estimativa de premiação: participantes * entrada + acumulado
-  const estimatedPrize = (pool.entry_fee * participantsCount) + (pool.total_accumulated ?? 0);
+  // Estimativa de premiação: (participantes * entrada + acumulado) - taxa administrativa
+  const grossPrize = (pool.entry_fee * participantsCount) + (pool.total_accumulated ?? 0);
+  const adminFee = pool.admin_fee_percent ?? 0;
+  const estimatedPrize = grossPrize * (1 - adminFee / 100);
   
   return (
     <Card className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-amber-500/30 bg-gradient-to-br from-background to-amber-500/5 overflow-hidden">

@@ -22,7 +22,7 @@ import type {
   TorcidaMestrePrediction 
 } from '@/types/torcida-mestre';
 import { toast } from 'sonner';
-import { isPast } from 'date-fns';
+import { isAfterDeadline } from '@/lib/date-utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -395,7 +395,7 @@ export default function TorcidaMestreDetail() {
     ? calculateTorcidaMestreWinners(selectedRound, roundPredictions, pool.allow_draws)
     : null;
   
-  const isDeadlinePassed = selectedRound ? isPast(new Date(selectedRound.prediction_deadline)) : false;
+  const isDeadlinePassed = selectedRound ? isAfterDeadline(selectedRound.prediction_deadline) : false;
   const actualScore = selectedRound?.is_finished && selectedRound.home_score !== null && selectedRound.away_score !== null
     ? { home: selectedRound.home_score, away: selectedRound.away_score }
     : null;
