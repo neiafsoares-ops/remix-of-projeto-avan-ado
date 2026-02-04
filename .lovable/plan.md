@@ -1,231 +1,242 @@
 
-## Plano: Padronização de Uso e Visualização de Tickets
+## Plano: Criar Página "Meus Palpites" (MyPredictions)
 
-### Objetivo
-Implementar um padrão único de visualização e navegação entre tickets para **Torcida Mestre**, **Bolão Tradicional** e **Quiz 10**, mantendo todas as regras de pontuação e pagamento existentes.
+### Problema
+A rota `/my-predictions` está referenciada no menu de navegação (Navbar) mas a página e a rota não existem no sistema, causando erro 404.
+
+### Análise
+
+**Referências existentes:**
+- `src/components/layout/Navbar.tsx` (linhas 98-101, 185-191): Link para `/my-predictions`
+- `src/App.tsx`: Falta a rota e o import
+
+**Dados a buscar (3 produtos):**
+
+| Produto | Tabela de Palpites | Tabela de Participação | Info Adicional |
+|---------|-------------------|------------------------|----------------|
+| Bolão Tradicional | `predictions` | `pool_participants` | `matches`, `pools`, `rounds` |
+| Quiz 10 | `quiz_answers` | `quiz_participants` | `quiz_questions`, `quizzes`, `quiz_rounds` |
+| Torcida Mestre | `torcida_mestre_predictions` | `torcida_mestre_participants` | `torcida_mestre_rounds`, `torcida_mestre_pools` |
 
 ---
 
-## Análise do Estado Atual
+### Solução
 
-| Produto | Suporte a Múltiplos Tickets | Menu de Tickets | Fluxo Sequencial | Transparência |
-|---------|----------------------------|-----------------|------------------|---------------|
-| Bolão | Parcial (TicketSelector) | Básico | Não | Não |
-| Quiz 10 | Parcial | Não | Não | Não |
-| Torcida Mestre | Parcial (DB) | Não | Não | Parcial |
+#### 1. Criar Nova Página `MyPredictions.tsx`
 
-O componente `TicketSelector` já existe mas só é usado no Bolão e não implementa o fluxo sequencial nem mostra status detalhado.
+**Arquivo:** `src/pages/MyPredictions.tsx`
 
----
+**Estrutura:**
+- Layout com abas (Tabs): Bolões | Quiz 10 | Torcida Mestre
+- Cada aba mostra os palpites do usuário organizados por bolão/rodada
+- Links diretos para os bolões/quizzes específicos
 
-## Arquitetura da Solução
-
-### 1. Novo Componente Reutilizável: `TicketStatusPanel`
-
-**Arquivo:** `src/components/TicketStatusPanel.tsx`
-
-Um painel/menu fixo e visível que mostra todos os tickets do usuário na rodada atual:
+**Visual proposto:**
 
 ```text
-┌────────────────────────────────────────┐
-│  Tickets da Rodada                     │
-├────────────────────────────────────────┤
-│  ✔ Ticket 1 – Palpitado (2x0)         │
-│  ✔ Ticket 2 – Palpitado (3x0)         │
-│  ⏳ Ticket 3 – Ainda não palpitou      │
-│  ⏳ Ticket 4 – Ainda não palpitou      │
-└────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  ← Meus Palpites                                            │
+├─────────────────────────────────────────────────────────────┤
+│  [Bolões]    [Quiz 10]    [Torcida Mestre]                 │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌───────────────────────────────────────────────────────┐ │
+│  │ Copa do Mundo 2026                                    │ │
+│  │ Rodada 1 • 10 palpites • 25 pontos                   │ │
+│  │ [Ver Bolão →]                                         │ │
+│  └───────────────────────────────────────────────────────┘ │
+│                                                             │
+│  ┌───────────────────────────────────────────────────────┐ │
+│  │ Libertadores 2025                                     │ │
+│  │ Rodada 3 • 8 palpites • 18 pontos                    │ │
+│  │ [Ver Bolão →]                                         │ │
+│  └───────────────────────────────────────────────────────┘ │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-**Props:**
+#### 2. Registrar Rota no App.tsx
+
+Adicionar import e rota:
+
 ```typescript
-interface TicketStatusPanelProps {
-  tickets: {
-    id: string;
-    ticket_number: number;
-    prediction?: { home_score: number; away_score: number } | null;
-    status: 'filled' | 'empty';
-  }[];
-  activeTicketId: string;
-  onTicketSelect: (ticketId: string) => void;
-  variant: 'torcida-mestre' | 'pool' | 'quiz';
-}
-```
+import MyPredictions from "./pages/MyPredictions";
 
-### 2. Componente de Alerta: `DuplicatePredictionAlert`
-
-**Arquivo:** `src/components/DuplicatePredictionAlert.tsx`
-
-Alerta modal exclusivo para Torcida Mestre quando detectar placar repetido:
-
-```text
-⚠️ Você já possui esse mesmo placar em outro ticket desta rodada.
-   Deseja continuar mesmo assim?
-
-   [Alterar placar]  [Continuar]
-```
-
-### 3. Componente de Transparência: `RoundPredictionsTable`
-
-**Arquivo:** `src/components/torcida-mestre/RoundPredictionsTable.tsx`
-
-Tabela visível após encerramento do prazo (exclusivo Torcida Mestre):
-
-| Usuário | Ticket | Placar |
-|---------|--------|--------|
-| @joao | #1 | 2x0 |
-| @marcio | #1 | 1x0 |
-| @joao | #2 | 3x2 |
-
----
-
-## Alterações por Produto
-
-### Torcida Mestre
-
-**Arquivos a modificar:**
-- `src/pages/TorcidaMestreDetail.tsx`
-- `src/components/torcida-mestre/TorcidaMestreRoundCard.tsx`
-
-**Funcionalidades:**
-
-1. **Menu de Tickets (TicketStatusPanel)**
-   - Listar todos os tickets do usuário na rodada
-   - Mostrar status: palpitado (✔) ou pendente (⏳)
-   - Exibir placar se já preenchido
-   - Permitir clicar para editar (se prazo aberto)
-
-2. **Fluxo Sequencial**
-   - Após salvar Ticket N → abrir automaticamente Ticket N+1
-   - Se todos preenchidos → mostrar resumo
-   - Se sair com tickets vazios → exibir alerta
-
-3. **Alerta de Placar Repetido**
-   - Ao salvar, verificar se placar já existe em outro ticket
-   - Mostrar `DuplicatePredictionAlert` para confirmação
-
-4. **Transparência Após Deadline**
-   - Após encerramento: bloquear edições
-   - Exibir `RoundPredictionsTable` com todos os palpites
-   - Resumo por usuário: "João — 8 Tickets — Rodada 2"
-
-**Mudanças específicas em `TorcidaMestreDetail.tsx`:**
-- Alterar lógica de `userParticipant` para retornar TODOS os tickets do usuário (não apenas o primeiro)
-- Adicionar estado `activeTicketId` e `userTickets`
-- Integrar `TicketStatusPanel` no layout
-- Implementar callback `onNextTicket` no `TorcidaMestreRoundCard`
-
-### Bolão Tradicional
-
-**Arquivos a modificar:**
-- `src/pages/PoolDetail.tsx`
-
-**Funcionalidades:**
-
-1. **Menu de Tickets (TicketStatusPanel)**
-   - Integrar acima da lista de jogos
-   - Mostrar quantos jogos foram palpitados por ticket
-   - Exemplo: "Ticket 1 – 8/10 jogos"
-
-2. **Melhorar TicketSelector Existente**
-   - Atualizar para usar o novo padrão visual
-   - Adicionar indicador de preenchimento
-
-**Mudanças específicas:**
-- Substituir/complementar `TicketSelector` com `TicketStatusPanel`
-- Mostrar progresso de preenchimento por ticket
-
-### Quiz 10
-
-**Arquivos a modificar:**
-- `src/pages/QuizDetail.tsx`
-
-**Funcionalidades:**
-
-1. **Menu de Tickets (TicketStatusPanel)**
-   - Mostrar tickets e quantas perguntas foram respondidas
-   - Exemplo: "Ticket 1 – 10/10 respondidas"
-
-2. **Navegação Entre Tickets**
-   - Permitir trocar de ticket a qualquer momento
-   - Manter respostas independentes por ticket
-
----
-
-## Novos Arquivos a Criar
-
-| Arquivo | Descrição |
-|---------|-----------|
-| `src/components/TicketStatusPanel.tsx` | Menu de status de tickets (reutilizável) |
-| `src/components/DuplicatePredictionAlert.tsx` | Alerta de placar repetido |
-| `src/components/torcida-mestre/RoundPredictionsTable.tsx` | Tabela de transparência |
-
----
-
-## Fluxo Sequencial Detalhado (Torcida Mestre)
-
-```text
-1. Usuário entra na rodada com 4 tickets
-2. Sistema abre Ticket 1 para palpite
-3. Usuário preenche 2x0 e salva
-4. Sistema:
-   a) Verifica se placar é repetido → se sim, mostra alerta
-   b) Salva palpite
-   c) Abre automaticamente Ticket 2
-5. Repete até Ticket 4
-6. Se usuário sair antes:
-   → "⚠️ Você ainda possui 2 tickets não utilizados nesta rodada."
+// Na lista de rotas:
+<Route path="/my-predictions" element={<MyPredictions />} />
 ```
 
 ---
 
-## Mudanças no Banco de Dados
+### Estrutura de Dados por Aba
 
-Não são necessárias alterações no schema. A estrutura atual já suporta:
-- Múltiplos tickets por usuário (`ticket_number`)
-- Predictions vinculadas a `participant_id`
+#### Aba "Bolões" (Bolão Tradicional)
+
+Buscar participações do usuário e agregar palpites:
+
+```typescript
+// 1. Buscar participações do usuário
+const { data: participations } = await supabase
+  .from('pool_participants')
+  .select(`
+    id,
+    ticket_number,
+    total_points,
+    pools (id, name, description)
+  `)
+  .eq('user_id', user.id);
+
+// 2. Buscar palpites com informações do jogo
+const { data: predictions } = await supabase
+  .from('predictions')
+  .select(`
+    id,
+    home_score,
+    away_score,
+    points_earned,
+    matches (
+      id,
+      home_team,
+      away_team,
+      home_score,
+      away_score,
+      is_finished,
+      pool_id
+    )
+  `)
+  .eq('user_id', user.id);
+```
+
+**Exibição:**
+- Card por bolão
+- Resumo: nome, número de palpites, pontos totais
+- Botão "Ver Bolão" → navega para `/pools/:id`
+
+#### Aba "Quiz 10"
+
+```typescript
+// Buscar participações em quizzes
+const { data: quizParticipations } = await supabase
+  .from('quiz_participants')
+  .select(`
+    id,
+    ticket_number,
+    total_points,
+    quizzes (id, name, description)
+  `)
+  .eq('user_id', user.id);
+
+// Buscar respostas
+const { data: answers } = await supabase
+  .from('quiz_answers')
+  .select(`
+    id,
+    selected_answer,
+    is_correct,
+    points_earned,
+    quiz_id
+  `)
+  .eq('user_id', user.id);
+```
+
+**Exibição:**
+- Card por quiz
+- Resumo: nome, respostas corretas/total, pontos
+- Botão "Ver Quiz" → navega para `/quiz/:id`
+
+#### Aba "Torcida Mestre"
+
+```typescript
+// Buscar participações
+const { data: torcidaParticipations } = await supabase
+  .from('torcida_mestre_participants')
+  .select(`
+    id,
+    ticket_number,
+    status,
+    torcida_mestre_pools (id, name, club_name, club_image)
+  `)
+  .eq('user_id', user.id)
+  .eq('status', 'approved');
+
+// Buscar palpites
+const { data: torcidaPredictions } = await supabase
+  .from('torcida_mestre_predictions')
+  .select(`
+    id,
+    home_score,
+    away_score,
+    is_winner,
+    prize_won,
+    torcida_mestre_rounds (
+      id,
+      round_number,
+      opponent_name,
+      home_score,
+      away_score,
+      is_finished,
+      pool_id
+    )
+  `)
+  .eq('user_id', user.id);
+```
+
+**Exibição:**
+- Card por bolão Torcida Mestre
+- Resumo: clube, tickets, rodadas participadas, prêmios ganhos
+- Botão "Ver Bolão" → navega para `/torcida-mestre/:id`
 
 ---
 
-## Componentes Existentes a Reutilizar
+### Arquivos a Criar/Modificar
+
+| Arquivo | Ação |
+|---------|------|
+| `src/pages/MyPredictions.tsx` | **Criar** - Página principal |
+| `src/App.tsx` | **Modificar** - Adicionar import e rota |
+
+---
+
+### Proteção de Rota
+
+A página só é acessível para usuários logados:
+- Verificar `user` do contexto de autenticação
+- Redirecionar para `/auth` se não autenticado
+
+```typescript
+useEffect(() => {
+  if (!authLoading && !user) {
+    navigate('/auth');
+  }
+}, [user, authLoading, navigate]);
+```
+
+---
+
+### Componentes Reutilizados
 
 | Componente | Uso |
 |------------|-----|
-| `TicketSelector.tsx` | Base para o novo `TicketStatusPanel` |
-| `TorcidaMestreRoundCard.tsx` | Adicionar props para fluxo sequencial |
-| `AlertDialog` (shadcn) | Para `DuplicatePredictionAlert` |
-| `Table` (shadcn) | Para `RoundPredictionsTable` |
+| `Layout` | Container padrão com Navbar |
+| `Tabs` (shadcn) | Navegação entre produtos |
+| `Card` (shadcn) | Cards de resumo por bolão |
+| `Badge` (shadcn) | Status e contadores |
+| `Button` (shadcn) | Links para bolões |
+| `Loader2` (lucide) | Estado de carregamento |
 
 ---
 
-## Estimativa de Complexidade
+### Estados da Página
 
-| Tarefa | Complexidade |
-|--------|-------------|
-| TicketStatusPanel | Média |
-| DuplicatePredictionAlert | Baixa |
-| RoundPredictionsTable | Média |
-| Integração Torcida Mestre | Alta |
-| Integração Bolão | Média |
-| Integração Quiz | Média |
+1. **Carregando**: Skeleton ou spinner
+2. **Sem palpites**: Mensagem incentivando participação
+3. **Com palpites**: Lista organizada por abas
 
 ---
 
-## Resumo Visual Final
+### Resultado Esperado
 
-### Torcida Mestre (Mais Completo)
-- ✔ Menu de tickets com status
-- ✔ Fluxo sequencial automático
-- ✔ Alerta de placar repetido
-- ✔ Tabela de transparência após deadline
-- ✔ Resumo por usuário
-
-### Bolão Tradicional
-- ✔ Menu de tickets com status
-- ✔ Indicador de preenchimento por ticket
-- ❌ Sem fluxo sequencial (usuário escolhe jogos livremente)
-
-### Quiz 10
-- ✔ Menu de tickets com status
-- ✔ Indicador de respostas por ticket
-- ❌ Sem fluxo sequencial (usuário escolhe perguntas livremente)
+- Usuário acessa `/my-predictions` sem erro 404
+- Visualiza todos seus palpites organizados por produto
+- Navega facilmente para cada bolão específico
+- Interface consistente com o resto do sistema
