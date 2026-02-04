@@ -12,6 +12,7 @@ interface RoundFinancialSummaryProps {
   participantsCount: number;
   shouldAccumulate: boolean;
   accumulationReason?: 'team_lost' | 'no_winners' | 'draw_not_allowed';
+  totalPrize: number; // Calculated externally: entry_fee × participants + previous_accumulated
 }
 
 export function RoundFinancialSummary({
@@ -21,8 +22,8 @@ export function RoundFinancialSummary({
   participantsCount,
   shouldAccumulate,
   accumulationReason,
+  totalPrize,
 }: RoundFinancialSummaryProps) {
-  const totalPrize = (round.accumulated_prize || 0) + (round.previous_accumulated || 0);
   const adminFee = totalPrize * (pool.admin_fee_percent / 100);
   const netPrize = totalPrize - adminFee;
   const prizePerWinner = winners.length > 0 ? netPrize / winners.length : 0;

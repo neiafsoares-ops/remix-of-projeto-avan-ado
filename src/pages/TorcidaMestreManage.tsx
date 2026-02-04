@@ -336,10 +336,18 @@ export default function TorcidaMestreManage() {
     }
     
     try {
+      // Get active participants for this round
+      const activeRoundParticipants = participants.filter(
+        p => p.round_id === selectedRound.id && p.status === 'active'
+      );
+      
       const roundPredictions = predictions.filter(p => p.round_id === selectedRound.id);
       const result = calculateTorcidaMestreWinners(selectedRound, roundPredictions, pool.allow_draws);
       
-      const totalPrize = (selectedRound.accumulated_prize || 0) + (selectedRound.previous_accumulated || 0);
+      // Calculate total prize dynamically: entry_fee × active participants + previous accumulated
+      const entryFee = selectedRound.entry_fee_override ?? pool.entry_fee;
+      const totalPrize = (entryFee * activeRoundParticipants.length) + (selectedRound.previous_accumulated || 0);
+      
       const prizePerWinner = result.winners.length > 0 
         ? calculatePrizePerWinner(totalPrize, result.winners.length, pool.admin_fee_percent)
         : 0;
@@ -355,10 +363,13 @@ export default function TorcidaMestreManage() {
           .eq('id', winner.id);
       }
       
-      // Mark round as finished
+      // Mark round as finished and store the calculated accumulated_prize for record keeping
       const { error } = await supabase
         .from('torcida_mestre_rounds')
-        .update({ is_finished: true })
+        .update({ 
+          is_finished: true,
+          accumulated_prize: entryFee * activeRoundParticipants.length,
+        })
         .eq('id', selectedRound.id);
       
       if (error) throw error;
@@ -592,10 +603,15 @@ export default function TorcidaMestreManage() {
                 
                 {/* Round Details */}
                 {selectedRound && (() => {
+                  const roundParticipants = participants.filter(p => p.round_id === selectedRound.id && p.status === 'active');
                   const roundPredictions = predictions.filter(p => p.round_id === selectedRound.id);
                   const winnerResult = selectedRound.is_finished 
                     ? calculateTorcidaMestreWinners(selectedRound, roundPredictions, pool.allow_draws)
                     : null;
+                  
+                  // Calculate dynamic prize: entry_fee × active participants + previous accumulated
+                  const entryFee = selectedRound.entry_fee_override ?? pool.entry_fee;
+                  const roundPrize = (entryFee * roundParticipants.length) + (selectedRound.previous_accumulated || 0);
                   
                   return (
                     <div className="space-y-4">
@@ -648,7 +664,7 @@ export default function TorcidaMestreManage() {
                             <div className="p-3 rounded-lg bg-amber-500/10">
                               <p className="text-sm text-muted-foreground">Prêmio</p>
                               <p className="text-xl font-bold text-amber-600 dark:text-amber-400">
-                                {formatPrize((selectedRound.accumulated_prize || 0) + (selectedRound.previous_accumulated || 0))}
+                                {formatPrize(roundPrize)}
                               </p>
                             </div>
                           </div>
@@ -684,9 +700,10 @@ export default function TorcidaMestreManage() {
                           round={selectedRound}
                           pool={pool}
                           winners={winnerResult.winners}
-                          participantsCount={activeParticipants.length}
+                          participantsCount={roundParticipants.length}
                           shouldAccumulate={winnerResult.shouldAccumulate}
                           accumulationReason={winnerResult.reason}
+                          totalPrize={roundPrize}
                         />
                       )}
                     </div>
