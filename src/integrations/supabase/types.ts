@@ -495,6 +495,33 @@ export type Database = {
         }
         Relationships: []
       }
+      quem_somos_gallery: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url: string
+          position: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       quiz_answers: {
         Row: {
           created_at: string

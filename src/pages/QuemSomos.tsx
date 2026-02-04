@@ -1,5 +1,11 @@
+import { useState, useEffect, useCallback } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/auth-context';
 import { 
   Trophy, 
   Smartphone, 
@@ -8,26 +14,21 @@ import {
   Users, 
   User, 
   Rocket,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Upload,
+  X,
+  Loader2,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 import logoZapions from '@/assets/logo-zapions.png';
 
-// Gallery images - edit this array to update the gallery
-// Each item should have an imageUrl (or null for placeholder) and optional description (max 50 chars)
-const galleryImages: { imageUrl: string | null; description: string }[] = [
-  { imageUrl: null, description: '' },
-  { imageUrl: null, description: '' },
-  { imageUrl: null, description: '' },
-  { imageUrl: null, description: '' },
-  { imageUrl: null, description: '' },
-  { imageUrl: null, description: '' },
-  { imageUrl: null, description: '' },
-  { imageUrl: null, description: '' },
-  { imageUrl: null, description: '' },
-  { imageUrl: null, description: '' },
-  { imageUrl: null, description: '' },
-  { imageUrl: null, description: '' },
-];
+interface GalleryImage {
+  id: string;
+  position: number;
+  image_url: string;
+  description: string | null;
+}
 
 const sections = [
   {
@@ -101,6 +102,191 @@ E isso é só o começo.`
 ];
 
 export default function QuemSomos() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [galleryImages, setGalleryImages] = useState<(GalleryImage | null)[]>(Array(12).fill(null));
+  const [uploading, setUploading] = useState<number | null>(null);
+  const [editingDescription, setEditingDescription] = useState<number | null>(null);
+  const [tempDescription, setTempDescription] = useState('');
+  const [dragOver, setDragOver] = useState<number | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check if user is admin
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+      
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+      
+      setIsAdmin(!!data);
+    };
+    checkAdmin();
+  }, [user]);
+
+  const handleFileUpload = async (file: File, position: number) => {
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Arquivo inválido', description: 'Apenas imagens são permitidas.', variant: 'destructive' });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Arquivo muito grande', description: 'Máximo de 5MB permitido.', variant: 'destructive' });
+      return;
+    }
+
+    setUploading(position);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `gallery-${position}-${Date.now()}.${fileExt}`;
+      
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('quem-somos-gallery')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('quem-somos-gallery')
+        .getPublicUrl(fileName);
+
+      const imageUrl = urlData.publicUrl;
+      
+      // Check if position exists
+      const existingImage = galleryImages[position - 1];
+      
+      if (existingImage) {
+        // Update existing
+        const { error: updateError } = await supabase
+          .from('quem_somos_gallery')
+          .update({ image_url: imageUrl })
+          .eq('id', existingImage.id);
+        
+        if (updateError) throw updateError;
+        
+        // Delete old image from storage
+        const oldFileName = existingImage.image_url.split('/').pop();
+        if (oldFileName) {
+          await supabase.storage.from('quem-somos-gallery').remove([oldFileName]);
+        }
+      } else {
+        // Insert new
+        const { error: insertError } = await supabase
+          .from('quem_somos_gallery')
+          .insert({ position, image_url: imageUrl });
+        
+        if (insertError) throw insertError;
+      }
+
+      // Refresh gallery
+      const { data: newData } = await supabase
+        .from('quem_somos_gallery')
+        .select('*')
+        .order('position');
+      
+      if (newData) {
+        const images = Array(12).fill(null);
+        newData.forEach((img) => {
+          if (img.position >= 1 && img.position <= 12) {
+            images[img.position - 1] = img;
+          }
+        });
+        setGalleryImages(images);
+      }
+
+      toast({ title: 'Imagem enviada!', description: 'A galeria foi atualizada.' });
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({ title: 'Erro ao enviar', description: error.message, variant: 'destructive' });
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  const handleDeleteImage = async (position: number) => {
+    const image = galleryImages[position - 1];
+    if (!image) return;
+
+    try {
+      // Delete from database
+      const { error } = await supabase
+        .from('quem_somos_gallery')
+        .delete()
+        .eq('id', image.id);
+
+      if (error) throw error;
+
+      // Delete from storage
+      const fileName = image.image_url.split('/').pop();
+      if (fileName) {
+        await supabase.storage.from('quem-somos-gallery').remove([fileName]);
+      }
+
+      // Update state
+      const newImages = [...galleryImages];
+      newImages[position - 1] = null;
+      setGalleryImages(newImages);
+
+      toast({ title: 'Imagem removida!' });
+    } catch (error: any) {
+      toast({ title: 'Erro ao remover', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleUpdateDescription = async (position: number) => {
+    const image = galleryImages[position - 1];
+    if (!image) return;
+
+    const description = tempDescription.slice(0, 50);
+    
+    try {
+      const { error } = await supabase
+        .from('quem_somos_gallery')
+        .update({ description })
+        .eq('id', image.id);
+
+      if (error) throw error;
+
+      // Update state
+      const newImages = [...galleryImages];
+      newImages[position - 1] = { ...image, description };
+      setGalleryImages(newImages);
+      setEditingDescription(null);
+
+      toast({ title: 'Descrição atualizada!' });
+    } catch (error: any) {
+      toast({ title: 'Erro ao atualizar', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleDrop = useCallback((e: React.DragEvent, position: number) => {
+    e.preventDefault();
+    setDragOver(null);
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleFileUpload(files[0], position);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, position: number) => {
+    e.preventDefault();
+    setDragOver(position);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOver(null);
+  }, []);
+
   return (
     <Layout>
       <div className="container py-8 md:py-12">
@@ -121,7 +307,7 @@ export default function QuemSomos() {
 
         {/* Content Sections */}
         <div className="max-w-4xl mx-auto space-y-8">
-          {sections.map((section, index) => (
+          {sections.map((section) => (
             <Card key={section.title} className="overflow-hidden">
               <CardContent className="p-6 md:p-8">
                 <div className="flex items-start gap-4">
@@ -152,37 +338,129 @@ export default function QuemSomos() {
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {galleryImages.map((item, index) => (
-              <div key={index} className="group relative">
-                <div className="aspect-square rounded-xl overflow-hidden bg-muted border-2 border-dashed border-border">
-                  {item.imageUrl ? (
-                    <img 
-                      src={item.imageUrl} 
-                      alt={item.description || `Imagem ${index + 1}`}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
-                      <ImageIcon className="h-8 w-8 mb-2 opacity-50" />
-                      <span className="text-xs opacity-50">Imagem {index + 1}</span>
+            {galleryImages.map((image, index) => {
+              const position = index + 1;
+              const isUploading = uploading === position;
+              const isDraggedOver = dragOver === position;
+              const isEditingDesc = editingDescription === position;
+
+              return (
+                <div key={index} className="group relative">
+                  <div 
+                    className={`aspect-square rounded-xl overflow-hidden bg-muted border-2 transition-all duration-200 ${
+                      isDraggedOver ? 'border-primary border-dashed scale-105' : 'border-dashed border-border'
+                    } ${isAdmin ? 'cursor-pointer' : ''}`}
+                    onDrop={isAdmin ? (e) => handleDrop(e, position) : undefined}
+                    onDragOver={isAdmin ? (e) => handleDragOver(e, position) : undefined}
+                    onDragLeave={isAdmin ? handleDragLeave : undefined}
+                  >
+                    {isUploading ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
+                        <Loader2 className="h-8 w-8 animate-spin mb-2" />
+                        <span className="text-xs">Enviando...</span>
+                      </div>
+                    ) : image ? (
+                      <>
+                        <img 
+                          src={image.image_url} 
+                          alt={image.description || `Imagem ${position}`}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                        {/* Admin overlay */}
+                        {isAdmin && (
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                            <label className="cursor-pointer">
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handleFileUpload(file, position);
+                                }}
+                              />
+                              <div className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors">
+                                <Upload className="h-5 w-5 text-white" />
+                              </div>
+                            </label>
+                            <button
+                              onClick={() => {
+                                setEditingDescription(position);
+                                setTempDescription(image.description || '');
+                              }}
+                              className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                            >
+                              <Pencil className="h-5 w-5 text-white" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteImage(position)}
+                              className="p-2 bg-red-500/50 rounded-lg hover:bg-red-500/70 transition-colors"
+                            >
+                              <Trash2 className="h-5 w-5 text-white" />
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
+                        {isAdmin ? (
+                          <label className="cursor-pointer w-full h-full flex flex-col items-center justify-center hover:bg-muted/50 transition-colors">
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleFileUpload(file, position);
+                              }}
+                            />
+                            <Upload className="h-8 w-8 mb-2 opacity-50" />
+                            <span className="text-xs opacity-50">Clique ou arraste</span>
+                          </label>
+                        ) : (
+                          <>
+                            <ImageIcon className="h-8 w-8 mb-2 opacity-50" />
+                            <span className="text-xs opacity-50">Imagem {position}</span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Description */}
+                  {isEditingDesc && isAdmin ? (
+                    <div className="mt-2 flex gap-1">
+                      <Input
+                        value={tempDescription}
+                        onChange={(e) => setTempDescription(e.target.value.slice(0, 50))}
+                        placeholder="Descrição (máx 50)"
+                        className="text-xs h-8"
+                        maxLength={50}
+                      />
+                      <Button 
+                        size="sm" 
+                        className="h-8 px-2"
+                        onClick={() => handleUpdateDescription(position)}
+                      >
+                        OK
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-8 px-2"
+                        onClick={() => setEditingDescription(null)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                     </div>
-                  )}
+                  ) : image?.description ? (
+                    <p className="mt-2 text-sm text-center text-muted-foreground line-clamp-2">
+                      {image.description}
+                    </p>
+                  ) : null}
                 </div>
-                {item.description && (
-                  <p className="mt-2 text-sm text-center text-muted-foreground line-clamp-2">
-                    {item.description}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-          
-          {/* Instructions for editing */}
-          <div className="mt-8 p-4 bg-muted/50 rounded-lg border border-border">
-            <p className="text-sm text-muted-foreground text-center">
-              <strong>Para editar a galeria:</strong> Modifique o array <code className="bg-muted px-1 rounded">galleryImages</code> no arquivo <code className="bg-muted px-1 rounded">src/pages/QuemSomos.tsx</code>. 
-              Adicione a URL da imagem em <code className="bg-muted px-1 rounded">imageUrl</code> e uma descrição de até 50 caracteres.
-            </p>
+              );
+            })}
           </div>
         </div>
       </div>
