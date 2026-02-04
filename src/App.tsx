@@ -24,6 +24,7 @@ import TorcidaMestreManage from "./pages/TorcidaMestreManage";
 import TermsOfUse from "./pages/TermsOfUse";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import NotFound from "./pages/NotFound";
+import MyPredictions from "./pages/MyPredictions";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +55,7 @@ const App = () => (
               <Route path="/mestre-do-bolao" element={<MestreDoBolao />} />
               <Route path="/termos-de-uso" element={<TermsOfUse />} />
               <Route path="/privacidade" element={<PrivacyPolicy />} />
+              <Route path="/my-predictions" element={<MyPredictions />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
