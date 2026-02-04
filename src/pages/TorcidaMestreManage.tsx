@@ -22,7 +22,7 @@ import { InviteParticipantInline } from '@/components/torcida-mestre/InviteParti
 import { Crown, ArrowLeft, Plus, Save, Users, CheckCircle, XCircle, Trophy, Loader2, Calendar, UserPlus, Ticket } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
-import { formatDateTimeBR, formatToDateTimeLocal } from '@/lib/date-utils';
+import { formatDateTimeBR, formatToDateTimeLocal, isAfterDeadline } from '@/lib/date-utils';
 import { formatPrize, calculateTorcidaMestreWinners, calculatePrizePerWinner } from '@/lib/torcida-mestre-utils';
 import type { 
   TorcidaMestrePool, 
@@ -167,6 +167,43 @@ export default function TorcidaMestreManage() {
   
   const handleCreateRound = async () => {
     if (!pool) return;
+    
+    // Validate required fields
+    if (!newRound.opponent_name.trim()) {
+      toast.error('Informe o adversário');
+      return;
+    }
+    
+    if (!newRound.match_date) {
+      toast.error('Informe a data e hora do jogo');
+      return;
+    }
+    
+    if (!newRound.prediction_deadline) {
+      toast.error('Informe o deadline para palpites');
+      return;
+    }
+    
+    // Validate that match date is in the future
+    if (isAfterDeadline(newRound.match_date)) {
+      toast.error('A data do jogo não pode estar no passado');
+      return;
+    }
+    
+    // Validate that prediction deadline is in the future
+    if (isAfterDeadline(newRound.prediction_deadline)) {
+      toast.error('O deadline para palpites não pode estar no passado');
+      return;
+    }
+    
+    // Validate that deadline is before match date
+    const matchTime = new Date(newRound.match_date).getTime();
+    const deadlineTime = new Date(newRound.prediction_deadline).getTime();
+    
+    if (deadlineTime >= matchTime) {
+      toast.error('O deadline deve ser anterior à data do jogo');
+      return;
+    }
     
     setIsCreatingRound(true);
     try {
