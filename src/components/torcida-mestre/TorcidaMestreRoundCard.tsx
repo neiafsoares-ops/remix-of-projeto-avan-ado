@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Calendar, Clock, Trophy, Save, Loader2 } from 'lucide-react';
 import { formatPrize } from '@/lib/torcida-mestre-utils';
 import type { TorcidaMestreRound, TorcidaMestrePool, TorcidaMestrePrediction } from '@/types/torcida-mestre';
-import { isPast } from 'date-fns';
+import { isAfterDeadline, formatDateBR, formatTimeBR, formatDateShortBR } from '@/lib/date-utils';
 import { toast } from 'sonner';
 
 interface TorcidaMestreRoundCardProps {
@@ -34,9 +34,7 @@ export function TorcidaMestreRoundCard({
     setAwayScore(userPrediction?.away_score?.toString() ?? '');
   }, [userPrediction]);
   
-  const deadlinePassed = isPast(new Date(round.prediction_deadline));
-  const matchDate = new Date(round.match_date);
-  const deadlineDate = new Date(round.prediction_deadline);
+  const deadlinePassed = isAfterDeadline(round.prediction_deadline);
   
   const totalPrize = round.accumulated_prize + round.previous_accumulated;
   
@@ -146,17 +144,11 @@ export function TorcidaMestreRoundCard({
         <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-1">
             <Calendar className="h-4 w-4" />
-            {matchDate.toLocaleDateString('pt-BR', {
-              day: '2-digit',
-              month: 'short'
-            })}
+            {formatDateShortBR(round.match_date)}
           </div>
           <div className="flex items-center gap-1">
             <Clock className="h-4 w-4" />
-            {matchDate.toLocaleTimeString('pt-BR', {
-              hour: '2-digit',
-              minute: '2-digit'
-            })}
+            {formatTimeBR(round.match_date)}
           </div>
         </div>
         
@@ -243,7 +235,7 @@ export function TorcidaMestreRoundCard({
         {/* Deadline Info */}
         {!round.is_finished && !deadlinePassed && (
           <p className="text-xs text-center text-muted-foreground">
-            Deadline: {deadlineDate.toLocaleDateString('pt-BR')} às {deadlineDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            Deadline: {formatDateBR(round.prediction_deadline)} às {formatTimeBR(round.prediction_deadline)}
           </p>
         )}
       </CardContent>
