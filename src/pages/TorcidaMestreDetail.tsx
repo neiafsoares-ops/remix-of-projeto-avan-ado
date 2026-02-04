@@ -429,8 +429,12 @@ export default function TorcidaMestreDetail() {
     ? participants.filter(p => p.round_id === selectedRound.id)
     : [];
   
+  const activeRoundParticipants = roundParticipants.filter(p => p.status === 'active');
+  
+  // Calculate total prize dynamically: entry_fee × active participants + previous accumulated
+  const entryFee = selectedRound?.entry_fee_override ?? pool?.entry_fee ?? 0;
   const totalPrize = selectedRound 
-    ? (selectedRound.accumulated_prize || 0) + (selectedRound.previous_accumulated || 0)
+    ? (entryFee * activeRoundParticipants.length) + (selectedRound.previous_accumulated || 0)
     : 0;
   
   const winnerResult = selectedRound?.is_finished
@@ -625,6 +629,7 @@ export default function TorcidaMestreDetail() {
                         winners={winnerResult.winners}
                         shouldAccumulate={winnerResult.shouldAccumulate}
                         accumulationReason={winnerResult.reason}
+                        totalPrize={totalPrize}
                       />
                     )}
                     

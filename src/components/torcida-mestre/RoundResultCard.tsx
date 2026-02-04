@@ -11,6 +11,7 @@ interface RoundResultCardProps {
   winners: TorcidaMestrePrediction[];
   shouldAccumulate: boolean;
   accumulationReason?: 'team_lost' | 'no_winners' | 'draw_not_allowed';
+  totalPrize: number; // Calculated externally: entry_fee × participants + previous_accumulated
 }
 
 export function RoundResultCard({
@@ -19,8 +20,8 @@ export function RoundResultCard({
   winners,
   shouldAccumulate,
   accumulationReason,
+  totalPrize,
 }: RoundResultCardProps) {
-  const totalPrize = (round.accumulated_prize || 0) + (round.previous_accumulated || 0);
   const netPrize = totalPrize * (1 - pool.admin_fee_percent / 100);
   const prizePerWinner = winners.length > 0 ? netPrize / winners.length : 0;
 
