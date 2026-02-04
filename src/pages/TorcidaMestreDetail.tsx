@@ -630,6 +630,7 @@ export default function TorcidaMestreDetail() {
                         shouldAccumulate={winnerResult.shouldAccumulate}
                         accumulationReason={winnerResult.reason}
                         totalPrize={totalPrize}
+                        participantsCount={activeRoundParticipants.length}
                       />
                     )}
                     
