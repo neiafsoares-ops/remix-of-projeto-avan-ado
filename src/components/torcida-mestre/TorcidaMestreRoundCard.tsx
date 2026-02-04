@@ -14,6 +14,7 @@ interface TorcidaMestreRoundCardProps {
   pool: TorcidaMestrePool;
   userPrediction?: TorcidaMestrePrediction | null;
   isApproved: boolean;
+  hasPendingRequest?: boolean;
   onSavePrediction?: (homeScore: number, awayScore: number) => Promise<void>;
 }
 
@@ -22,6 +23,7 @@ export function TorcidaMestreRoundCard({
   pool, 
   userPrediction, 
   isApproved,
+  hasPendingRequest = false,
   onSavePrediction 
 }: TorcidaMestreRoundCardProps) {
   const [homeScore, setHomeScore] = useState<string>(userPrediction?.home_score?.toString() ?? '');
@@ -223,11 +225,11 @@ export function TorcidaMestreRoundCard({
           </div>
         )}
         
-        {/* Not Approved Message */}
-        {!isApproved && !round.is_finished && (
-          <div className="p-3 rounded-lg bg-muted/50 text-center">
-            <p className="text-sm text-muted-foreground">
-              Aguardando aprovação para participar desta rodada
+        {/* Pending Approval Message - Only show if user has pending request */}
+        {!isApproved && hasPendingRequest && !round.is_finished && (
+          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-center">
+            <p className="text-sm text-amber-600 dark:text-amber-400">
+              Sua solicitação está pendente de aprovação
             </p>
           </div>
         )}
