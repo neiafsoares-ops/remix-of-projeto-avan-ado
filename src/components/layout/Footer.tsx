@@ -25,13 +25,13 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="/" className="hover:text-foreground transition-colors">
-                  Como Funciona
+                <Link to="/quem-somos" className="hover:text-foreground transition-colors">
+                  Quem Somos
                 </Link>
               </li>
               <li>
                 <Link to="/" className="hover:text-foreground transition-colors">
-                  Regras de Pontuação
+                  Como Funciona
                 </Link>
               </li>
             </ul>
