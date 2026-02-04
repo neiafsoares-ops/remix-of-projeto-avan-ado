@@ -1,242 +1,243 @@
 
-## Plano: Criar Página "Meus Palpites" (MyPredictions)
+## Plano: Corrigir Exclusão de Bolão + Confirmação com Senha para Bolões de Outros Usuários
 
-### Problema
-A rota `/my-predictions` está referenciada no menu de navegação (Navbar) mas a página e a rota não existem no sistema, causando erro 404.
+### Problema Identificado
 
-### Análise
+#### 1. Erro de Foreign Key
+O erro `update or delete on table "pools" violates foreign key constraint "matches_pool_id_fkey" on table "matches"` ocorre porque a função `handleDeletePool` no **Admin.tsx** tenta excluir o pool diretamente sem remover as tabelas relacionadas primeiro.
 
-**Referências existentes:**
-- `src/components/layout/Navbar.tsx` (linhas 98-101, 185-191): Link para `/my-predictions`
-- `src/App.tsx`: Falta a rota e o import
+**Tabelas com Foreign Keys para `pools`:**
 
-**Dados a buscar (3 produtos):**
+| Tabela | Coluna FK | Referência |
+|--------|-----------|------------|
+| `matches` | pool_id | pools.id |
+| `rounds` | pool_id | pools.id |
+| `pool_participants` | pool_id | pools.id |
+| `pool_invitations` | pool_id | pools.id |
+| `mestre_pool_instances` | pool_id | pools.id |
+| `predictions` | match_id | matches.id (indireta) |
+| `round_limit_requests` | round_id | rounds.id (indireta) |
 
-| Produto | Tabela de Palpites | Tabela de Participação | Info Adicional |
-|---------|-------------------|------------------------|----------------|
-| Bolão Tradicional | `predictions` | `pool_participants` | `matches`, `pools`, `rounds` |
-| Quiz 10 | `quiz_answers` | `quiz_participants` | `quiz_questions`, `quizzes`, `quiz_rounds` |
-| Torcida Mestre | `torcida_mestre_predictions` | `torcida_mestre_participants` | `torcida_mestre_rounds`, `torcida_mestre_pools` |
+**Ordem correta de exclusão:**
+1. predictions (via match_id)
+2. round_limit_requests (via round_id)
+3. matches
+4. rounds  
+5. pool_invitations
+6. pool_participants
+7. mestre_pool_instances
+8. pools
+
+#### 2. Falta de Proteção para Bolões de Outros Usuários
+Administradores podem excluir bolões de outros usuários sem nenhuma confirmação adicional, correndo risco de exclusão acidental.
 
 ---
 
 ### Solução
 
-#### 1. Criar Nova Página `MyPredictions.tsx`
+#### 1. Novo Componente: `DeletePoolDialog`
 
-**Arquivo:** `src/pages/MyPredictions.tsx`
+**Arquivo:** `src/components/admin/DeletePoolDialog.tsx`
 
-**Estrutura:**
-- Layout com abas (Tabs): Bolões | Quiz 10 | Torcida Mestre
-- Cada aba mostra os palpites do usuário organizados por bolão/rodada
-- Links diretos para os bolões/quizzes específicos
+Um componente reutilizável que:
+- Detecta se o bolão é do próprio usuário ou de outro
+- Para bolões de outros: solicita senha do administrador
+- Mostra alerta claro sobre a ação irreversível
+- Executa a exclusão na ordem correta respeitando foreign keys
 
-**Visual proposto:**
+**Comportamento:**
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│  ← Meus Palpites                                            │
-├─────────────────────────────────────────────────────────────┤
-│  [Bolões]    [Quiz 10]    [Torcida Mestre]                 │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌───────────────────────────────────────────────────────┐ │
-│  │ Copa do Mundo 2026                                    │ │
-│  │ Rodada 1 • 10 palpites • 25 pontos                   │ │
-│  │ [Ver Bolão →]                                         │ │
-│  └───────────────────────────────────────────────────────┘ │
-│                                                             │
-│  ┌───────────────────────────────────────────────────────┐ │
-│  │ Libertadores 2025                                     │ │
-│  │ Rodada 3 • 8 palpites • 18 pontos                    │ │
-│  │ [Ver Bolão →]                                         │ │
-│  └───────────────────────────────────────────────────────┘ │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│  ⚠️ ATENÇÃO: Excluir Bolão de Outro Usuário             │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│  Você está prestes a excluir o bolão "Copa 2025"        │
+│  criado por @joao_silva                                  │
+│                                                          │
+│  Esta ação é IRREVERSÍVEL e removerá:                   │
+│  • 45 jogos                                              │
+│  • 320 palpites                                          │
+│  • 25 participantes                                      │
+│  • Todo o histórico de rodadas                          │
+│                                                          │
+│  ─────────────────────────────────────────────────────  │
+│                                                          │
+│  Para confirmar, digite sua senha:                       │
+│  [________________________]                              │
+│                                                          │
+│  ☐ Confirmo que desejo excluir este bolão               │
+│                                                          │
+│         [Cancelar]          [Excluir Bolão]             │
+└──────────────────────────────────────────────────────────┘
 ```
 
-#### 2. Registrar Rota no App.tsx
+**Para bolões do próprio usuário:** Mostra apenas confirmação simples (sem senha).
 
-Adicionar import e rota:
+#### 2. Função de Exclusão Completa
 
-```typescript
-import MyPredictions from "./pages/MyPredictions";
-
-// Na lista de rotas:
-<Route path="/my-predictions" element={<MyPredictions />} />
-```
-
----
-
-### Estrutura de Dados por Aba
-
-#### Aba "Bolões" (Bolão Tradicional)
-
-Buscar participações do usuário e agregar palpites:
+**Lógica de exclusão na ordem correta:**
 
 ```typescript
-// 1. Buscar participações do usuário
-const { data: participations } = await supabase
-  .from('pool_participants')
-  .select(`
-    id,
-    ticket_number,
-    total_points,
-    pools (id, name, description)
-  `)
-  .eq('user_id', user.id);
-
-// 2. Buscar palpites com informações do jogo
-const { data: predictions } = await supabase
-  .from('predictions')
-  .select(`
-    id,
-    home_score,
-    away_score,
-    points_earned,
-    matches (
-      id,
-      home_team,
-      away_team,
-      home_score,
-      away_score,
-      is_finished,
-      pool_id
-    )
-  `)
-  .eq('user_id', user.id);
-```
-
-**Exibição:**
-- Card por bolão
-- Resumo: nome, número de palpites, pontos totais
-- Botão "Ver Bolão" → navega para `/pools/:id`
-
-#### Aba "Quiz 10"
-
-```typescript
-// Buscar participações em quizzes
-const { data: quizParticipations } = await supabase
-  .from('quiz_participants')
-  .select(`
-    id,
-    ticket_number,
-    total_points,
-    quizzes (id, name, description)
-  `)
-  .eq('user_id', user.id);
-
-// Buscar respostas
-const { data: answers } = await supabase
-  .from('quiz_answers')
-  .select(`
-    id,
-    selected_answer,
-    is_correct,
-    points_earned,
-    quiz_id
-  `)
-  .eq('user_id', user.id);
-```
-
-**Exibição:**
-- Card por quiz
-- Resumo: nome, respostas corretas/total, pontos
-- Botão "Ver Quiz" → navega para `/quiz/:id`
-
-#### Aba "Torcida Mestre"
-
-```typescript
-// Buscar participações
-const { data: torcidaParticipations } = await supabase
-  .from('torcida_mestre_participants')
-  .select(`
-    id,
-    ticket_number,
-    status,
-    torcida_mestre_pools (id, name, club_name, club_image)
-  `)
-  .eq('user_id', user.id)
-  .eq('status', 'approved');
-
-// Buscar palpites
-const { data: torcidaPredictions } = await supabase
-  .from('torcida_mestre_predictions')
-  .select(`
-    id,
-    home_score,
-    away_score,
-    is_winner,
-    prize_won,
-    torcida_mestre_rounds (
-      id,
-      round_number,
-      opponent_name,
-      home_score,
-      away_score,
-      is_finished,
-      pool_id
-    )
-  `)
-  .eq('user_id', user.id);
-```
-
-**Exibição:**
-- Card por bolão Torcida Mestre
-- Resumo: clube, tickets, rodadas participadas, prêmios ganhos
-- Botão "Ver Bolão" → navega para `/torcida-mestre/:id`
-
----
-
-### Arquivos a Criar/Modificar
-
-| Arquivo | Ação |
-|---------|------|
-| `src/pages/MyPredictions.tsx` | **Criar** - Página principal |
-| `src/App.tsx` | **Modificar** - Adicionar import e rota |
-
----
-
-### Proteção de Rota
-
-A página só é acessível para usuários logados:
-- Verificar `user` do contexto de autenticação
-- Redirecionar para `/auth` se não autenticado
-
-```typescript
-useEffect(() => {
-  if (!authLoading && !user) {
-    navigate('/auth');
+const handleDeletePool = async (poolId: string, adminPassword?: string) => {
+  // 1. Se bolão de outro usuário, verificar senha
+  if (isOtherUserPool && adminPassword) {
+    // Reautenticar admin com supabase.auth.signInWithPassword
+    const { error } = await supabase.auth.signInWithPassword({
+      email: currentUserEmail,
+      password: adminPassword
+    });
+    if (error) throw new Error('Senha incorreta');
   }
-}, [user, authLoading, navigate]);
+
+  // 2. Buscar IDs necessários
+  const { data: rounds } = await supabase
+    .from('rounds')
+    .select('id')
+    .eq('pool_id', poolId);
+  
+  const { data: matches } = await supabase
+    .from('matches')
+    .select('id')
+    .eq('pool_id', poolId);
+
+  const roundIds = rounds?.map(r => r.id) || [];
+  const matchIds = matches?.map(m => m.id) || [];
+
+  // 3. Excluir na ordem correta
+  if (matchIds.length > 0) {
+    await supabase.from('predictions').delete().in('match_id', matchIds);
+  }
+  
+  if (roundIds.length > 0) {
+    await supabase.from('round_limit_requests').delete().in('round_id', roundIds);
+  }
+  
+  await supabase.from('matches').delete().eq('pool_id', poolId);
+  await supabase.from('rounds').delete().eq('pool_id', poolId);
+  await supabase.from('pool_invitations').delete().eq('pool_id', poolId);
+  await supabase.from('pool_participants').delete().eq('pool_id', poolId);
+  await supabase.from('mestre_pool_instances').delete().eq('pool_id', poolId);
+  
+  // 4. Finalmente excluir o pool
+  await supabase.from('pools').delete().eq('id', poolId);
+};
 ```
 
 ---
 
-### Componentes Reutilizados
+### Arquivos a Modificar
 
-| Componente | Uso |
-|------------|-----|
-| `Layout` | Container padrão com Navbar |
-| `Tabs` (shadcn) | Navegação entre produtos |
-| `Card` (shadcn) | Cards de resumo por bolão |
-| `Badge` (shadcn) | Status e contadores |
-| `Button` (shadcn) | Links para bolões |
-| `Loader2` (lucide) | Estado de carregamento |
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/components/admin/DeletePoolDialog.tsx` | **Criar** - Novo componente de exclusão com senha |
+| `src/pages/Admin.tsx` | **Modificar** - Usar novo componente e corrigir ordem de exclusão |
+| `src/pages/PoolManage.tsx` | **Modificar** - Adicionar exclusões faltantes (pool_invitations, round_limit_requests, mestre_pool_instances) |
 
 ---
 
-### Estados da Página
+### Detalhes Técnicos
 
-1. **Carregando**: Skeleton ou spinner
-2. **Sem palpites**: Mensagem incentivando participação
-3. **Com palpites**: Lista organizada por abas
+#### DeletePoolDialog Props
+
+```typescript
+interface DeletePoolDialogProps {
+  pool: {
+    id: string;
+    name: string;
+    created_by: string;
+    creator_public_id: string;
+  };
+  currentUserId: string;
+  currentUserEmail: string;
+  onDelete: () => void;
+  onSuccess: () => void;
+  children: React.ReactNode; // Trigger button
+}
+```
+
+#### Estados do Dialog
+
+| Estado | Descrição |
+|--------|-----------|
+| `isOwnPool` | Bolão é do próprio admin |
+| `passwordRequired` | Precisa digitar senha (bolão de outro) |
+| `password` | Valor da senha digitada |
+| `confirmed` | Checkbox de confirmação |
+| `deleting` | Carregando durante exclusão |
+| `poolStats` | Estatísticas (jogos, palpites, participantes) |
+
+---
+
+### Fluxo de Exclusão
+
+```text
+Admin clica em "Excluir" no bolão
+         ↓
+    É bolão dele?
+    /           \
+  SIM           NÃO
+   ↓             ↓
+Dialog      Dialog com
+simples     campo senha
+   ↓             ↓
+Confirma    Digita senha
+checkbox    + confirma
+   ↓             ↓
+      Validações OK?
+           ↓
+  Executa exclusão cascata:
+  1. predictions
+  2. round_limit_requests
+  3. matches
+  4. rounds
+  5. pool_invitations
+  6. pool_participants  
+  7. mestre_pool_instances
+  8. pools
+           ↓
+  Toast de sucesso + atualiza lista
+```
+
+---
+
+### Correção Adicional no PoolManage.tsx
+
+A função `handleDeletePool` atual (linhas 913-973) já tem a lógica correta para a maioria das tabelas, mas precisa adicionar:
+
+```typescript
+// Após deletar predictions e antes de matches:
+
+// Delete round_limit_requests
+const roundIds = rounds.map(r => r.id);
+if (roundIds.length > 0) {
+  const { error: limitError } = await supabase
+    .from('round_limit_requests')
+    .delete()
+    .in('round_id', roundIds);
+  if (limitError) throw limitError;
+}
+
+// Delete pool_invitations
+const { error: invError } = await supabase
+  .from('pool_invitations')
+  .delete()
+  .eq('pool_id', pool.id);
+if (invError) throw invError;
+
+// Delete mestre_pool_instances
+const { error: mestreError } = await supabase
+  .from('mestre_pool_instances')
+  .delete()
+  .eq('pool_id', pool.id);
+if (mestreError) throw mestreError;
+```
 
 ---
 
 ### Resultado Esperado
 
-- Usuário acessa `/my-predictions` sem erro 404
-- Visualiza todos seus palpites organizados por produto
-- Navega facilmente para cada bolão específico
-- Interface consistente com o resto do sistema
+1. **Erro resolvido**: Exclusão de bolões funciona sem erros de foreign key
+2. **Segurança**: Admin deve digitar senha para excluir bolões de outros usuários
+3. **Clareza**: Alerta visual destacado para evitar exclusões acidentais
+4. **Transparência**: Mostra estatísticas do que será excluído (X jogos, Y palpites, Z participantes)
