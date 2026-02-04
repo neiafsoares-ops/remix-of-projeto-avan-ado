@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
 import { Sun, Moon, Menu, X, User, LogOut, LayoutDashboard, Shield, Star, Crown } from 'lucide-react';
-import logoZapions from '@/assets/logo-zapions.png';
+import { CircularLogo } from '@/components/CircularLogo';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
@@ -73,13 +73,9 @@ export function Navbar() {
         isScrolled ? "h-14" : "h-16"
       )}>
         <Link to="/" className="flex items-center gap-2 font-bold text-xl">
-          <img 
-            src={logoZapions} 
-            alt="Bolão Zapions" 
-            className={cn(
-              "w-auto transition-all duration-300",
-              isScrolled ? "h-[45px]" : "h-[60px]"
-            )} 
+          <CircularLogo 
+            size={isScrolled ? 40 : 50} 
+            className="transition-all duration-300"
           />
           <span className="hidden sm:inline">Bolão Zapions</span>
         </Link>

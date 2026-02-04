@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import logoZapions from '@/assets/logo-zapions.png';
+import { CircularLogo } from '@/components/CircularLogo';
 
 export function Footer() {
   return (
@@ -8,7 +8,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4">
             <Link to="/" className="flex items-center gap-2 font-bold text-xl">
-              <img src={logoZapions} alt="Bolão Zapions" className="h-[60px] w-auto" />
+              <CircularLogo size={50} />
               <span>Bolão Zapions</span>
             </Link>
             <p className="text-muted-foreground text-sm">
