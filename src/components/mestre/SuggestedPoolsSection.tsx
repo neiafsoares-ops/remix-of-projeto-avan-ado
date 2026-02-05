@@ -266,18 +266,9 @@ export function SuggestedPoolsSection() {
         if (matchesError) throw matchesError;
       }
 
-      // 5. Add creator as participant
-      const { error: participantError } = await supabase
-        .from('pool_participants')
-        .insert([{
-          pool_id: newPool.id,
-          user_id: user.id,
-          status: 'active' as const
-        }]);
-
-      if (participantError) throw participantError;
-
-      // 6. Register the instance in mestre_pool_instances
+      // 5. Register the instance in mestre_pool_instances
+      // Note: Creator is NOT automatically added as participant
+      // They can join manually if they wish to participate
       const { error: instanceError } = await supabase
         .from('mestre_pool_instances' as any)
         .insert({
