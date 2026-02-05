@@ -591,14 +591,8 @@ export function CreatePoolWizard({ open, onOpenChange, onSuccess, userId }: Crea
 
       if (roundsError) throw roundsError;
 
-      // 3. Add creator as participant
-      await supabase
-        .from('pool_participants')
-        .insert({
-          pool_id: pool.id,
-          user_id: userId,
-          status: 'active',
-        });
+      // Note: Creator is NOT automatically added as participant
+      // They can join manually if they wish to participate
 
       const successMessage = format === 'standard'
         ? `Bolão "${name}" criado com ${totalRounds} rodadas!`
