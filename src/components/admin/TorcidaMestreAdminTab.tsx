@@ -128,7 +128,7 @@ export function TorcidaMestreAdminTab() {
 
       toast({
         title: 'Bolão excluído',
-        description: 'O bolão Torcida Mestre foi excluído com sucesso.',
+        description: 'O bolão Time Mestre foi excluído com sucesso.',
       });
 
       setPools(prev => prev.filter(p => p.id !== poolId));
@@ -161,17 +161,17 @@ export function TorcidaMestreAdminTab() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Crown className="h-5 w-5 text-amber-500" />
-          Gestão Torcida Mestre
+          Gestão Time Mestre
         </CardTitle>
         <CardDescription>
-          Gerencie os bolões do Torcida Mestre, aprove participantes e acompanhe as rodadas
+          Gerencie os bolões do Time Mestre, aprove participantes e acompanhe as rodadas
         </CardDescription>
       </CardHeader>
       <CardContent>
         {pools.length === 0 ? (
           <div className="text-center py-12">
             <Crown className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-            <p className="text-muted-foreground">Nenhum bolão Torcida Mestre criado</p>
+            <p className="text-muted-foreground">Nenhum bolão Time Mestre criado</p>
           </div>
         ) : (
           <div className="rounded-md border">

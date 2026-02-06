@@ -92,7 +92,7 @@ export function CreateTorcidaMestreDialog({ onCreated }: CreateTorcidaMestreDial
       
       if (error) throw error;
       
-      toast.success('Bolão Torcida Mestre criado com sucesso!');
+      toast.success('Bolão Time Mestre criado com sucesso!');
       form.reset();
       setOpen(false);
       onCreated?.();
@@ -109,7 +109,7 @@ export function CreateTorcidaMestreDialog({ onCreated }: CreateTorcidaMestreDial
       <DialogTrigger asChild>
         <Button className="bg-amber-500 hover:bg-amber-600 text-amber-950">
           <Plus className="h-4 w-4 mr-2" />
-          Criar Torcida Mestre
+          Criar Time Mestre
         </Button>
       </DialogTrigger>
       
@@ -117,7 +117,7 @@ export function CreateTorcidaMestreDialog({ onCreated }: CreateTorcidaMestreDial
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Crown className="h-5 w-5 text-amber-500" />
-            Criar Bolão Torcida Mestre
+            Criar Bolão Time Mestre
           </DialogTitle>
           <DialogDescription>
             Crie um bolão focado em um único time. Participantes que acertarem o placar exato vencem!
