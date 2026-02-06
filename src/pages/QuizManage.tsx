@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
+import { notifyNewQuizRoundCreated } from '@/lib/notification-utils';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -285,6 +286,16 @@ export default function QuizManage() {
         .single();
 
       if (error) throw error;
+
+      // Notificar participantes sobre nova rodada
+      if (quiz && user) {
+        await notifyNewQuizRoundCreated(
+          quiz.id,
+          quiz.name,
+          newRoundName,
+          user.id
+        );
+      }
 
       setRounds([...rounds, data]);
       setSelectedRound(data);

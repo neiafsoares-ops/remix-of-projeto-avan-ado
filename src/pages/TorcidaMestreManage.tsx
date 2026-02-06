@@ -22,6 +22,7 @@ import { InviteParticipantInline } from '@/components/torcida-mestre/InviteParti
 import { Crown, ArrowLeft, Plus, Save, Users, CheckCircle, XCircle, Trophy, Loader2, Calendar, UserPlus, Ticket, RotateCcw } from 'lucide-react';
 import { RoundFinancialSummary } from '@/components/torcida-mestre/RoundFinancialSummary';
 import { supabase } from '@/integrations/supabase/client';
+import { notifyNewTorcidaMestreRoundCreated } from '@/lib/notification-utils';
 import { useAuth } from '@/lib/auth-context';
 import { formatDateTimeBR, formatToDateTimeLocal, isAfterDeadline } from '@/lib/date-utils';
 import { formatPrize, calculateTorcidaMestreWinners, calculatePrizePerWinner } from '@/lib/torcida-mestre-utils';
@@ -167,7 +168,7 @@ export default function TorcidaMestreManage() {
   }, [id, user]);
   
   const handleCreateRound = async () => {
-    if (!pool) return;
+    if (!pool || !user) return;
     
     // Validate required fields
     if (!newRound.opponent_name.trim()) {
@@ -230,12 +231,14 @@ export default function TorcidaMestreManage() {
       const matchDateISO = new Date(newRound.match_date).toISOString();
       const deadlineISO = new Date(newRound.prediction_deadline).toISOString();
       
+      const roundName = newRound.name || `Rodada ${roundNumber}`;
+      
       const { error } = await supabase
         .from('torcida_mestre_rounds')
         .insert({
           pool_id: pool.id,
           round_number: roundNumber,
-          name: newRound.name || `Rodada ${roundNumber}`,
+          name: roundName,
           opponent_name: newRound.opponent_name,
           opponent_club_id: newRound.opponent_club_id || null,
           opponent_image: newRound.opponent_image || null,
@@ -246,6 +249,15 @@ export default function TorcidaMestreManage() {
         });
       
       if (error) throw error;
+      
+      // Notificar participantes sobre nova rodada
+      await notifyNewTorcidaMestreRoundCreated(
+        pool.id,
+        pool.name,
+        roundName,
+        newRound.opponent_name,
+        user.id
+      );
       
       toast.success('Rodada criada com sucesso!');
       setShowCreateRound(false);
