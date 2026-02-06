@@ -27,6 +27,7 @@ import FAQ from "./pages/FAQ";
 import QuemSomos from "./pages/QuemSomos";
 import NotFound from "./pages/NotFound";
 import MyPredictions from "./pages/MyPredictions";
+import AprendaAJogar from "./pages/AprendaAJogar";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +61,7 @@ const App = () => (
               <Route path="/faq" element={<FAQ />} />
               <Route path="/quem-somos" element={<QuemSomos />} />
               <Route path="/my-predictions" element={<MyPredictions />} />
+              <Route path="/aprenda-a-jogar" element={<AprendaAJogar />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
