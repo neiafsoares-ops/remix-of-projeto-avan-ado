@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,9 +8,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { AlertCircle, Loader2, Eye, EyeOff, CheckCircle, Mail } from 'lucide-react';
+import { AlertCircle, Loader2, Eye, EyeOff, CheckCircle, Mail, ArrowLeft } from 'lucide-react';
 import { CircularLogo } from '@/components/CircularLogo';
 import { z } from 'zod';
+import heroBackground from '@/assets/hero-background.png';
 
 const loginSchema = z.object({
   emailOrUsername: z.string().min(3, 'Informe seu e-mail ou nome de usuário'),
@@ -157,8 +158,28 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/30">
-      <Card className="w-full max-w-md shadow-xl animate-scale-in">
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 relative"
+      style={{
+        backgroundImage: `url(${heroBackground})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      {/* Dark overlay for text legibility */}
+      <div className="absolute inset-0 bg-black/70" />
+      
+      {/* Back button */}
+      <Link 
+        to="/" 
+        className="absolute top-4 left-4 z-20 flex items-center gap-2 text-white/80 hover:text-white transition-colors"
+      >
+        <ArrowLeft className="h-5 w-5" />
+        <span className="text-sm font-medium">Voltar</span>
+      </Link>
+      
+      <Card className="w-full max-w-md shadow-xl animate-scale-in relative z-10">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto w-fit">
             <CircularLogo size={56} />
@@ -169,7 +190,7 @@ export default function Auth() {
               BOLÃO ESPORTIVO
             </CardDescription>
             <CardDescription className="mt-1">
-              Entre ou crie sua conta para participar dos bolões
+              Onde os resultados acontecem.
             </CardDescription>
           </div>
         </CardHeader>
