@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
-import { Sun, Moon, Menu, X, User, LogOut, LayoutDashboard, Shield, Star, Crown } from 'lucide-react';
+import { Sun, Moon, Menu, X, User, LogOut, LayoutDashboard, Shield, Star, ChevronDown, BookOpen, Trophy, Crown, Target } from 'lucide-react';
 import { CircularLogo } from '@/components/CircularLogo';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,6 +14,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+} from '@/components/ui/navigation-menu';
 import { cn } from '@/lib/utils';
 
 export function Navbar() {
@@ -21,6 +29,7 @@ export function Navbar() {
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileLearnMenuOpen, setMobileLearnMenuOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [canCreatePools, setCanCreatePools] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -61,6 +70,27 @@ export function Navbar() {
     navigate('/');
   };
 
+  const learnMenuItems = [
+    {
+      title: 'Como funcionam os Bolões',
+      description: 'Entenda o sistema de palpites e pontuação',
+      href: '/aprenda-a-jogar#boloes',
+      icon: Trophy,
+    },
+    {
+      title: 'O que é o Time Mestre',
+      description: 'Bolão focado no seu time do coração',
+      href: '/aprenda-a-jogar#timemestre',
+      icon: Crown,
+    },
+    {
+      title: 'Como funciona o Quiz 10',
+      description: 'Teste seus conhecimentos sobre futebol',
+      href: '/aprenda-a-jogar#quiz10',
+      icon: Target,
+    },
+  ];
+
   return (
     <nav 
       className={cn(
@@ -82,15 +112,44 @@ export function Navbar() {
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-6">
-          <Link to="/pools" className="text-muted-foreground hover:text-foreground transition-colors">
-            Bolões
+          <Link to="/quem-somos" className="text-muted-foreground hover:text-foreground transition-colors">
+            Quem Somos
           </Link>
-          <Link to="/quiz" className="text-muted-foreground hover:text-foreground transition-colors">
-            Quiz 10
-          </Link>
-          <Link to="/torcida-mestre" className="text-muted-foreground hover:text-foreground transition-colors">
-            Time Mestre
-          </Link>
+          
+          {/* Aprenda a Jogar Dropdown */}
+          <NavigationMenu>
+            <NavigationMenuList>
+              <NavigationMenuItem>
+                <NavigationMenuTrigger className="bg-transparent hover:bg-transparent focus:bg-transparent data-[state=open]:bg-transparent text-muted-foreground hover:text-foreground">
+                  <BookOpen className="h-4 w-4 mr-1" />
+                  Aprenda a Jogar
+                </NavigationMenuTrigger>
+                <NavigationMenuContent>
+                  <ul className="grid w-[400px] gap-3 p-4">
+                    {learnMenuItems.map((item) => (
+                      <li key={item.href}>
+                        <NavigationMenuLink asChild>
+                          <Link
+                            to={item.href}
+                            className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                          >
+                            <div className="flex items-center gap-2">
+                              <item.icon className="h-4 w-4 text-primary" />
+                              <div className="text-sm font-medium leading-none">{item.title}</div>
+                            </div>
+                            <p className="line-clamp-2 text-sm leading-snug text-muted-foreground mt-1">
+                              {item.description}
+                            </p>
+                          </Link>
+                        </NavigationMenuLink>
+                      </li>
+                    ))}
+                  </ul>
+                </NavigationMenuContent>
+              </NavigationMenuItem>
+            </NavigationMenuList>
+          </NavigationMenu>
+
           {user && (
             <Link to="/my-predictions" className="text-muted-foreground hover:text-foreground transition-colors">
               Meus Palpites
@@ -193,26 +252,49 @@ export function Navbar() {
         <div className="md:hidden border-t border-border bg-background animate-slide-up">
           <div className="container py-4 flex flex-col gap-3">
             <Link
-              to="/pools"
+              to="/quem-somos"
               className="px-4 py-2 rounded-lg hover:bg-muted transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Bolões
+              Quem Somos
             </Link>
-            <Link
-              to="/quiz"
-              className="px-4 py-2 rounded-lg hover:bg-muted transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Quiz 10
-            </Link>
-            <Link
-              to="/torcida-mestre"
-              className="px-4 py-2 rounded-lg hover:bg-muted transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Time Mestre
-            </Link>
+            
+            {/* Mobile Aprenda a Jogar Accordion */}
+            <div>
+              <button
+                className="w-full px-4 py-2 rounded-lg hover:bg-muted transition-colors flex items-center justify-between"
+                onClick={() => setMobileLearnMenuOpen(!mobileLearnMenuOpen)}
+              >
+                <span className="flex items-center gap-2">
+                  <BookOpen className="h-4 w-4" />
+                  Aprenda a Jogar
+                </span>
+                <ChevronDown className={cn(
+                  "h-4 w-4 transition-transform",
+                  mobileLearnMenuOpen && "rotate-180"
+                )} />
+              </button>
+              
+              {mobileLearnMenuOpen && (
+                <div className="pl-6 mt-1 space-y-1">
+                  {learnMenuItems.map((item) => (
+                    <Link
+                      key={item.href}
+                      to={item.href}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-muted transition-colors text-sm"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        setMobileLearnMenuOpen(false);
+                      }}
+                    >
+                      <item.icon className="h-4 w-4 text-primary" />
+                      {item.title}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+            
             {user && (
               <>
                 <Link
