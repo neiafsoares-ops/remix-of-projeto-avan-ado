@@ -12,7 +12,8 @@ import {
   XCircle,
   Clock,
   Crown,
-  Megaphone
+  Megaphone,
+  Bell
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -26,6 +27,7 @@ const iconMap: Record<NotificationType, { icon: typeof Mail; colorClass: string 
   invitation_rejected: { icon: XCircle, colorClass: 'text-red-500' },
   message_received: { icon: MessageSquare, colorClass: 'text-blue-500' },
   round_updated: { icon: Calendar, colorClass: 'text-green-500' },
+  new_round: { icon: Bell, colorClass: 'text-primary' },
   new_suggestion: { icon: Star, colorClass: 'text-yellow-500' },
   plan_expiring: { icon: AlertTriangle, colorClass: 'text-orange-500' },
   plan_expiring_30: { icon: Clock, colorClass: 'text-yellow-500' },

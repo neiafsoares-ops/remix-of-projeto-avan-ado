@@ -9,6 +9,7 @@ export type NotificationType =
   | 'invitation_rejected'
   | 'message_received'
   | 'round_updated'
+  | 'new_round'
   | 'new_suggestion'
   | 'plan_expiring'
   | 'plan_expiring_30'

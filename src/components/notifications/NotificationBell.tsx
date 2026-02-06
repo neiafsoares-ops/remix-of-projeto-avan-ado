@@ -35,6 +35,7 @@ export function NotificationBell() {
 
   const handleNotificationClick = (notification: typeof notifications[0]) => {
     const poolId = notification.data?.pool_id as string | undefined;
+    const quizId = notification.data?.quiz_id as string | undefined;
     
     switch (notification.type) {
       // Torcida Mestre notifications - navigate to management
@@ -45,6 +46,21 @@ export function NotificationBell() {
       // User approved - navigate to pool detail
       case 'torcida_mestre_approved':
         if (poolId) navigate(`/torcida-mestre/${poolId}`);
+        break;
+      
+      // New round notifications
+      case 'new_round':
+        if (quizId) {
+          navigate(`/quiz/${quizId}`);
+        } else if (poolId) {
+          // Check if it's a torcida mestre pool by checking notification message
+          const message = notification.message || '';
+          if (message.includes('Time Mestre') || message.includes('Solicite participação')) {
+            navigate(`/torcida-mestre/${poolId}`);
+          } else {
+            navigate(`/pools/${poolId}`);
+          }
+        }
         break;
       
       // Regular pool notifications

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { notifyNewRoundCreated } from '@/lib/notification-utils';
 
 export interface Round {
   id: string;
@@ -143,17 +144,36 @@ export function useRounds(poolId: string | undefined) {
         }
       }
 
+      const roundName = name || `Rodada ${roundNumber}`;
+
       const { error } = await supabase
         .from('rounds')
         .insert({
           pool_id: poolId,
           round_number: roundNumber,
-          name: name || `Rodada ${roundNumber}`,
+          name: roundName,
           created_by: user.user.id,
-          match_limit: 15, // Novo limite padrão de 15 jogos por rodada
+          match_limit: 15,
         });
 
       if (error) throw error;
+
+      // Buscar nome do bolão para notificação
+      const { data: poolData } = await supabase
+        .from('pools')
+        .select('name')
+        .eq('id', poolId)
+        .single();
+
+      // Notificar participantes sobre nova rodada
+      if (poolData) {
+        await notifyNewRoundCreated(
+          poolId,
+          poolData.name,
+          roundName,
+          user.user.id
+        );
+      }
 
       toast({
         title: 'Rodada criada!',
