@@ -108,7 +108,7 @@ export default function TorcidaMestre() {
               <Crown className="h-6 w-6 text-amber-500" />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold">Torcida Mestre</h1>
+              <h1 className="text-2xl md:text-3xl font-bold">Time Mestre</h1>
               <p className="text-muted-foreground">
                 Bolões por time - Acerte o placar exato!
               </p>
@@ -169,7 +169,7 @@ export default function TorcidaMestre() {
             <p className="text-muted-foreground">
               {searchQuery 
                 ? 'Tente buscar por outro termo'
-                : 'Aguarde a criação de novos bolões Torcida Mestre'}
+                : 'Aguarde a criação de novos bolões Time Mestre'}
             </p>
           </div>
         ) : (

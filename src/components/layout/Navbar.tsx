@@ -89,7 +89,7 @@ export function Navbar() {
             Quiz 10
           </Link>
           <Link to="/torcida-mestre" className="text-muted-foreground hover:text-foreground transition-colors">
-            Torcida Mestre
+            Time Mestre
           </Link>
           {user && (
             <Link to="/my-predictions" className="text-muted-foreground hover:text-foreground transition-colors">
@@ -211,7 +211,7 @@ export function Navbar() {
               className="px-4 py-2 rounded-lg hover:bg-muted transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Torcida Mestre
+              Time Mestre
             </Link>
             {user && (
               <>

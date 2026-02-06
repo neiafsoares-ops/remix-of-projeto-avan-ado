@@ -144,7 +144,7 @@ export default function Index() {
               >
                 <Link to="/torcida-mestre">
                   <Crown className="h-4 w-4 mr-2" />
-                  Torcida Mestre
+                  Time Mestre
                 </Link>
               </Button>
             </div>

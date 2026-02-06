@@ -240,7 +240,7 @@ export default function MyPredictions() {
             </TabsTrigger>
             <TabsTrigger value="torcida" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Torcida Mestre</span>
+              <span className="hidden sm:inline">Time Mestre</span>
             </TabsTrigger>
           </TabsList>
 
@@ -344,7 +344,7 @@ export default function MyPredictions() {
               </div>
             ) : torcidaPredictions.length === 0 ? (
               <EmptyState 
-                message="Você ainda não participou de nenhum Torcida Mestre. Junte-se a uma torcida!" 
+                message="Você ainda não participou de nenhum Time Mestre. Junte-se a um time!" 
                 icon={Users}
               />
             ) : (
