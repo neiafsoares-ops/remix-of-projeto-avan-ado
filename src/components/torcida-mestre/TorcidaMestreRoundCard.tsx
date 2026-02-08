@@ -237,7 +237,7 @@ export function TorcidaMestreRoundCard({
         {/* Deadline Info */}
         {!round.is_finished && !deadlinePassed && (
           <p className="text-xs text-center text-muted-foreground">
-            Deadline: {formatDateBR(round.prediction_deadline)} às {formatTimeBR(round.prediction_deadline)}
+            Prazo: {formatDateBR(round.prediction_deadline)} às {formatTimeBR(round.prediction_deadline)}
           </p>
         )}
       </CardContent>
