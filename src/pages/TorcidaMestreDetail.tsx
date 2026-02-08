@@ -84,13 +84,17 @@ export default function TorcidaMestreDetail() {
     });
   }, [userTickets, predictions]);
   
-  // Auto-select first empty ticket or first ticket
+  // Auto-select first empty ticket or first ticket when tickets change
   useEffect(() => {
-    if (ticketStatusList.length > 0 && !activeTicketId) {
-      const firstEmpty = ticketStatusList.find(t => t.status === 'empty');
-      setActiveTicketId(firstEmpty?.id || ticketStatusList[0].id);
+    if (ticketStatusList.length > 0) {
+      // If no active ticket, or active ticket is not in the list, select first empty or first
+      const activeTicketExists = ticketStatusList.some(t => t.id === activeTicketId);
+      if (!activeTicketId || !activeTicketExists) {
+        const firstEmpty = ticketStatusList.find(t => t.status === 'empty');
+        setActiveTicketId(firstEmpty?.id || ticketStatusList[0].id);
+      }
     }
-  }, [ticketStatusList, activeTicketId]);
+  }, [ticketStatusList]);
   
   // Reset active ticket when round changes
   useEffect(() => {
@@ -547,8 +551,8 @@ export default function TorcidaMestreDetail() {
                 <div className="grid md:grid-cols-2 gap-6">
                   {/* Left Column: Tickets + Round Card */}
                   <div className="space-y-4">
-                    {/* Ticket Status Panel */}
-                    {userTickets.length > 1 && (
+                    {/* Ticket Status Panel - Always show when multiple tickets */}
+                    {ticketStatusList.length > 1 && (
                       <TicketStatusPanel
                         tickets={ticketStatusList}
                         activeTicketId={activeTicketId || ''}
@@ -559,11 +563,20 @@ export default function TorcidaMestreDetail() {
                     )}
                     
                     {/* Unused tickets warning */}
-                    {unusedTicketsCount > 0 && !isDeadlinePassed && !round.is_finished && userTickets.length > 1 && (
+                    {unusedTicketsCount > 0 && !isDeadlinePassed && !round.is_finished && ticketStatusList.length > 1 && (
                       <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                         <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
                         <p className="text-sm text-amber-600 dark:text-amber-400">
                           Você ainda possui {unusedTicketsCount} ticket(s) não utilizados nesta rodada.
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Active ticket indicator when multiple tickets */}
+                    {ticketStatusList.length > 1 && activeParticipant && !isDeadlinePassed && !round.is_finished && (
+                      <div className="p-3 rounded-lg bg-primary/10 border border-primary/30 text-center">
+                        <p className="text-sm font-medium">
+                          Registrando palpite para <span className="text-primary">Ticket #{activeParticipant.ticket_number || 1}</span>
                         </p>
                       </div>
                     )}
