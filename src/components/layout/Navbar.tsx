@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
-import { Sun, Moon, Menu, X, User, LogOut, LayoutDashboard, Shield, Star, ChevronDown, BookOpen, Trophy, Crown, Target } from 'lucide-react';
+import { Sun, Moon, Menu, X, User, LogOut, LayoutDashboard, Shield, Star, ChevronDown, BookOpen, Trophy, Crown, Target, Zap, HelpCircle, Heart } from 'lucide-react';
 import { CircularLogo } from '@/components/CircularLogo';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,6 +30,7 @@ export function Navbar() {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileLearnMenuOpen, setMobileLearnMenuOpen] = useState(false);
+  const [mobileBetMenuOpen, setMobileBetMenuOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [canCreatePools, setCanCreatePools] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -91,6 +92,27 @@ export function Navbar() {
     },
   ];
 
+  const betNowMenuItems = [
+    {
+      title: 'Bolões',
+      description: 'Participe de bolões e dispute com amigos',
+      href: '/pools',
+      icon: Trophy,
+    },
+    {
+      title: 'Quiz 10',
+      description: 'Teste seus conhecimentos sobre futebol',
+      href: '/quiz',
+      icon: HelpCircle,
+    },
+    {
+      title: 'Time Mestre',
+      description: 'Aposte no seu time do coração',
+      href: '/torcida-mestre',
+      icon: Heart,
+    },
+  ];
+
   return (
     <nav 
       className={cn(
@@ -127,6 +149,40 @@ export function Navbar() {
                 <NavigationMenuContent>
                   <ul className="grid w-[400px] gap-3 p-4">
                     {learnMenuItems.map((item) => (
+                      <li key={item.href}>
+                        <NavigationMenuLink asChild>
+                          <Link
+                            to={item.href}
+                            className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                          >
+                            <div className="flex items-center gap-2">
+                              <item.icon className="h-4 w-4 text-primary" />
+                              <div className="text-sm font-medium leading-none">{item.title}</div>
+                            </div>
+                            <p className="line-clamp-2 text-sm leading-snug text-muted-foreground mt-1">
+                              {item.description}
+                            </p>
+                          </Link>
+                        </NavigationMenuLink>
+                      </li>
+                    ))}
+                  </ul>
+                </NavigationMenuContent>
+              </NavigationMenuItem>
+            </NavigationMenuList>
+          </NavigationMenu>
+
+          {/* Palpite Agora Dropdown */}
+          <NavigationMenu>
+            <NavigationMenuList>
+              <NavigationMenuItem>
+                <NavigationMenuTrigger className="bg-primary/10 hover:bg-primary/20 focus:bg-primary/20 data-[state=open]:bg-primary/20 text-primary hover:text-primary font-semibold">
+                  <Zap className="h-4 w-4 mr-1" />
+                  Palpite Agora
+                </NavigationMenuTrigger>
+                <NavigationMenuContent>
+                  <ul className="grid w-[400px] gap-3 p-4">
+                    {betNowMenuItems.map((item) => (
                       <li key={item.href}>
                         <NavigationMenuLink asChild>
                           <Link
@@ -285,6 +341,42 @@ export function Navbar() {
                       onClick={() => {
                         setMobileMenuOpen(false);
                         setMobileLearnMenuOpen(false);
+                      }}
+                    >
+                      <item.icon className="h-4 w-4 text-primary" />
+                      {item.title}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            {/* Mobile Palpite Agora Accordion */}
+            <div>
+              <button
+                className="w-full px-4 py-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center justify-between font-semibold"
+                onClick={() => setMobileBetMenuOpen(!mobileBetMenuOpen)}
+              >
+                <span className="flex items-center gap-2">
+                  <Zap className="h-4 w-4" />
+                  Palpite Agora
+                </span>
+                <ChevronDown className={cn(
+                  "h-4 w-4 transition-transform",
+                  mobileBetMenuOpen && "rotate-180"
+                )} />
+              </button>
+              
+              {mobileBetMenuOpen && (
+                <div className="pl-6 mt-1 space-y-1">
+                  {betNowMenuItems.map((item) => (
+                    <Link
+                      key={item.href}
+                      to={item.href}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-muted transition-colors text-sm"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        setMobileBetMenuOpen(false);
                       }}
                     >
                       <item.icon className="h-4 w-4 text-primary" />
