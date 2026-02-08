@@ -182,7 +182,7 @@ export default function TorcidaMestreManage() {
     }
     
     if (!newRound.prediction_deadline) {
-      toast.error('Informe o deadline para palpites');
+      toast.error('Informe o prazo para palpites');
       return;
     }
     
@@ -194,7 +194,7 @@ export default function TorcidaMestreManage() {
     
     // Validate that prediction deadline is in the future
     if (isAfterDeadline(newRound.prediction_deadline)) {
-      toast.error('O deadline para palpites não pode estar no passado');
+      toast.error('O prazo para palpites não pode estar no passado');
       return;
     }
     
@@ -203,7 +203,7 @@ export default function TorcidaMestreManage() {
     const deadlineTime = new Date(newRound.prediction_deadline).getTime();
     
     if (deadlineTime >= matchTime) {
-      toast.error('O deadline deve ser anterior à data do jogo');
+      toast.error('O prazo deve ser anterior à data do jogo');
       return;
     }
     
@@ -542,7 +542,7 @@ export default function TorcidaMestreManage() {
                     </div>
                     
                     <div>
-                      <Label>Deadline para Palpites *</Label>
+                      <Label>Prazo para Palpites *</Label>
                       <Input
                         type="datetime-local"
                         value={newRound.prediction_deadline}
