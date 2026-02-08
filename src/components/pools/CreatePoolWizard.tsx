@@ -97,6 +97,7 @@ export function CreatePoolWizard({ open, onOpenChange, onSuccess, userId }: Crea
   const [adminFeePercent, setAdminFeePercent] = useState(20);
   const [maxParticipants, setMaxParticipants] = useState('');
   const [isPublic, setIsPublic] = useState(true);
+  const [allowMultipleTickets, setAllowMultipleTickets] = useState(false);
 
   // Step 2 - Format Selection
   const [format, setFormat] = useState<PoolFormat>('standard');
@@ -142,6 +143,7 @@ export function CreatePoolWizard({ open, onOpenChange, onSuccess, userId }: Crea
     setAdminFeePercent(20);
     setMaxParticipants('');
     setIsPublic(true);
+    setAllowMultipleTickets(false);
     setFormat('standard');
     setTotalRounds(10);
     setMatchesPerRound(10);
@@ -560,6 +562,7 @@ export function CreatePoolWizard({ open, onOpenChange, onSuccess, userId }: Crea
           admin_fee_percent: parseFloat(entryFee) > 0 ? adminFeePercent : 0,
           max_participants: maxParticipants ? parseInt(maxParticipants) : null,
           is_public: isPublic,
+          allow_multiple_tickets: allowMultipleTickets,
           total_rounds: calculatedTotalRounds,
           matches_per_round: format === 'standard' ? matchesPerRound : null,
           created_by: userId,
@@ -840,6 +843,20 @@ export function CreatePoolWizard({ open, onOpenChange, onSuccess, userId }: Crea
                 id="isPublic"
                 checked={isPublic}
                 onCheckedChange={setIsPublic}
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+              <div>
+                <Label htmlFor="allowMultipleTickets" className="font-medium">Permitir Múltiplos Palpites</Label>
+                <p className="text-xs text-muted-foreground">
+                  Participantes podem comprar vários tickets no mesmo bolão
+                </p>
+              </div>
+              <Switch
+                id="allowMultipleTickets"
+                checked={allowMultipleTickets}
+                onCheckedChange={setAllowMultipleTickets}
               />
             </div>
           </div>

@@ -40,6 +40,7 @@ const formSchema = z.object({
   entry_fee: z.coerce.number().min(0, 'Taxa deve ser positiva'),
   admin_fee_percent: z.coerce.number().min(0).max(100, 'Taxa deve estar entre 0 e 100'),
   allow_draws: z.boolean().default(false),
+  allow_multiple_tickets: z.boolean().default(false),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -64,6 +65,7 @@ export function CreateTorcidaMestreDialog({ onCreated }: CreateTorcidaMestreDial
       entry_fee: 0,
       admin_fee_percent: 20,
       allow_draws: false,
+      allow_multiple_tickets: false,
     },
   });
   
@@ -87,6 +89,7 @@ export function CreateTorcidaMestreDialog({ onCreated }: CreateTorcidaMestreDial
           entry_fee: values.entry_fee,
           admin_fee_percent: values.admin_fee_percent,
           allow_draws: values.allow_draws,
+          allow_multiple_tickets: values.allow_multiple_tickets,
           created_by: user.id,
         });
       
@@ -227,6 +230,27 @@ export function CreateTorcidaMestreDialog({ onCreated }: CreateTorcidaMestreDial
                     <FormLabel className="text-base">Considerar Empates</FormLabel>
                     <FormDescription>
                       Se habilitado, empates com placar exato também premiam
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="allow_multiple_tickets"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">Permitir Múltiplos Palpites</FormLabel>
+                    <FormDescription>
+                      Participantes podem comprar vários tickets
                     </FormDescription>
                   </div>
                   <FormControl>
