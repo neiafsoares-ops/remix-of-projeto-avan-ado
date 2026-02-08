@@ -374,19 +374,31 @@ export default function PoolDetail() {
         setParticipants([]);
       }
 
-      // Check user participation
+      // Check user participation - get all user's tickets
       if (user) {
-        const { data: participation } = await supabase
+        const { data: participationData } = await supabase
           .from('pool_participants')
           .select('status')
           .eq('pool_id', id)
           .eq('user_id', user.id)
-          .maybeSingle();
+          .order('ticket_number', { ascending: true });
 
-        setUserParticipation(participation);
+        // User is participating if they have any ticket (active or pending)
+        const hasActiveTicket = participationData?.some(p => p.status === 'active');
+        const hasPendingTicket = participationData?.some(p => p.status === 'pending');
+        
+        if (hasActiveTicket) {
+          setUserParticipation({ status: 'active' });
+        } else if (hasPendingTicket) {
+          setUserParticipation({ status: 'pending' });
+        } else if (participationData && participationData.length > 0) {
+          setUserParticipation({ status: participationData[0].status });
+        } else {
+          setUserParticipation(null);
+        }
 
-        // Fetch user predictions
-        if (participation?.status === 'active') {
+        // Fetch user predictions if active
+        if (hasActiveTicket) {
           const { data: predictionsData } = await supabase
             .from('predictions')
             .select('*')
