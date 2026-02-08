@@ -127,9 +127,15 @@ export default function TorcidaMestreDetail() {
         .eq('pool_id', id)
         .order('round_number', { ascending: false });
       
-      setRounds(roundsData || []);
-      if (roundsData && roundsData.length > 0) {
-        setSelectedRound(roundsData[0]);
+      // Map rounds with game_id (null for backwards compatibility)
+      const mappedRounds = (roundsData || []).map(r => ({
+        ...r,
+        game_id: (r as any).game_id || null,
+      })) as TorcidaMestreRound[];
+      
+      setRounds(mappedRounds);
+      if (mappedRounds.length > 0) {
+        setSelectedRound(mappedRounds[0]);
       }
       
       // Fetch participants
