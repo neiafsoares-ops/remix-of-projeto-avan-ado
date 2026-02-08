@@ -158,12 +158,16 @@ export default function QuizDetail() {
     });
   }, [userTickets, questions, answers]);
 
-  // Set active ticket
+  // Set active ticket when userTickets changes
   useEffect(() => {
-    if (userTickets.length > 0 && !activeTicketId) {
-      setActiveTicketId(userTickets[0].id);
+    if (userTickets.length > 0) {
+      // If no active ticket, or active ticket is not in the list, select first
+      const activeTicketExists = userTickets.some(t => t.id === activeTicketId);
+      if (!activeTicketId || !activeTicketExists) {
+        setActiveTicketId(userTickets[0].id);
+      }
     }
-  }, [userTickets, activeTicketId]);
+  }, [userTickets]);
   useEffect(() => {
     if (id) {
       fetchQuizData();
