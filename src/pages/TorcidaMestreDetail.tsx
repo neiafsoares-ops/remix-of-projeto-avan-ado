@@ -547,50 +547,51 @@ export default function TorcidaMestreDetail() {
               ))}
             </TabsList>
             
-            {rounds.map(round => (
+            {rounds.map(round => {
+              const hasMultipleTickets = ticketStatusList.length > 1;
+              const showLeftColumn = hasMultipleTickets || round.is_finished;
+              
+              return (
               <TabsContent key={round.id} value={round.id}>
-                {/* Main Content: Tickets (left) + Round Card (right) - Side by side layout */}
-                <div className="grid md:grid-cols-2 gap-4 mb-4">
-                  {/* Left Column: Tickets Panel */}
-                  <div className="space-y-3">
-                    {ticketStatusList.length > 1 && (
-                      <TicketStatusPanel
-                        tickets={ticketStatusList}
-                        activeTicketId={activeTicketId || ''}
-                        onTicketSelect={setActiveTicketId}
-                        variant="torcida-mestre"
-                        disabled={isDeadlinePassed || round.is_finished}
-                      />
-                    )}
-                    
-                    {/* Unused tickets warning */}
-                    {unusedTicketsCount > 0 && !isDeadlinePassed && !round.is_finished && ticketStatusList.length > 1 && (
-                      <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                        <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                        <p className="text-xs text-amber-600 dark:text-amber-400">
-                          {unusedTicketsCount} ticket(s) pendente(s)
-                        </p>
-                      </div>
-                    )}
-                    
-                    {/* Winners Panel - Show when finished */}
-                    {round.is_finished && winnerResult && (
-                      <RoundResultCard
-                        round={round}
-                        pool={pool}
-                        winners={winnerResult.winners}
-                        shouldAccumulate={winnerResult.shouldAccumulate}
-                        accumulationReason={winnerResult.reason}
-                        totalPrize={totalPrize}
-                        participantsCount={activeRoundParticipants.length}
-                      />
-                    )}
-                    
-                    {/* If no tickets and not finished, show placeholder for alignment */}
-                    {ticketStatusList.length <= 1 && !round.is_finished && (
-                      <div className="hidden md:block" />
-                    )}
-                  </div>
+                {/* Main Content: Side by side when has tickets, otherwise centered */}
+                <div className={`grid gap-4 mb-4 ${showLeftColumn ? 'md:grid-cols-2' : 'max-w-md mx-auto'}`}>
+                  {/* Left Column: Tickets Panel + Results - Only show when relevant */}
+                  {showLeftColumn && (
+                    <div className="space-y-3">
+                      {hasMultipleTickets && (
+                        <TicketStatusPanel
+                          tickets={ticketStatusList}
+                          activeTicketId={activeTicketId || ''}
+                          onTicketSelect={setActiveTicketId}
+                          variant="torcida-mestre"
+                          disabled={isDeadlinePassed || round.is_finished}
+                        />
+                      )}
+                      
+                      {/* Unused tickets warning */}
+                      {unusedTicketsCount > 0 && !isDeadlinePassed && !round.is_finished && hasMultipleTickets && (
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                          <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                          <p className="text-xs text-amber-600 dark:text-amber-400">
+                            {unusedTicketsCount} ticket(s) pendente(s)
+                          </p>
+                        </div>
+                      )}
+                      
+                      {/* Winners Panel - Show when finished */}
+                      {round.is_finished && winnerResult && (
+                        <RoundResultCard
+                          round={round}
+                          pool={pool}
+                          winners={winnerResult.winners}
+                          shouldAccumulate={winnerResult.shouldAccumulate}
+                          accumulationReason={winnerResult.reason}
+                          totalPrize={totalPrize}
+                          participantsCount={activeRoundParticipants.length}
+                        />
+                      )}
+                    </div>
+                  )}
                   
                   {/* Right Column: Round Card Compact */}
                   <div className="space-y-3">
@@ -698,7 +699,8 @@ export default function TorcidaMestreDetail() {
                   </CardContent>
                 </Card>
               </TabsContent>
-            ))}
+              );
+            })}
           </Tabs>
         )}
       </div>
