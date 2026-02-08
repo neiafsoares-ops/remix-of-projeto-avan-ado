@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TorcidaMestreRoundCard } from '@/components/torcida-mestre/TorcidaMestreRoundCard';
-import { TorcidaMestreRanking } from '@/components/torcida-mestre/TorcidaMestreRanking';
+// TorcidaMestreRanking removed - winners section only shows when round is finished
 import { RoundResultCard } from '@/components/torcida-mestre/RoundResultCard';
 import { RequestParticipationDialog } from '@/components/torcida-mestre/RequestParticipationDialog';
 import { TicketStatusPanel, TicketStatus } from '@/components/TicketStatusPanel';
@@ -15,7 +15,7 @@ import { RoundPredictionsTable } from '@/components/torcida-mestre/RoundPredicti
 import { Crown, ArrowLeft, Settings, Trophy, Calendar, Users, Loader2, Ticket, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
-import { formatPrize, calculateTorcidaMestreWinners, getResultMessage } from '@/lib/torcida-mestre-utils';
+import { formatPrize, calculateTorcidaMestreWinners } from '@/lib/torcida-mestre-utils';
 import type { 
   TorcidaMestrePool, 
   TorcidaMestreRound, 
@@ -548,116 +548,109 @@ export default function TorcidaMestreDetail() {
             
             {rounds.map(round => (
               <TabsContent key={round.id} value={round.id}>
-                <div className="grid md:grid-cols-2 gap-6">
-                  {/* Left Column: Tickets + Round Card */}
-                  <div className="space-y-4">
-                    {/* Ticket Status Panel - Always show when multiple tickets */}
+                {/* Top Row: Tickets + Winners/Ranking side by side */}
+                {(ticketStatusList.length > 1 || round.is_finished) && (
+                  <div className="grid md:grid-cols-2 gap-6 mb-6">
+                    {/* Tickets Panel */}
                     {ticketStatusList.length > 1 && (
-                      <TicketStatusPanel
-                        tickets={ticketStatusList}
-                        activeTicketId={activeTicketId || ''}
-                        onTicketSelect={setActiveTicketId}
-                        variant="torcida-mestre"
-                        disabled={isDeadlinePassed || round.is_finished}
-                      />
-                    )}
-                    
-                    {/* Unused tickets warning */}
-                    {unusedTicketsCount > 0 && !isDeadlinePassed && !round.is_finished && ticketStatusList.length > 1 && (
-                      <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                        <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                        <p className="text-sm text-amber-600 dark:text-amber-400">
-                          Você ainda possui {unusedTicketsCount} ticket(s) não utilizados nesta rodada.
-                        </p>
+                      <div className="space-y-4">
+                        <TicketStatusPanel
+                          tickets={ticketStatusList}
+                          activeTicketId={activeTicketId || ''}
+                          onTicketSelect={setActiveTicketId}
+                          variant="torcida-mestre"
+                          disabled={isDeadlinePassed || round.is_finished}
+                        />
+                        
+                        {/* Unused tickets warning */}
+                        {unusedTicketsCount > 0 && !isDeadlinePassed && !round.is_finished && (
+                          <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                            <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                            <p className="text-sm text-amber-600 dark:text-amber-400">
+                              Você ainda possui {unusedTicketsCount} ticket(s) não utilizados nesta rodada.
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* Active ticket indicator when multiple tickets */}
+                        {activeParticipant && !isDeadlinePassed && !round.is_finished && (
+                          <div className="p-3 rounded-lg bg-primary/10 border border-primary/30 text-center">
+                            <p className="text-sm font-medium">
+                              Registrando palpite para <span className="text-primary">Ticket #{activeParticipant.ticket_number || 1}</span>
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
                     
-                    {/* Active ticket indicator when multiple tickets */}
-                    {ticketStatusList.length > 1 && activeParticipant && !isDeadlinePassed && !round.is_finished && (
-                      <div className="p-3 rounded-lg bg-primary/10 border border-primary/30 text-center">
-                        <p className="text-sm font-medium">
-                          Registrando palpite para <span className="text-primary">Ticket #{activeParticipant.ticket_number || 1}</span>
-                        </p>
+                    {/* Winners/Ranking Panel - Only show when finished */}
+                    {round.is_finished && winnerResult && (
+                      <div className={ticketStatusList.length <= 1 ? 'md:col-span-2 md:max-w-xl md:mx-auto' : ''}>
+                        <RoundResultCard
+                          round={round}
+                          pool={pool}
+                          winners={winnerResult.winners}
+                          shouldAccumulate={winnerResult.shouldAccumulate}
+                          accumulationReason={winnerResult.reason}
+                          totalPrize={totalPrize}
+                          participantsCount={activeRoundParticipants.length}
+                        />
                       </div>
                     )}
-                    
-                    <TorcidaMestreRoundCard
-                      round={round}
-                      pool={pool}
-                      userPrediction={activePrediction}
-                      isApproved={!!activeParticipant}
-                      hasPendingRequest={!!participants.find(p => p.round_id === round.id && p.user_id === user?.id && p.status === 'pending')}
-                      onSavePrediction={activeParticipant 
-                        ? (h, a) => handleSavePrediction(round.id, activeParticipant.id, h, a)
-                        : undefined
+                  </div>
+                )}
+                
+                {/* Round Card - Full Width */}
+                <div className="space-y-4">
+                  <TorcidaMestreRoundCard
+                    round={round}
+                    pool={pool}
+                    userPrediction={activePrediction}
+                    isApproved={!!activeParticipant}
+                    hasPendingRequest={!!participants.find(p => p.round_id === round.id && p.user_id === user?.id && p.status === 'pending')}
+                    onSavePrediction={activeParticipant 
+                      ? (h, a) => handleSavePrediction(round.id, activeParticipant.id, h, a)
+                      : undefined
+                    }
+                  />
+                  
+                  {/* Request First Participation Button - Only show if no tickets at all */}
+                  {user && userTickets.length === 0 && !participants.find(p => p.round_id === round.id && p.user_id === user.id) && !round.is_finished && !isDeadlinePassed && (
+                    <RequestParticipationDialog
+                      entryFee={pool.entry_fee}
+                      onConfirm={async (ticketCount) => {
+                        await handleRequestParticipation(round.id, ticketCount);
+                      }}
+                      trigger={
+                        <Button className="w-full bg-amber-500 hover:bg-amber-600 text-amber-950">
+                          <Ticket className="h-4 w-4 mr-2" />
+                          Participar desta Rodada
+                        </Button>
                       }
                     />
-                    
-                    {/* Request First Participation Button - Only show if no tickets at all */}
-                    {user && userTickets.length === 0 && !participants.find(p => p.round_id === round.id && p.user_id === user.id) && !round.is_finished && !isDeadlinePassed && (
-                      <RequestParticipationDialog
-                        entryFee={pool.entry_fee}
-                        onConfirm={async (ticketCount) => {
-                          await handleRequestParticipation(round.id, ticketCount);
-                        }}
-                        trigger={
-                          <Button className="w-full bg-amber-500 hover:bg-amber-600 text-amber-950">
-                            <Ticket className="h-4 w-4 mr-2" />
-                            Participar desta Rodada
-                          </Button>
-                        }
-                      />
-                    )}
-                    
-                    {/* Request Additional Tickets Button - Show when user already has approved tickets */}
-                    {user && userTickets.length > 0 && !round.is_finished && !isDeadlinePassed && (
-                      <RequestParticipationDialog
-                        entryFee={pool.entry_fee}
-                        onConfirm={async (ticketCount) => {
-                          await handleRequestAdditionalTickets(round.id, ticketCount);
-                        }}
-                        trigger={
-                          <Button className="w-full" variant="outline">
-                            <Ticket className="h-4 w-4 mr-2" />
-                            Solicitar Tickets Adicionais
-                          </Button>
-                        }
-                      />
-                    )}
-                    
-                    {!user && (
-                      <Button asChild className="w-full" variant="outline">
-                        <Link to="/auth">Fazer login para participar</Link>
-                      </Button>
-                    )}
-                  </div>
+                  )}
                   
-                  {/* Right Column: Result Card + Ranking */}
-                  <div className="space-y-4">
-                    {/* Result Card (only when finished) */}
-                    {round.is_finished && winnerResult && (
-                      <RoundResultCard
-                        round={round}
-                        pool={pool}
-                        winners={winnerResult.winners}
-                        shouldAccumulate={winnerResult.shouldAccumulate}
-                        accumulationReason={winnerResult.reason}
-                        totalPrize={totalPrize}
-                        participantsCount={activeRoundParticipants.length}
-                      />
-                    )}
-                    
-                    {/* Ranking (shown when not finished) */}
-                    {!round.is_finished && (
-                      <TorcidaMestreRanking
-                        winners={winnerResult?.winners || []}
-                        totalPrize={totalPrize}
-                        adminFeePercent={pool.admin_fee_percent}
-                        isFinished={round.is_finished}
-                        resultMessage={winnerResult ? getResultMessage(winnerResult, pool.club_name) : undefined}
-                      />
-                    )}
-                  </div>
+                  {/* Request Additional Tickets Button - Show when user already has approved tickets */}
+                  {user && userTickets.length > 0 && !round.is_finished && !isDeadlinePassed && (
+                    <RequestParticipationDialog
+                      entryFee={pool.entry_fee}
+                      onConfirm={async (ticketCount) => {
+                        await handleRequestAdditionalTickets(round.id, ticketCount);
+                      }}
+                      trigger={
+                        <Button className="w-full" variant="outline">
+                          <Ticket className="h-4 w-4 mr-2" />
+                          Solicitar Tickets Adicionais
+                        </Button>
+                      }
+                    />
+                  )}
+                  
+                  {!user && (
+                    <Button asChild className="w-full" variant="outline">
+                      <Link to="/auth">Fazer login para participar</Link>
+                    </Button>
+                  )}
                 </div>
                 
                 {/* Transparency Table - After Deadline */}
