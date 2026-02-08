@@ -13,7 +13,7 @@ import { Mail, AtSign, Calendar, Loader2, Save, Hash, User } from 'lucide-react'
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AvatarUpload } from '@/components/AvatarUpload';
-
+import { ProfileStatsSummary } from '@/components/profile/ProfileStatsSummary';
 interface Profile {
   id: string;
   public_id: string;
@@ -145,8 +145,11 @@ export default function Profile() {
 
   return (
     <Layout>
-      <div className="container py-8 md:py-12 max-w-2xl">
+      <div className="container py-8 md:py-12 max-w-4xl">
         <h1 className="text-3xl font-bold mb-8">Meu Perfil</h1>
+
+        {/* Stats Summary - Only shows finalized events */}
+        {user && <ProfileStatsSummary userId={user.id} />}
 
         <div className="space-y-6">
           <Card>
