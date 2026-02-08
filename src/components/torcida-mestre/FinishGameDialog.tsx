@@ -48,7 +48,13 @@ export function FinishGameDialog({ game, pool, onFinished }: FinishGameDialogPro
 
       if (error) throw error;
 
-      toast.success(`Jogo ${game.game_number} finalizado!`);
+      // Show appropriate message based on accumulated prize
+      if (game.total_accumulated > 0) {
+        toast.success(`Jogo ${game.game_number} finalizado! ${formatPrize(game.total_accumulated)} será transferido para o próximo jogo.`);
+      } else {
+        toast.success(`Jogo ${game.game_number} finalizado!`);
+      }
+      
       onFinished?.();
     } catch (error: any) {
       console.error('Error finishing game:', error);
