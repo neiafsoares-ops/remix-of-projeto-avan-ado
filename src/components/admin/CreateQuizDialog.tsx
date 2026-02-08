@@ -42,6 +42,7 @@ export function CreateQuizDialog({ children, onSuccess }: CreateQuizDialogProps)
     admin_fee_percent: 20,
     cover_image: '',
     is_public: true,
+    allow_multiple_tickets: false,
   });
 
   const estimatedPrizePerParticipant = formData.entry_fee * (1 - formData.admin_fee_percent / 100);
@@ -70,6 +71,7 @@ export function CreateQuizDialog({ children, onSuccess }: CreateQuizDialogProps)
           admin_fee_percent: formData.admin_fee_percent,
           cover_image: formData.cover_image || null,
           is_public: formData.is_public,
+          allow_multiple_tickets: formData.allow_multiple_tickets,
           created_by: user?.id,
         })
         .select()
@@ -90,6 +92,7 @@ export function CreateQuizDialog({ children, onSuccess }: CreateQuizDialogProps)
         admin_fee_percent: 0,
         cover_image: '',
         is_public: true,
+        allow_multiple_tickets: false,
       });
 
       onSuccess?.();
@@ -228,6 +231,23 @@ export function CreateQuizDialog({ children, onSuccess }: CreateQuizDialogProps)
             <Switch
               checked={formData.is_public}
               onCheckedChange={(checked) => setFormData({ ...formData, is_public: checked })}
+            />
+          </div>
+
+          {/* Múltiplos Palpites */}
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="flex items-center gap-3">
+              <Target className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="font-medium">Permitir Múltiplos Palpites</p>
+                <p className="text-sm text-muted-foreground">
+                  Participantes podem comprar vários tickets
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={formData.allow_multiple_tickets}
+              onCheckedChange={(checked) => setFormData({ ...formData, allow_multiple_tickets: checked })}
             />
           </div>
 

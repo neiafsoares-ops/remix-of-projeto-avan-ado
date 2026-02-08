@@ -1124,6 +1124,7 @@ export type Database = {
         Row: {
           admin_fee_percent: number | null
           allow_draws: boolean | null
+          allow_multiple_tickets: boolean | null
           club_id: string | null
           club_image: string | null
           club_name: string
@@ -1140,6 +1141,7 @@ export type Database = {
         Insert: {
           admin_fee_percent?: number | null
           allow_draws?: boolean | null
+          allow_multiple_tickets?: boolean | null
           club_id?: string | null
           club_image?: string | null
           club_name: string
@@ -1156,6 +1158,7 @@ export type Database = {
         Update: {
           admin_fee_percent?: number | null
           allow_draws?: boolean | null
+          allow_multiple_tickets?: boolean | null
           club_id?: string | null
           club_image?: string | null
           club_name?: string
