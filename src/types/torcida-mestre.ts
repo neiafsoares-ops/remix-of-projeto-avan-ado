@@ -9,8 +9,20 @@ export interface TorcidaMestrePool {
   entry_fee: number;
   admin_fee_percent: number;
   allow_draws: boolean;
+  allow_multiple_tickets: boolean;
   is_active: boolean;
   created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TorcidaMestreGame {
+  id: string;
+  pool_id: string;
+  game_number: number;
+  is_active: boolean;
+  is_finished: boolean;
+  total_accumulated: number;
   created_at: string;
   updated_at: string;
 }
@@ -18,6 +30,7 @@ export interface TorcidaMestrePool {
 export interface TorcidaMestreRound {
   id: string;
   pool_id: string;
+  game_id: string | null; // Optional for backwards compatibility
   round_number: number;
   name: string | null;
   opponent_name: string;
@@ -70,6 +83,20 @@ export interface TorcidaMestrePrediction {
   };
 }
 
+export interface TorcidaMestreGameWithRounds extends TorcidaMestreGame {
+  rounds: TorcidaMestreRound[];
+  current_round?: TorcidaMestreRound;
+  participants_count?: number;
+}
+
+export interface TorcidaMestrePoolWithGames extends TorcidaMestrePool {
+  games: TorcidaMestreGameWithRounds[];
+  current_game?: TorcidaMestreGameWithRounds;
+  total_accumulated?: number;
+  participants_count?: number;
+}
+
+// Deprecated - kept for backwards compatibility during migration
 export interface TorcidaMestrePoolWithRounds extends TorcidaMestrePool {
   rounds: TorcidaMestreRound[];
   current_round?: TorcidaMestreRound;
