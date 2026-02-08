@@ -86,7 +86,7 @@ export function TorcidaMestreRoundCard({
           {round.is_finished ? (
             <Badge variant="secondary">Encerrada</Badge>
           ) : deadlinePassed ? (
-            <Badge variant="destructive">Deadline passou</Badge>
+            <Badge variant="destructive">Prazo encerrado</Badge>
           ) : (
             <Badge className="bg-emerald-500">Aberta</Badge>
           )}
