@@ -19,6 +19,9 @@ import {
 } from '@/components/ui/dialog';
 import { ClubAutocomplete } from '@/components/ClubAutocomplete';
 import { InviteParticipantInline } from '@/components/torcida-mestre/InviteParticipantInline';
+import { CreateGameDialog } from '@/components/torcida-mestre/CreateGameDialog';
+import { GameList } from '@/components/torcida-mestre/GameList';
+import { FinishGameDialog } from '@/components/torcida-mestre/FinishGameDialog';
 import { Crown, ArrowLeft, Plus, Save, Users, CheckCircle, XCircle, Trophy, Loader2, Calendar, UserPlus, Ticket, RotateCcw } from 'lucide-react';
 import { RoundFinancialSummary } from '@/components/torcida-mestre/RoundFinancialSummary';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,7 +33,9 @@ import type {
   TorcidaMestrePool, 
   TorcidaMestreRound, 
   TorcidaMestreParticipant,
-  TorcidaMestrePrediction 
+  TorcidaMestrePrediction,
+  TorcidaMestreGame,
+  TorcidaMestreGameWithRounds,
 } from '@/types/torcida-mestre';
 import { toast } from 'sonner';
 
@@ -40,6 +45,8 @@ export default function TorcidaMestreManage() {
   const { user } = useAuth();
   
   const [pool, setPool] = useState<TorcidaMestrePool | null>(null);
+  const [games, setGames] = useState<TorcidaMestreGameWithRounds[]>([]);
+  const [selectedGame, setSelectedGame] = useState<TorcidaMestreGameWithRounds | null>(null);
   const [rounds, setRounds] = useState<TorcidaMestreRound[]>([]);
   const [participants, setParticipants] = useState<TorcidaMestreParticipant[]>([]);
   const [predictions, setPredictions] = useState<TorcidaMestrePrediction[]>([]);
@@ -77,6 +84,13 @@ export default function TorcidaMestreManage() {
       
       setPool(poolData);
       
+      // Fetch games (new table) - using type assertion
+      const { data: gamesData } = await (supabase as any)
+        .from('torcida_mestre_games')
+        .select('*')
+        .eq('pool_id', id)
+        .order('game_number', { ascending: false });
+      
       const { data: roundsData } = await supabase
         .from('torcida_mestre_rounds')
         .select('*')
@@ -90,7 +104,37 @@ export default function TorcidaMestreManage() {
       })) as TorcidaMestreRound[];
       
       setRounds(mappedRounds);
-      if (mappedRounds.length > 0 && !selectedRound) {
+      
+      // Build games with rounds
+      const gamesWithRounds: TorcidaMestreGameWithRounds[] = (gamesData || []).map((game: TorcidaMestreGame) => {
+        const gameRounds = mappedRounds.filter(r => r.game_id === game.id);
+        const currentRound = gameRounds.find(r => !r.is_finished);
+        return {
+          ...game,
+          rounds: gameRounds,
+          current_round: currentRound,
+        };
+      });
+      
+      setGames(gamesWithRounds);
+      
+      // Auto-select first active game
+      const activeGame = gamesWithRounds.find(g => g.is_active && !g.is_finished);
+      if (activeGame && !selectedGame) {
+        setSelectedGame(activeGame);
+        // Also select first round of this game
+        const gameRounds = mappedRounds.filter(r => r.game_id === activeGame.id);
+        if (gameRounds.length > 0 && !selectedRound) {
+          setSelectedRound(gameRounds[0]);
+        }
+      } else if (gamesWithRounds.length > 0 && !selectedGame) {
+        setSelectedGame(gamesWithRounds[0]);
+        const gameRounds = mappedRounds.filter(r => r.game_id === gamesWithRounds[0].id);
+        if (gameRounds.length > 0 && !selectedRound) {
+          setSelectedRound(gameRounds[0]);
+        }
+      } else if (mappedRounds.length > 0 && !selectedRound) {
+        // Fallback for legacy rounds without game_id
         setSelectedRound(mappedRounds[0]);
       }
       
@@ -176,6 +220,17 @@ export default function TorcidaMestreManage() {
   const handleCreateRound = async () => {
     if (!pool || !user) return;
     
+    // Validate game is selected
+    if (!selectedGame) {
+      toast.error('Selecione um jogo ativo primeiro');
+      return;
+    }
+    
+    if (selectedGame.is_finished) {
+      toast.error('Este jogo já foi finalizado. Crie um novo jogo.');
+      return;
+    }
+    
     // Validate required fields
     if (!newRound.opponent_name.trim()) {
       toast.error('Informe o adversário');
@@ -215,12 +270,14 @@ export default function TorcidaMestreManage() {
     
     setIsCreatingRound(true);
     try {
-      const roundNumber = rounds.length + 1;
+      // Get rounds for this specific game
+      const gameRounds = rounds.filter(r => r.game_id === selectedGame.id);
+      const roundNumber = gameRounds.length + 1;
       
       // Get accumulated prize from last FINISHED round that had shouldAccumulate = true
       // Only carry over if the previous round had no winners
       let previousAccumulated = 0;
-      const lastFinishedRound = rounds.find(r => r.is_finished);
+      const lastFinishedRound = gameRounds.find(r => r.is_finished);
       
       if (lastFinishedRound) {
         const lastRoundPredictions = predictions.filter(p => p.round_id === lastFinishedRound.id);
@@ -243,6 +300,7 @@ export default function TorcidaMestreManage() {
         .from('torcida_mestre_rounds')
         .insert({
           pool_id: pool.id,
+          game_id: selectedGame.id, // Link to game
           round_number: roundNumber,
           name: roundName,
           opponent_name: newRound.opponent_name,
@@ -252,7 +310,7 @@ export default function TorcidaMestreManage() {
           prediction_deadline: deadlineISO,
           is_home: newRound.is_home,
           previous_accumulated: previousAccumulated,
-        });
+        } as any); // Type assertion for new game_id column
       
       if (error) throw error;
       
@@ -452,8 +510,9 @@ export default function TorcidaMestreManage() {
           </div>
         </div>
         
-        <Tabs defaultValue="rounds" className="space-y-6">
+        <Tabs defaultValue="games" className="space-y-6">
           <TabsList>
+            <TabsTrigger value="games">Jogos</TabsTrigger>
             <TabsTrigger value="rounds">Rodadas</TabsTrigger>
             <TabsTrigger value="participants">
               Participantes
@@ -463,14 +522,102 @@ export default function TorcidaMestreManage() {
             </TabsTrigger>
           </TabsList>
           
+          {/* Games Tab */}
+          <TabsContent value="games" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Jogos ({games.length})</h2>
+              <CreateGameDialog
+                poolId={pool.id}
+                poolName={pool.name}
+                currentGameNumber={games.length}
+                previousAccumulated={0}
+                onCreated={fetchData}
+              />
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Game List */}
+              <GameList
+                games={games}
+                selectedGameId={selectedGame?.id}
+                onGameSelect={(game) => {
+                  setSelectedGame(game);
+                  // Select first round of this game
+                  const gameRounds = rounds.filter(r => r.game_id === game.id);
+                  if (gameRounds.length > 0) {
+                    setSelectedRound(gameRounds[0]);
+                  }
+                }}
+              />
+              
+              {/* Selected Game Details */}
+              {selectedGame && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <Trophy className="h-5 w-5 text-amber-500" />
+                        Jogo {selectedGame.game_number}
+                      </CardTitle>
+                      {!selectedGame.is_finished && (
+                        <FinishGameDialog
+                          game={selectedGame}
+                          pool={pool}
+                          onFinished={fetchData}
+                        />
+                      )}
+                    </div>
+                    <CardDescription>
+                      {selectedGame.is_finished 
+                        ? 'Jogo finalizado' 
+                        : `${selectedGame.rounds?.length || 0} rodada(s)`}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Game Stats */}
+                    <div className="grid grid-cols-2 gap-4 text-center">
+                      <div className="p-3 rounded-lg bg-muted/50">
+                        <p className="text-sm text-muted-foreground">Rodadas</p>
+                        <p className="text-xl font-bold">{selectedGame.rounds?.length || 0}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-amber-500/10">
+                        <p className="text-sm text-muted-foreground">Acumulado</p>
+                        <p className="text-xl font-bold text-amber-600 dark:text-amber-400">
+                          {formatPrize(selectedGame.total_accumulated || 0)}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Quick Actions */}
+                    {!selectedGame.is_finished && (
+                      <Button 
+                        onClick={() => setShowCreateRound(true)}
+                        className="w-full bg-amber-500 hover:bg-amber-600 text-amber-950"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Adicionar Rodada ao Jogo {selectedGame.game_number}
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
+          
           {/* Rounds Tab */}
           <TabsContent value="rounds" className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Rodadas ({rounds.length})</h2>
+              <h2 className="text-lg font-semibold">
+                Rodadas {selectedGame ? `do Jogo ${selectedGame.game_number}` : ''} 
+                ({selectedGame ? rounds.filter(r => r.game_id === selectedGame.id).length : rounds.length})
+              </h2>
               
               <Dialog open={showCreateRound} onOpenChange={setShowCreateRound}>
                 <DialogTrigger asChild>
-                  <Button className="bg-amber-500 hover:bg-amber-600 text-amber-950">
+                  <Button 
+                    className="bg-amber-500 hover:bg-amber-600 text-amber-950"
+                    disabled={games.length === 0 || (selectedGame?.is_finished)}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Nova Rodada
                   </Button>

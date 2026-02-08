@@ -11,7 +11,8 @@ import { RequestParticipationDialog } from '@/components/torcida-mestre/RequestP
 import { TicketStatusPanel, TicketStatus } from '@/components/TicketStatusPanel';
 import { DuplicatePredictionAlert } from '@/components/DuplicatePredictionAlert';
 import { RoundPredictionsTable } from '@/components/torcida-mestre/RoundPredictionsTable';
-import { Crown, ArrowLeft, Settings, Trophy, Calendar, Users, Loader2, Ticket, AlertTriangle } from 'lucide-react';
+import { GameCard } from '@/components/torcida-mestre/GameCard';
+import { Crown, ArrowLeft, Settings, Trophy, Calendar, Users, Loader2, Ticket, AlertTriangle, History } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { formatPrize, calculateTorcidaMestreWinners } from '@/lib/torcida-mestre-utils';
@@ -20,7 +21,9 @@ import type {
   TorcidaMestrePool, 
   TorcidaMestreRound, 
   TorcidaMestreParticipant,
-  TorcidaMestrePrediction 
+  TorcidaMestrePrediction,
+  TorcidaMestreGame,
+  TorcidaMestreGameWithRounds,
 } from '@/types/torcida-mestre';
 import { toast } from 'sonner';
 import { isAfterDeadline } from '@/lib/date-utils';
@@ -41,6 +44,8 @@ export default function TorcidaMestreDetail() {
   const isMobile = useIsMobile();
   
   const [pool, setPool] = useState<TorcidaMestrePool | null>(null);
+  const [games, setGames] = useState<TorcidaMestreGameWithRounds[]>([]);
+  const [selectedGame, setSelectedGame] = useState<TorcidaMestreGameWithRounds | null>(null);
   const [rounds, setRounds] = useState<TorcidaMestreRound[]>([]);
   const [participants, setParticipants] = useState<TorcidaMestreParticipant[]>([]);
   const [predictions, setPredictions] = useState<TorcidaMestrePrediction[]>([]);
@@ -120,6 +125,13 @@ export default function TorcidaMestreDetail() {
       if (poolError) throw poolError;
       setPool(poolData);
       
+      // Fetch games (new table) - using type assertion
+      const { data: gamesData } = await (supabase as any)
+        .from('torcida_mestre_games')
+        .select('*')
+        .eq('pool_id', id)
+        .order('game_number', { ascending: false });
+      
       // Fetch rounds
       const { data: roundsData } = await supabase
         .from('torcida_mestre_rounds')
@@ -134,7 +146,36 @@ export default function TorcidaMestreDetail() {
       })) as TorcidaMestreRound[];
       
       setRounds(mappedRounds);
-      if (mappedRounds.length > 0) {
+      
+      // Build games with rounds
+      const gamesWithRounds: TorcidaMestreGameWithRounds[] = (gamesData || []).map((game: TorcidaMestreGame) => {
+        const gameRounds = mappedRounds.filter(r => r.game_id === game.id);
+        const currentRound = gameRounds.find(r => !r.is_finished);
+        return {
+          ...game,
+          rounds: gameRounds,
+          current_round: currentRound,
+        };
+      });
+      
+      setGames(gamesWithRounds);
+      
+      // Auto-select active game and round
+      const activeGame = gamesWithRounds.find(g => g.is_active && !g.is_finished);
+      if (activeGame) {
+        setSelectedGame(activeGame);
+        const gameRound = activeGame.rounds?.[0];
+        if (gameRound) {
+          setSelectedRound(gameRound);
+        }
+      } else if (gamesWithRounds.length > 0) {
+        setSelectedGame(gamesWithRounds[0]);
+        const gameRound = gamesWithRounds[0].rounds?.[0];
+        if (gameRound) {
+          setSelectedRound(gameRound);
+        }
+      } else if (mappedRounds.length > 0) {
+        // Fallback for legacy rounds without game_id
         setSelectedRound(mappedRounds[0]);
       }
       
@@ -531,27 +572,42 @@ export default function TorcidaMestreDetail() {
           </Card>
         </div>
         
-        {/* Rounds Tabs */}
-        {rounds.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <Calendar className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">Nenhuma rodada criada</h3>
-              <p className="text-muted-foreground">
-                Aguarde o administrador criar a primeira rodada
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <Tabs value={selectedRound?.id} onValueChange={(v) => setSelectedRound(rounds.find(r => r.id === v) || null)}>
-            <TabsList className="w-full justify-start overflow-x-auto mb-6">
-              {rounds.map(round => (
-                <TabsTrigger key={round.id} value={round.id} className="min-w-fit">
-                  {round.name || `Rodada ${round.round_number}`}
-                  {round.is_finished && <Badge variant="secondary" className="ml-2">Encerrada</Badge>}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+        {/* Main Tabs - Jogo Atual + Histórico */}
+        <Tabs defaultValue="current" className="space-y-6">
+          <TabsList className="w-full grid grid-cols-2 md:w-auto md:inline-flex">
+            <TabsTrigger value="current" className="flex items-center gap-2">
+              <Trophy className="h-4 w-4" />
+              {selectedGame ? `Jogo ${selectedGame.game_number}` : 'Jogo Atual'}
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              Histórico
+            </TabsTrigger>
+          </TabsList>
+          
+          {/* Current Game Tab */}
+          <TabsContent value="current">
+            {/* Rounds Tabs */}
+            {rounds.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Calendar className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Nenhuma rodada criada</h3>
+                  <p className="text-muted-foreground">
+                    Aguarde o administrador criar a primeira rodada
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Tabs value={selectedRound?.id} onValueChange={(v) => setSelectedRound(rounds.find(r => r.id === v) || null)}>
+                <TabsList className="w-full justify-start overflow-x-auto mb-6">
+                  {(selectedGame ? rounds.filter(r => r.game_id === selectedGame.id) : rounds).map(round => (
+                    <TabsTrigger key={round.id} value={round.id} className="min-w-fit">
+                      {round.name || `Rodada ${round.round_number}`}
+                      {round.is_finished && <Badge variant="secondary" className="ml-2">Encerrada</Badge>}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
             
             {rounds.map(round => (
               <TabsContent key={round.id} value={round.id}>
@@ -715,6 +771,45 @@ export default function TorcidaMestreDetail() {
             ))}
           </Tabs>
         )}
+          </TabsContent>
+          
+          {/* History Tab */}
+          <TabsContent value="history">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Jogos Anteriores
+              </h3>
+              
+              {games.filter(g => g.is_finished).length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <History className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">Nenhum jogo finalizado</h3>
+                    <p className="text-muted-foreground">
+                      Os jogos finalizados aparecerão aqui
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {games.filter(g => g.is_finished).map(game => (
+                    <GameCard
+                      key={game.id}
+                      game={game}
+                      onClick={() => {
+                        setSelectedGame(game);
+                        if (game.rounds && game.rounds.length > 0) {
+                          setSelectedRound(game.rounds[0]);
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
       
       {/* Duplicate Prediction Alert */}
