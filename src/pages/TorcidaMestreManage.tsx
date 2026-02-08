@@ -450,6 +450,21 @@ export default function TorcidaMestreManage() {
       
       if (error) throw error;
       
+      // Update game's total_accumulated if prize should accumulate (no winners)
+      if (selectedGame && result.shouldAccumulate) {
+        const newGameAccumulated = (selectedGame.total_accumulated || 0) + totalPrize;
+        await (supabase as any)
+          .from('torcida_mestre_games')
+          .update({ total_accumulated: newGameAccumulated })
+          .eq('id', selectedGame.id);
+      } else if (selectedGame && !result.shouldAccumulate) {
+        // Reset game accumulated when there are winners
+        await (supabase as any)
+          .from('torcida_mestre_games')
+          .update({ total_accumulated: 0 })
+          .eq('id', selectedGame.id);
+      }
+      
       if (result.shouldAccumulate) {
         toast.info(`Rodada encerrada. Prêmio de ${formatPrize(totalPrize)} acumulado para próxima rodada!`);
       } else {
@@ -530,7 +545,10 @@ export default function TorcidaMestreManage() {
                 poolId={pool.id}
                 poolName={pool.name}
                 currentGameNumber={games.length}
-                previousAccumulated={0}
+                previousAccumulated={
+                  // Get accumulated from the last finished game (if any)
+                  games.find(g => g.is_finished && g.total_accumulated > 0)?.total_accumulated || 0
+                }
                 onCreated={fetchData}
               />
             </div>
