@@ -23,7 +23,7 @@ import { RankingParticipantDetails } from '@/components/RankingParticipantDetail
 import { RoundSummary } from '@/components/RoundSummary';
 import { CupFormatView } from '@/components/cup/CupFormatView';
 import { TicketSelector } from '@/components/TicketSelector';
-import { TicketStatusPanel, TicketStatus } from '@/components/TicketStatusPanel';
+import { TicketCarousel, TicketCarouselItem } from '@/components/TicketCarousel';
 import { JoinWithTicketsDialog } from '@/components/JoinWithTicketsDialog';
 import { usePoolInvitations } from '@/hooks/use-pool-invitations';
 import { 
@@ -146,7 +146,7 @@ export default function PoolDetail() {
   }, [participants, user]);
 
   // Calculate ticket progress for status panel
-  const ticketStatusList = useMemo<TicketStatus[]>(() => {
+  const ticketStatusList = useMemo<TicketCarouselItem[]>(() => {
     if (!userTickets.length || !rounds.length || selectedRoundIndex === null) return [];
     
     const selectedRound = rounds[selectedRoundIndex];
@@ -169,7 +169,7 @@ export default function PoolDetail() {
         ticket_number: ticket.ticket_number,
         status: (filledCount === totalMatches && totalMatches > 0) ? 'filled' : 'empty',
         progress: { filled: filledCount, total: totalMatches },
-      } as TicketStatus;
+      } as TicketCarouselItem;
     });
   }, [userTickets, rounds, selectedRoundIndex, matches, predictions]);
 
@@ -561,9 +561,53 @@ export default function PoolDetail() {
       };
       setPredictions(updatedPredictions);
 
-      // Check round completion for notification
+      // Check round completion for current ticket
       const match = matches.find(m => m.id === matchId);
-      if (match) {
+      if (match && pool?.allow_multiple_tickets && ticketStatusList.length > 1) {
+        const roundId = (match as any).round_id;
+        const roundMatches = matches.filter(m => (m as any).round_id === roundId);
+        const now = new Date();
+        
+        // Filter open matches (deadline not passed, not finished)
+        const openMatches = roundMatches.filter(m => {
+          const deadline = new Date(m.prediction_deadline);
+          return deadline > now && !m.is_finished;
+        });
+        
+        // Check if all open matches have predictions for current ticket
+        const allFilledForCurrentTicket = openMatches.length > 0 && openMatches.every(m => 
+          updatedPredictions[m.id] !== undefined
+        );
+        
+        if (allFilledForCurrentTicket) {
+          // Find next empty ticket
+          const currentTicketIndex = ticketStatusList.findIndex(t => t.id === activeTicketId);
+          const nextEmptyTicket = ticketStatusList.slice(currentTicketIndex + 1).find(t => t.status === 'empty');
+          
+          if (nextEmptyTicket) {
+            // Auto-advance to next ticket
+            setActiveTicketId(nextEmptyTicket.id);
+            toast({
+              title: `✅ Ticket #${currentTicketIndex + 1} completo!`,
+              description: `Avançando para Ticket #${nextEmptyTicket.ticket_number}...`,
+            });
+          } else {
+            // Check if all tickets are filled
+            const allTicketsFilled = ticketStatusList.every(t => 
+              t.id === activeTicketId || t.status === 'filled'
+            );
+            if (allTicketsFilled) {
+              toast({
+                title: '🎉 Todos os tickets preenchidos!',
+                description: `Você completou todos os ${ticketStatusList.length} palpites para esta rodada.`,
+              });
+            }
+          }
+        }
+      }
+
+      // Check round completion for notification (legacy behavior for single ticket)
+      if (match && !pool?.allow_multiple_tickets) {
         const roundId = (match as any).round_id;
         if (roundId && !notifiedRounds.has(roundId)) {
           const roundMatches = matches.filter(m => (m as any).round_id === roundId);
@@ -789,9 +833,9 @@ export default function PoolDetail() {
                       </Button>
                     </div>
                     
-                    {/* Ticket Status Panel for multiple guesses */}
+                    {/* Ticket Carousel for multiple guesses */}
                     {pool.allow_multiple_tickets && ticketStatusList.length > 1 && (
-                      <TicketStatusPanel
+                      <TicketCarousel
                         tickets={ticketStatusList}
                         activeTicketId={activeTicketId || ''}
                         onTicketSelect={setActiveTicketId}
