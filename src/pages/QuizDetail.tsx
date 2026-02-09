@@ -141,10 +141,11 @@ export default function QuizDetail() {
   const [previousRoundTickets, setPreviousRoundTickets] = useState<{ id: string; ticket_number: number; total_points: number }[]>([]);
   
   // Get user tickets for current round
+  // NOTE: while quiz_participants doesn't have round_id in the DB yet, legacy entries will have round_id = null.
   const userTickets = useMemo(() => {
     if (!user || !currentRound) return [];
     return participants
-      .filter(p => p.user_id === user.id && p.round_id === currentRound.id)
+      .filter(p => p.user_id === user.id && (p.round_id === currentRound.id || p.round_id == null))
       .sort((a, b) => a.ticket_number - b.ticket_number);
   }, [participants, user, currentRound]);
 
@@ -367,7 +368,8 @@ export default function QuizDetail() {
     }
   };
 
-  // Handler for joining the quiz in the current round (with round_id)
+  // Handler for joining the quiz
+  // NOTE: round_id is not yet present in the DB (migration pending), so we don't send it.
   const handleJoinQuiz = async (ticketCount: number = 1) => {
     if (!user || !currentRound) {
       navigate('/auth');
@@ -376,8 +378,7 @@ export default function QuizDetail() {
 
     try {
       setJoining(true);
-      
-      // Insert tickets for the current round
+
       for (let i = 0; i < ticketCount; i++) {
         const { error } = await supabase
           .from('quiz_participants')
@@ -385,8 +386,7 @@ export default function QuizDetail() {
             quiz_id: id,
             user_id: user.id,
             ticket_number: i + 1,
-            round_id: currentRound.id, // Link to current round
-          } as any); // Type assertion until types are regenerated
+          });
 
         if (error) throw error;
       }
@@ -394,12 +394,13 @@ export default function QuizDetail() {
       setIsParticipating(true);
       setIsParticipatingInCurrentRound(true);
       await fetchParticipants(currentRound.id);
-      
+
       toast({
         title: 'Sucesso!',
-        description: ticketCount > 1 
-          ? `Você entrou na ${currentRound.name} com ${ticketCount} palpites. Boa sorte!`
-          : `Você entrou na ${currentRound.name}. Boa sorte!`,
+        description:
+          ticketCount > 1
+            ? `Você entrou na ${currentRound.name} com ${ticketCount} palpites. Boa sorte!`
+            : `Você entrou na ${currentRound.name}. Boa sorte!`,
       });
     } catch (error: any) {
       console.error('Error joining quiz:', error);
@@ -414,13 +415,13 @@ export default function QuizDetail() {
   };
 
   // Handler for joining with selected tickets from previous round
+  // NOTE: round_id is not yet present in the DB (migration pending), so we don't send it.
   const handleJoinWithPreviousTickets = async (selectedTicketNumbers: number[]) => {
     if (!user || !currentRound) return;
 
     try {
       setJoining(true);
-      
-      // Insert tickets for the current round with the same numbers
+
       for (const ticketNumber of selectedTicketNumbers) {
         const { error } = await supabase
           .from('quiz_participants')
@@ -428,8 +429,7 @@ export default function QuizDetail() {
             quiz_id: id,
             user_id: user.id,
             ticket_number: ticketNumber,
-            round_id: currentRound.id,
-          } as any);
+          });
 
         if (error) throw error;
       }
@@ -437,12 +437,13 @@ export default function QuizDetail() {
       setIsParticipating(true);
       setIsParticipatingInCurrentRound(true);
       await fetchParticipants(currentRound.id);
-      
+
       toast({
         title: 'Sucesso!',
-        description: selectedTicketNumbers.length > 1 
-          ? `Você manteve ${selectedTicketNumbers.length} palpites para a ${currentRound.name}. Boa sorte!`
-          : `Você manteve seu palpite para a ${currentRound.name}. Boa sorte!`,
+        description:
+          selectedTicketNumbers.length > 1
+            ? `Você manteve ${selectedTicketNumbers.length} palpites para a ${currentRound.name}. Boa sorte!`
+            : `Você manteve seu palpite para a ${currentRound.name}. Boa sorte!`,
       });
     } catch (error: any) {
       console.error('Error joining with previous tickets:', error);
