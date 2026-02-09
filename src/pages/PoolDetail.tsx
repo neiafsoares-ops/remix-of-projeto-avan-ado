@@ -1000,7 +1000,7 @@ export default function PoolDetail() {
                           <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
                             {filteredMatches.map((match) => (
                               <MatchCard
-                                key={match.id}
+                                key={`${match.id}-${activeTicketId || 'default'}`}
                                 match={match}
                                 prediction={predictions[match.id]}
                                 onPredictionChange={(homeScore, awayScore) => 

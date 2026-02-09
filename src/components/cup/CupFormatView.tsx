@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -186,6 +186,11 @@ export function CupFormatView({
   const [localPredictions, setLocalPredictions] = useState<Record<string, { home: string; away: string }>>({});
   const [groupRoundSelection, setGroupRoundSelection] = useState<Record<string, number>>({});
   const [notifiedGroups, setNotifiedGroups] = useState<Set<string>>(new Set());
+
+  // Reset local predictions when the predictions prop changes (e.g., ticket switch)
+  useEffect(() => {
+    setLocalPredictions({});
+  }, [predictions]);
 
   const getSelectedRound = (groupName: string) => groupRoundSelection[groupName] || 1;
   const setSelectedRound = (groupName: string, round: number) => {
