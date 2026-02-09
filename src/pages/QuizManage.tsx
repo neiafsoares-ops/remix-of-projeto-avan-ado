@@ -60,6 +60,8 @@ interface Quiz {
   accumulated_prize: number;
   is_active: boolean;
   allow_multiple_tickets?: boolean;
+  entry_fee?: number;
+  admin_fee_percent?: number;
 }
 
 interface QuizRound {
@@ -132,6 +134,12 @@ export default function QuizManage() {
   const [finalizingRound, setFinalizingRound] = useState(false);
   const [correctAnswers, setCorrectAnswers] = useState<Record<string, string>>({});
 
+  // Entry fee update
+  const [editingEntryFee, setEditingEntryFee] = useState(false);
+  const [newEntryFee, setNewEntryFee] = useState<number>(0);
+  const [updatingEntryFee, setUpdatingEntryFee] = useState(false);
+  const [canUpdateEntryFee, setCanUpdateEntryFee] = useState(false);
+
   useEffect(() => {
     if (id && user) {
       checkAdminAndFetchData();
@@ -175,12 +183,16 @@ export default function QuizManage() {
       }
 
       setQuiz(quizData);
+      setNewEntryFee(quizData.entry_fee || 0);
 
       // Buscar rodadas
       await fetchRounds();
       
       // Buscar participantes
       await fetchParticipants();
+
+      // Verificar se pode atualizar o valor de entrada
+      await checkCanUpdateEntryFee();
 
     } catch (error) {
       console.error('Error:', error);
@@ -252,6 +264,93 @@ export default function QuizManage() {
       }
     });
     setCorrectAnswers(answers);
+  };
+
+  const checkCanUpdateEntryFee = async () => {
+    // Verifica se a última rodada (não finalizada) não tem participantes ativos
+    const { data: latestRound } = await supabase
+      .from('quiz_rounds')
+      .select('id, is_finished')
+      .eq('quiz_id', id)
+      .order('round_number', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    // Se não há rodadas, pode atualizar
+    if (!latestRound) {
+      setCanUpdateEntryFee(true);
+      return;
+    }
+
+    // Se a última rodada já foi finalizada, pode atualizar (próxima será nova)
+    if (latestRound.is_finished) {
+      setCanUpdateEntryFee(true);
+      return;
+    }
+
+    // Verifica se há participantes ativos na última rodada (com respostas)
+    const { data: answers } = await supabase
+      .from('quiz_answers')
+      .select('id')
+      .eq('round_id', latestRound.id)
+      .limit(1);
+
+    // Pode atualizar apenas se não há respostas na rodada atual
+    setCanUpdateEntryFee(!answers || answers.length === 0);
+  };
+
+  const handleUpdateEntryFee = async () => {
+    if (!quiz || newEntryFee < 0) return;
+
+    try {
+      setUpdatingEntryFee(true);
+
+      const adminFeePercent = quiz.admin_fee_percent || 0;
+      
+      // Calcula diferença de valor por participante
+      const oldEntryFee = quiz.entry_fee || 0;
+      const oldNetPerParticipant = oldEntryFee * (1 - adminFeePercent / 100);
+      const newNetPerParticipant = newEntryFee * (1 - adminFeePercent / 100);
+      
+      // Conta participantes ativos para recalcular o prêmio acumulado
+      const activeParticipants = participants.filter(p => p.status === 'active').length;
+      
+      // Recalcula prêmio acumulado baseado na diferença de valores
+      // O novo acumulado considera a quantidade de participantes atuais
+      const newAccumulatedPrize = activeParticipants > 0 
+        ? activeParticipants * newNetPerParticipant
+        : 0;
+
+      const { error } = await supabase
+        .from('quizzes')
+        .update({ 
+          entry_fee: newEntryFee,
+          accumulated_prize: newAccumulatedPrize
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setQuiz({ 
+        ...quiz, 
+        entry_fee: newEntryFee,
+        accumulated_prize: newAccumulatedPrize
+      });
+      setEditingEntryFee(false);
+
+      toast({
+        title: 'Valor de inscrição atualizado',
+        description: `O novo valor é R$ ${newEntryFee.toFixed(2)} e o prêmio acumulado foi recalculado para R$ ${newAccumulatedPrize.toFixed(2)}.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message || 'Não foi possível atualizar o valor.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingEntryFee(false);
+    }
   };
 
   const handleCreateRound = async () => {
@@ -1006,6 +1105,79 @@ export default function QuizManage() {
                   <p className="text-sm text-muted-foreground">
                     O prêmio acumula quando nenhum participante atinge 10 pontos na rodada.
                   </p>
+                </div>
+
+                {/* Entry Fee Section */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Valor de Inscrição</Label>
+                    {!editingEntryFee && canUpdateEntryFee && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setEditingEntryFee(true)}
+                      >
+                        Editar
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {editingEntryFee ? (
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                          R$
+                        </span>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={newEntryFee}
+                          onChange={(e) => setNewEntryFee(parseFloat(e.target.value) || 0)}
+                          className="pl-10"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          onClick={handleUpdateEntryFee}
+                          disabled={updatingEntryFee}
+                        >
+                          {updatingEntryFee && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                          <Save className="h-4 w-4 mr-2" />
+                          Salvar
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setEditingEntryFee(false);
+                            setNewEntryFee(quiz.entry_fee || 0);
+                          }}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Taxa administrativa: {quiz.admin_fee_percent || 0}% • 
+                        Prêmio líquido/participante: R$ {(newEntryFee * (1 - (quiz.admin_fee_percent || 0) / 100)).toFixed(2)}
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-2xl font-bold">
+                        R$ {(quiz.entry_fee || 0).toFixed(2)}
+                      </p>
+                      {!canUpdateEntryFee && (
+                        <p className="text-sm text-destructive">
+                          ⚠️ Não é possível alterar o valor porque já existem respostas na rodada atual.
+                        </p>
+                      )}
+                      <p className="text-sm text-muted-foreground">
+                        Taxa administrativa: {quiz.admin_fee_percent || 0}%
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 <div className="space-y-2">
