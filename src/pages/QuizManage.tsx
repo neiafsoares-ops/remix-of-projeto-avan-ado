@@ -305,42 +305,19 @@ export default function QuizManage() {
     try {
       setUpdatingEntryFee(true);
 
-      const adminFeePercent = quiz.admin_fee_percent || 0;
-      
-      // Calcula diferença de valor por participante
-      const oldEntryFee = quiz.entry_fee || 0;
-      const oldNetPerParticipant = oldEntryFee * (1 - adminFeePercent / 100);
-      const newNetPerParticipant = newEntryFee * (1 - adminFeePercent / 100);
-      
-      // Conta participantes ativos para recalcular o prêmio acumulado
-      const activeParticipants = participants.filter(p => p.status === 'active').length;
-      
-      // Recalcula prêmio acumulado baseado na diferença de valores
-      // O novo acumulado considera a quantidade de participantes atuais
-      const newAccumulatedPrize = activeParticipants > 0 
-        ? activeParticipants * newNetPerParticipant
-        : 0;
-
       const { error } = await supabase
         .from('quizzes')
-        .update({ 
-          entry_fee: newEntryFee,
-          accumulated_prize: newAccumulatedPrize
-        })
+        .update({ entry_fee: newEntryFee })
         .eq('id', id);
 
       if (error) throw error;
 
-      setQuiz({ 
-        ...quiz, 
-        entry_fee: newEntryFee,
-        accumulated_prize: newAccumulatedPrize
-      });
+      setQuiz({ ...quiz, entry_fee: newEntryFee });
       setEditingEntryFee(false);
 
       toast({
         title: 'Valor de inscrição atualizado',
-        description: `O novo valor é R$ ${newEntryFee.toFixed(2)} e o prêmio acumulado foi recalculado para R$ ${newAccumulatedPrize.toFixed(2)}.`,
+        description: `O novo valor é R$ ${newEntryFee.toFixed(2)}. O impacto no prêmio será aplicado às próximas participações.`,
       });
     } catch (error: any) {
       toast({
