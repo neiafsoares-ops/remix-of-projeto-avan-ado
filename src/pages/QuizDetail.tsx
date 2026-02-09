@@ -90,6 +90,7 @@ interface QuizAnswer {
   question_id: string;
   selected_answer: string;
   is_correct: boolean | null;
+  participant_id?: string;
 }
 
 interface Participant {
@@ -111,8 +112,9 @@ export default function QuizDetail() {
   const [rounds, setRounds] = useState<QuizRound[]>([]);
   const [currentRound, setCurrentRound] = useState<QuizRound | null>(null);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [savedAnswers, setSavedAnswers] = useState<QuizAnswer[]>([]);
+  // Answers are now indexed by participant_id (ticket)
+  const [answersByTicket, setAnswersByTicket] = useState<Record<string, Record<string, string>>>({});
+  const [savedAnswersByTicket, setSavedAnswersByTicket] = useState<Record<string, QuizAnswer[]>>({});
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [isParticipating, setIsParticipating] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -139,6 +141,17 @@ export default function QuizDetail() {
       .sort((a, b) => a.ticket_number - b.ticket_number);
   }, [participants, user]);
 
+  // Get answers for the current active ticket
+  const answers = useMemo(() => {
+    if (!activeTicketId) return {};
+    return answersByTicket[activeTicketId] || {};
+  }, [answersByTicket, activeTicketId]);
+
+  const savedAnswers = useMemo(() => {
+    if (!activeTicketId) return [];
+    return savedAnswersByTicket[activeTicketId] || [];
+  }, [savedAnswersByTicket, activeTicketId]);
+
   // Calculate ticket status for panel
   const ticketStatusList = useMemo<TicketStatus[]>(() => {
     if (!userTickets.length || !questions.length) return [];
@@ -146,8 +159,9 @@ export default function QuizDetail() {
     const totalQuestions = questions.length;
     
     return userTickets.map(ticket => {
-      // Count answers for this ticket
-      const answeredCount = Object.keys(answers).length;
+      // Count answers for this specific ticket
+      const ticketAnswers = answersByTicket[ticket.id] || {};
+      const answeredCount = Object.keys(ticketAnswers).length;
       
       return {
         id: ticket.id,
@@ -156,7 +170,7 @@ export default function QuizDetail() {
         progress: { filled: answeredCount, total: totalQuestions },
       } as TicketStatus;
     });
-  }, [userTickets, questions, answers]);
+  }, [userTickets, questions, answersByTicket]);
 
   // Set active ticket when userTickets changes
   useEffect(() => {
@@ -168,6 +182,14 @@ export default function QuizDetail() {
       }
     }
   }, [userTickets]);
+
+  // Fetch answers when activeTicketId changes or currentRound changes
+  useEffect(() => {
+    if (currentRound && userTickets.length > 0) {
+      fetchRoundQuestions(currentRound.id);
+    }
+  }, [activeTicketId, userTickets.length, currentRound?.id]);
+
   useEffect(() => {
     if (id) {
       fetchQuizData();
@@ -265,21 +287,34 @@ export default function QuizDetail() {
 
     setQuestions(questionsData || []);
 
-    // Buscar respostas do usuário
-    if (user) {
+    // Fetch answers for all user tickets
+    if (user && userTickets.length > 0) {
+      const ticketIds = userTickets.map(t => t.id);
+      
       const { data: answersData } = await supabase
         .from('quiz_answers')
-        .select('question_id, selected_answer, is_correct')
+        .select('question_id, selected_answer, is_correct, participant_id')
         .eq('round_id', roundId)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .in('participant_id', ticketIds);
 
       if (answersData) {
-        setSavedAnswers(answersData);
-        const answersMap: Record<string, string> = {};
+        // Group answers by participant_id (ticket)
+        const savedByTicket: Record<string, QuizAnswer[]> = {};
+        const answerMapByTicket: Record<string, Record<string, string>> = {};
+        
         answersData.forEach(a => {
-          answersMap[a.question_id] = a.selected_answer;
+          const participantId = a.participant_id || '';
+          if (!savedByTicket[participantId]) {
+            savedByTicket[participantId] = [];
+            answerMapByTicket[participantId] = {};
+          }
+          savedByTicket[participantId].push(a);
+          answerMapByTicket[participantId][a.question_id] = a.selected_answer;
         });
-        setAnswers(answersMap);
+        
+        setSavedAnswersByTicket(savedByTicket);
+        setAnswersByTicket(answerMapByTicket);
       }
     }
   };
@@ -354,28 +389,39 @@ export default function QuizDetail() {
   };
 
   const handleAnswerChange = (questionId: string, answer: string) => {
-    setAnswers(prev => ({ ...prev, [questionId]: answer }));
+    if (!activeTicketId) return;
+    setAnswersByTicket(prev => ({
+      ...prev,
+      [activeTicketId]: {
+        ...(prev[activeTicketId] || {}),
+        [questionId]: answer
+      }
+    }));
   };
 
   const handleSaveAnswers = async () => {
-    if (!user || !currentRound) return;
+    if (!user || !currentRound || !activeTicketId) return;
 
     try {
       setSaving(true);
 
-      // Salvar cada resposta
-      for (const [questionId, selectedAnswer] of Object.entries(answers)) {
-        const existingAnswer = savedAnswers.find(a => a.question_id === questionId);
+      const currentAnswers = answersByTicket[activeTicketId] || {};
+      const currentSavedAnswers = savedAnswersByTicket[activeTicketId] || [];
+
+      // Save each answer for the active ticket
+      for (const [questionId, selectedAnswer] of Object.entries(currentAnswers)) {
+        const existingAnswer = currentSavedAnswers.find(a => a.question_id === questionId);
         
         if (existingAnswer) {
-          // Atualizar resposta existente
+          // Update existing answer
           await supabase
             .from('quiz_answers')
             .update({ selected_answer: selectedAnswer })
             .eq('question_id', questionId)
+            .eq('participant_id', activeTicketId)
             .eq('user_id', user.id);
         } else {
-          // Inserir nova resposta
+          // Insert new answer with participant_id
           await supabase
             .from('quiz_answers')
             .insert({
@@ -383,6 +429,7 @@ export default function QuizDetail() {
               round_id: currentRound.id,
               question_id: questionId,
               user_id: user.id,
+              participant_id: activeTicketId,
               selected_answer: selectedAnswer,
             });
         }
@@ -391,9 +438,15 @@ export default function QuizDetail() {
       // Recarregar respostas salvas
       await fetchRoundQuestions(currentRound.id);
 
+      // Get ticket number for feedback
+      const activeTicket = userTickets.find(t => t.id === activeTicketId);
+      const ticketLabel = activeTicket && userTickets.length > 1 
+        ? ` (Ticket #${activeTicket.ticket_number})` 
+        : '';
+
       toast({
         title: 'Respostas salvas!',
-        description: 'Suas respostas foram registradas com sucesso.',
+        description: `Suas respostas${ticketLabel} foram registradas com sucesso.`,
       });
     } catch (error: any) {
       console.error('Error saving answers:', error);
@@ -421,6 +474,10 @@ export default function QuizDetail() {
   // Counts for confirmation dialog
   const answeredCount = Object.keys(answers).length;
   const unansweredCount = questions.length - answeredCount;
+  const activeTicket = userTickets.find(t => t.id === activeTicketId);
+  const activeTicketLabel = activeTicket && userTickets.length > 1 
+    ? ` (Ticket #${activeTicket.ticket_number})`
+    : '';
 
   const isDeadlinePassed = currentRound ? isAfterDeadline(currentRound.deadline) : false;
   const canAnswer = isParticipating && currentRound && !isDeadlinePassed && !currentRound.is_finished;
@@ -940,7 +997,7 @@ export default function QuizDetail() {
               <AlertDialogDescription asChild>
                 <div className="space-y-4">
                   <p>
-                    Você está prestes a enviar suas respostas para a rodada "{currentRound?.name}".
+                    Você está prestes a enviar suas respostas{activeTicketLabel} para a rodada "{currentRound?.name}".
                   </p>
                   <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
                     <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
