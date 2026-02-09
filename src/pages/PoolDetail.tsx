@@ -184,6 +184,30 @@ export default function PoolDetail() {
     }
   }, [userTickets]);
 
+  // Fetch predictions for the active ticket
+  useEffect(() => {
+    const fetchTicketPredictions = async () => {
+      if (!activeTicketId || !user || !matches.length) {
+        setPredictions({});
+        return;
+      }
+
+      const { data: predictionsData } = await supabase
+        .from('predictions')
+        .select('*')
+        .eq('participant_id', activeTicketId)
+        .in('match_id', matches.map(m => m.id));
+
+      const predictionsMap: Record<string, Prediction> = {};
+      predictionsData?.forEach(p => {
+        predictionsMap[p.match_id] = p;
+      });
+      setPredictions(predictionsMap);
+    };
+
+    fetchTicketPredictions();
+  }, [activeTicketId, matches, user]);
+
   // Handle invite token from URL
   useEffect(() => {
     const inviteToken = searchParams.get('invite');
@@ -399,17 +423,8 @@ export default function PoolDetail() {
 
         // Fetch user predictions if active
         if (hasActiveTicket) {
-          const { data: predictionsData } = await supabase
-            .from('predictions')
-            .select('*')
-            .eq('user_id', user.id)
-            .in('match_id', matchesData?.map(m => m.id) || []);
-
-          const predictionsMap: Record<string, Prediction> = {};
-          predictionsData?.forEach(p => {
-            predictionsMap[p.match_id] = p;
-          });
-          setPredictions(predictionsMap);
+          // Predictions will be fetched per active ticket via useEffect below
+          // Initial fetch not needed here
         }
       }
     } catch (error) {
