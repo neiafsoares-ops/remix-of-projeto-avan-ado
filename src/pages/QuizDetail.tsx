@@ -327,22 +327,21 @@ export default function QuizDetail() {
   };
 
   const fetchParticipants = async (activeRoundId?: string) => {
-    // Use raw query to include round_id column (types will be regenerated after migration)
-    const { data: participantsData } = await supabase
+    // Fetch participants without round_id (column will be added in future migration)
+    const { data: participantsData, error } = await supabase
       .from('quiz_participants')
-      .select('id, user_id, total_points, ticket_number, round_id')
+      .select('id, user_id, total_points, ticket_number')
       .eq('quiz_id', id)
-      .order('total_points', { ascending: false }) as { data: Array<{
-        id: string;
-        user_id: string;
-        total_points: number;
-        ticket_number: number;
-        round_id: string | null;
-      }> | null };
+      .order('total_points', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching participants:', error);
+      return;
+    }
 
     if (participantsData) {
       // Buscar perfis
-      const userIds = participantsData.map(p => p.user_id);
+      const userIds = [...new Set(participantsData.map(p => p.user_id))];
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, public_id, avatar_url')
@@ -353,38 +352,17 @@ export default function QuizDetail() {
         public_id: profiles?.find(pr => pr.id === p.user_id)?.public_id || 'Anônimo',
         avatar_url: profiles?.find(pr => pr.id === p.user_id)?.avatar_url || null,
         ticket_number: p.ticket_number || 1,
-        round_id: p.round_id || null,
+        round_id: null as string | null, // Will be populated after migration
       }));
 
       setParticipants(enrichedParticipants);
 
-      // Check if user is participating in the current round
-      if (user && activeRoundId) {
-        const userParticipationInRound = enrichedParticipants.filter(
-          p => p.user_id === user.id && p.round_id === activeRoundId
-        );
-        setIsParticipatingInCurrentRound(userParticipationInRound.length > 0);
-        
-        // If not participating in current round, check for tickets from previous round
-        if (userParticipationInRound.length === 0) {
-          // Find previous round
-          const currentRoundData = rounds.find(r => r.id === activeRoundId);
-          if (currentRoundData && currentRoundData.round_number > 1) {
-            const prevRound = rounds.find(r => r.round_number === currentRoundData.round_number - 1);
-            if (prevRound) {
-              const prevRoundTickets = enrichedParticipants
-                .filter(p => p.user_id === user.id && p.round_id === prevRound.id)
-                .map(p => ({
-                  id: p.id,
-                  ticket_number: p.ticket_number,
-                  total_points: p.total_points,
-                }));
-              setPreviousRoundTickets(prevRoundTickets);
-            }
-          }
-        } else {
-          setPreviousRoundTickets([]);
-        }
+      // For now, all participants are considered part of the current round (legacy behavior)
+      // Once round_id column is added, we can filter by round
+      if (user) {
+        const userParticipation = enrichedParticipants.filter(p => p.user_id === user.id);
+        setIsParticipatingInCurrentRound(userParticipation.length > 0);
+        setPreviousRoundTickets([]);
       }
     }
   };
