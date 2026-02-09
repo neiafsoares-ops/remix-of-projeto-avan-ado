@@ -26,6 +26,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { QuizCarouselView } from '@/components/quiz/QuizCarouselView';
 import { QuizRoundSummary } from '@/components/quiz/QuizRoundSummary';
+import { SmartTicketJoinDialog } from '@/components/quiz/SmartTicketJoinDialog';
 import { JoinWithTicketsDialog } from '@/components/JoinWithTicketsDialog';
 import { TicketStatusPanel, TicketStatus } from '@/components/TicketStatusPanel';
 import { 
@@ -101,6 +102,7 @@ interface Participant {
   public_id: string;
   avatar_url: string | null;
   ticket_number: number;
+  round_id: string | null;
 }
 
 export default function QuizDetail() {
@@ -134,13 +136,17 @@ export default function QuizDetail() {
   // Ticket management
   const [activeTicketId, setActiveTicketId] = useState<string | undefined>();
   
-  // Get user tickets
+  // Per-round participation state
+  const [isParticipatingInCurrentRound, setIsParticipatingInCurrentRound] = useState(false);
+  const [previousRoundTickets, setPreviousRoundTickets] = useState<{ id: string; ticket_number: number; total_points: number }[]>([]);
+  
+  // Get user tickets for current round
   const userTickets = useMemo(() => {
-    if (!user) return [];
+    if (!user || !currentRound) return [];
     return participants
-      .filter(p => p.user_id === user.id)
+      .filter(p => p.user_id === user.id && p.round_id === currentRound.id)
       .sort((a, b) => a.ticket_number - b.ticket_number);
-  }, [participants, user]);
+  }, [participants, user, currentRound]);
 
   // Get answers for the current active ticket
   const answers = useMemo(() => {
@@ -253,18 +259,18 @@ export default function QuizDetail() {
         await fetchRoundQuestions(activeRound.id);
       }
 
-      // Buscar participantes com ranking
-      await fetchParticipants();
+      // Buscar participantes com ranking (pass active round for per-round participation check)
+      await fetchParticipants(activeRound?.id);
 
-      // Verificar se usuário participa
+      // Verificar se usuário participa do quiz globalmente (legacy support)
       if (user) {
         const { data: participation } = await supabase
           .from('quiz_participants')
           .select('id')
           .eq('quiz_id', id)
           .eq('user_id', user.id)
-          .maybeSingle();
-        setIsParticipating(!!participation);
+          .limit(1);
+        setIsParticipating(!!participation && participation.length > 0);
       }
 
     } catch (error) {
@@ -320,12 +326,19 @@ export default function QuizDetail() {
     }
   };
 
-  const fetchParticipants = async () => {
+  const fetchParticipants = async (activeRoundId?: string) => {
+    // Use raw query to include round_id column (types will be regenerated after migration)
     const { data: participantsData } = await supabase
       .from('quiz_participants')
-      .select('id, user_id, total_points, ticket_number')
+      .select('id, user_id, total_points, ticket_number, round_id')
       .eq('quiz_id', id)
-      .order('total_points', { ascending: false });
+      .order('total_points', { ascending: false }) as { data: Array<{
+        id: string;
+        user_id: string;
+        total_points: number;
+        ticket_number: number;
+        round_id: string | null;
+      }> | null };
 
     if (participantsData) {
       // Buscar perfis
@@ -340,14 +353,45 @@ export default function QuizDetail() {
         public_id: profiles?.find(pr => pr.id === p.user_id)?.public_id || 'Anônimo',
         avatar_url: profiles?.find(pr => pr.id === p.user_id)?.avatar_url || null,
         ticket_number: p.ticket_number || 1,
+        round_id: p.round_id || null,
       }));
 
       setParticipants(enrichedParticipants);
+
+      // Check if user is participating in the current round
+      if (user && activeRoundId) {
+        const userParticipationInRound = enrichedParticipants.filter(
+          p => p.user_id === user.id && p.round_id === activeRoundId
+        );
+        setIsParticipatingInCurrentRound(userParticipationInRound.length > 0);
+        
+        // If not participating in current round, check for tickets from previous round
+        if (userParticipationInRound.length === 0) {
+          // Find previous round
+          const currentRoundData = rounds.find(r => r.id === activeRoundId);
+          if (currentRoundData && currentRoundData.round_number > 1) {
+            const prevRound = rounds.find(r => r.round_number === currentRoundData.round_number - 1);
+            if (prevRound) {
+              const prevRoundTickets = enrichedParticipants
+                .filter(p => p.user_id === user.id && p.round_id === prevRound.id)
+                .map(p => ({
+                  id: p.id,
+                  ticket_number: p.ticket_number,
+                  total_points: p.total_points,
+                }));
+              setPreviousRoundTickets(prevRoundTickets);
+            }
+          }
+        } else {
+          setPreviousRoundTickets([]);
+        }
+      }
     }
   };
 
+  // Handler for joining the quiz in the current round (with round_id)
   const handleJoinQuiz = async (ticketCount: number = 1) => {
-    if (!user) {
+    if (!user || !currentRound) {
       navigate('/auth');
       return;
     }
@@ -355,7 +399,7 @@ export default function QuizDetail() {
     try {
       setJoining(true);
       
-      // Insert tickets based on count
+      // Insert tickets for the current round
       for (let i = 0; i < ticketCount; i++) {
         const { error } = await supabase
           .from('quiz_participants')
@@ -363,25 +407,70 @@ export default function QuizDetail() {
             quiz_id: id,
             user_id: user.id,
             ticket_number: i + 1,
-          });
+            round_id: currentRound.id, // Link to current round
+          } as any); // Type assertion until types are regenerated
 
         if (error) throw error;
       }
 
       setIsParticipating(true);
-      await fetchParticipants();
+      setIsParticipatingInCurrentRound(true);
+      await fetchParticipants(currentRound.id);
       
       toast({
         title: 'Sucesso!',
         description: ticketCount > 1 
-          ? `Você entrou no quiz com ${ticketCount} palpites. Boa sorte!`
-          : 'Você entrou no quiz. Boa sorte!',
+          ? `Você entrou na ${currentRound.name} com ${ticketCount} palpites. Boa sorte!`
+          : `Você entrou na ${currentRound.name}. Boa sorte!`,
       });
     } catch (error: any) {
       console.error('Error joining quiz:', error);
       toast({
         title: 'Erro',
         description: error.message || 'Não foi possível entrar no quiz.',
+        variant: 'destructive',
+      });
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  // Handler for joining with selected tickets from previous round
+  const handleJoinWithPreviousTickets = async (selectedTicketNumbers: number[]) => {
+    if (!user || !currentRound) return;
+
+    try {
+      setJoining(true);
+      
+      // Insert tickets for the current round with the same numbers
+      for (const ticketNumber of selectedTicketNumbers) {
+        const { error } = await supabase
+          .from('quiz_participants')
+          .insert({
+            quiz_id: id,
+            user_id: user.id,
+            ticket_number: ticketNumber,
+            round_id: currentRound.id,
+          } as any);
+
+        if (error) throw error;
+      }
+
+      setIsParticipating(true);
+      setIsParticipatingInCurrentRound(true);
+      await fetchParticipants(currentRound.id);
+      
+      toast({
+        title: 'Sucesso!',
+        description: selectedTicketNumbers.length > 1 
+          ? `Você manteve ${selectedTicketNumbers.length} palpites para a ${currentRound.name}. Boa sorte!`
+          : `Você manteve seu palpite para a ${currentRound.name}. Boa sorte!`,
+      });
+    } catch (error: any) {
+      console.error('Error joining with previous tickets:', error);
+      toast({
+        title: 'Erro',
+        description: error.message || 'Não foi possível manter os palpites.',
         variant: 'destructive',
       });
     } finally {
@@ -481,7 +570,7 @@ export default function QuizDetail() {
     : '';
 
   const isDeadlinePassed = currentRound ? isAfterDeadline(currentRound.deadline) : false;
-  const canAnswer = isParticipating && currentRound && !isDeadlinePassed && !currentRound.is_finished;
+  const canAnswer = isParticipatingInCurrentRound && currentRound && !isDeadlinePassed && !currentRound.is_finished;
 
   // Calculate estimated prize
   const estimatedPrize = useMemo(() => {
@@ -556,25 +645,42 @@ export default function QuizDetail() {
                   Gerenciar
                 </Button>
               )}
-              {!isParticipating && quiz.is_active && (
-                quiz.allow_multiple_tickets ? (
+              {!isParticipatingInCurrentRound && quiz.is_active && currentRound && !isDeadlinePassed && (
+                previousRoundTickets.length > 0 ? (
+                  // Show smart selection dialog for returning participants
+                  <SmartTicketJoinDialog
+                    entryFee={quiz.entry_fee || 0}
+                    previousTickets={previousRoundTickets}
+                    onConfirm={handleJoinWithPreviousTickets}
+                    title={`Participar da ${currentRound.name}`}
+                    description="Selecione os palpites da rodada anterior que deseja manter."
+                    requiresApproval={(quiz.entry_fee || 0) > 0}
+                    disabled={joining}
+                    trigger={
+                      <Button variant="hero" disabled={joining}>
+                        {joining && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                        Participar da Rodada
+                      </Button>
+                    }
+                  />
+                ) : quiz.allow_multiple_tickets ? (
                   <JoinWithTicketsDialog
                     entryFee={quiz.entry_fee || 0}
                     onConfirm={handleJoinQuiz}
-                    title="Participar do Quiz"
-                    description="Informe quantos palpites você deseja fazer neste quiz."
+                    title={`Participar da ${currentRound.name}`}
+                    description="Informe quantos palpites você deseja fazer nesta rodada."
                     requiresApproval={(quiz.entry_fee || 0) > 0}
                     trigger={
                       <Button variant="hero" disabled={joining}>
                         {joining && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                        Participar do Quiz
+                        Participar da Rodada
                       </Button>
                     }
                   />
                 ) : (
                   <Button variant="hero" onClick={() => handleJoinQuiz(1)} disabled={joining}>
                     {joining && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                    Participar do Quiz
+                    Participar da Rodada
                   </Button>
                 )
               )}
@@ -704,11 +810,15 @@ export default function QuizDetail() {
                   />
                 )}
 
-                {!isParticipating ? (
+                {!isParticipatingInCurrentRound ? (
                   <div className="space-y-4">
                     <Alert>
                       <AlertDescription className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <span>Você precisa participar do quiz para responder às perguntas.</span>
+                        <span>
+                          {isDeadlinePassed 
+                            ? 'O prazo para participar desta rodada já encerrou.'
+                            : 'Você precisa se inscrever nesta rodada para responder às perguntas.'}
+                        </span>
                         <div className="flex gap-2">
                           {questions.length > 0 && (
                             <Button variant="outline" onClick={() => setPreviewOpen(true)}>
@@ -716,25 +826,41 @@ export default function QuizDetail() {
                               Ver Perguntas
                             </Button>
                           )}
-                          {quiz.is_active && (
-                            quiz.allow_multiple_tickets ? (
+                          {quiz.is_active && !isDeadlinePassed && (
+                            previousRoundTickets.length > 0 ? (
+                              <SmartTicketJoinDialog
+                                entryFee={quiz.entry_fee || 0}
+                                previousTickets={previousRoundTickets}
+                                onConfirm={handleJoinWithPreviousTickets}
+                                title={`Participar da ${currentRound.name}`}
+                                description="Selecione os palpites da rodada anterior que deseja manter."
+                                requiresApproval={(quiz.entry_fee || 0) > 0}
+                                disabled={joining}
+                                trigger={
+                                  <Button variant="hero" disabled={joining}>
+                                    {joining && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                                    Participar da Rodada
+                                  </Button>
+                                }
+                              />
+                            ) : quiz.allow_multiple_tickets ? (
                               <JoinWithTicketsDialog
                                 entryFee={quiz.entry_fee || 0}
                                 onConfirm={handleJoinQuiz}
-                                title="Participar do Quiz"
-                                description="Informe quantos palpites você deseja fazer neste quiz."
+                                title={`Participar da ${currentRound.name}`}
+                                description="Informe quantos palpites você deseja fazer nesta rodada."
                                 requiresApproval={(quiz.entry_fee || 0) > 0}
                                 trigger={
                                   <Button variant="hero" disabled={joining}>
                                     {joining && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                                    Participar do Quiz
+                                    Participar da Rodada
                                   </Button>
                                 }
                               />
                             ) : (
                               <Button variant="hero" onClick={() => handleJoinQuiz(1)} disabled={joining}>
                                 {joining && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                                Participar do Quiz
+                                Participar da Rodada
                               </Button>
                             )
                           )}
