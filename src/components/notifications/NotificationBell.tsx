@@ -63,6 +63,11 @@ export function NotificationBell() {
         }
         break;
       
+      // New participant requesting approval - navigate to management
+      case 'new_participant':
+        if (poolId) navigate(`/pools/${poolId}/manage`);
+        break;
+      
       // Regular pool notifications
       default:
         if (poolId) navigate(`/pools/${poolId}`);
