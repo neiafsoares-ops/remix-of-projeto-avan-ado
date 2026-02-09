@@ -150,29 +150,52 @@ export default function Dashboard() {
             {/* Received Invitations - Always visible for all users */}
             <ReceivedInvitations />
             
-            {/* Suggested Pools Section - Visible for all users */}
-            <SuggestedPoolsSection />
+            {/* Grid: Sugestões Zapions + Criar Bolão lado a lado */}
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Suggested Pools Section - Visible for all users */}
+              <SuggestedPoolsSection />
+              
+              {/* Criar Bolão Card */}
+              <Card className="border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-background h-fit">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Plus className="h-5 w-5 text-primary" />
+                    Criar Novo Bolão
+                  </CardTitle>
+                  <CardDescription>
+                    Crie seu próprio bolão do zero e configure tudo manualmente
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Personalize rodadas, jogos, participantes e premiações do seu jeito.
+                  </p>
+                  {!isPrivilegedUser && (
+                    <p className="text-xs text-muted-foreground/80">
+                      Membros podem criar bolões com até 8 equipes, 2 grupos e 15 partidas.
+                    </p>
+                  )}
+                  {canCreatePools && (
+                    <Button variant="hero" className="w-full" onClick={() => setCreateWizardOpen(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Criar Bolão
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
             
+            {user && (
+              <CreatePoolWizard
+                open={createWizardOpen}
+                onOpenChange={setCreateWizardOpen}
+                onSuccess={handlePoolCreated}
+                userId={user.id}
+              />
+            )}
+
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Bolões Criados por Mim</h2>
-              
-              {canCreatePools && (
-                <>
-                  <Button variant="hero" onClick={() => setCreateWizardOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Criar Bolão
-                  </Button>
-                  
-                  {user && (
-                    <CreatePoolWizard
-                      open={createWizardOpen}
-                      onOpenChange={setCreateWizardOpen}
-                      onSuccess={handlePoolCreated}
-                      userId={user.id}
-                    />
-                  )}
-                </>
-              )}
             </div>
 
             {myPools.length === 0 ? (
