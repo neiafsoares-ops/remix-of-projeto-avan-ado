@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/hooks/use-toast';
+import { getPointsDescription } from '@/lib/points-utils';
 import { 
   ArrowLeft, 
   Loader2,
@@ -144,17 +145,69 @@ export function LaunchScoresScreen({
     
     setSavingMatchId(matchId);
     
+    const homeScore = parseInt(entry.home_score);
+    const awayScore = parseInt(entry.away_score);
+    
     try {
-      const { error } = await supabase
+      // 1. Update the match score
+      const { error: matchError } = await supabase
         .from('matches')
         .update({
-          home_score: parseInt(entry.home_score),
-          away_score: parseInt(entry.away_score),
+          home_score: homeScore,
+          away_score: awayScore,
           is_finished: true,
         })
         .eq('id', matchId);
         
-      if (error) throw error;
+      if (matchError) throw matchError;
+      
+      // 2. Fetch all predictions for this match (each ticket is a separate prediction)
+      const { data: predictionsData, error: predError } = await supabase
+        .from('predictions')
+        .select('id, home_score, away_score, user_id, participant_id')
+        .eq('match_id', matchId);
+      
+      if (predError) throw predError;
+      
+      // 3. Calculate and update points for each prediction (per ticket)
+      if (predictionsData && predictionsData.length > 0) {
+        for (const prediction of predictionsData) {
+          const result = getPointsDescription(
+            prediction.home_score,
+            prediction.away_score,
+            homeScore,
+            awayScore
+          );
+          
+          // Update points_earned for this specific prediction (by participant_id)
+          await supabase
+            .from('predictions')
+            .update({ points_earned: result.points })
+            .eq('id', prediction.id);
+        }
+        
+        // 4. Update total_points for each participant (ticket) individually
+        // Get unique participant IDs from predictions
+        const participantIds = [...new Set(predictionsData.map(p => p.participant_id).filter(Boolean))];
+        
+        for (const participantId of participantIds) {
+          // Sum all points_earned for this participant across all finished matches
+          const { data: participantPredictions } = await supabase
+            .from('predictions')
+            .select('points_earned')
+            .eq('participant_id', participantId);
+          
+          const totalPoints = participantPredictions?.reduce(
+            (sum, p) => sum + (p.points_earned || 0), 
+            0
+          ) || 0;
+          
+          await supabase
+            .from('pool_participants')
+            .update({ total_points: totalPoints })
+            .eq('id', participantId);
+        }
+      }
       
       toast({
         title: 'Placar registrado!',
