@@ -159,6 +159,7 @@ export default function Pools() {
   const enrichPoolsWithCreators = async (data: any[]) => {
     // Buscar perfis dos criadores
     const creatorIds = data?.map(p => p.created_by).filter(Boolean) as string[];
+    const poolIds = data?.map(p => p.id) || [];
     
     let creators: { id: string; public_id: string; avatar_url: string | null }[] = [];
     if (creatorIds.length > 0) {
@@ -170,22 +171,44 @@ export default function Pools() {
       creators = creatorsData || [];
     }
 
-    // Buscar participações do usuário atual
+    // Buscar participações do usuário atual e contagem de participantes ativos
     let userParticipations: string[] = [];
+    const activeCountMap = new Map<string, number>();
+
+    const promises: Promise<void>[] = [];
+
     if (user) {
-      const { data: participations } = await supabase
-        .from('pool_participants')
-        .select('pool_id')
-        .eq('user_id', user.id);
-      
-      userParticipations = participations?.map(p => p.pool_id) || [];
+      const p = (async () => {
+        const { data: participations } = await supabase
+          .from('pool_participants')
+          .select('pool_id')
+          .eq('user_id', user.id);
+        userParticipations = participations?.map(p => p.pool_id) || [];
+      })();
+      promises.push(p);
     }
+
+    if (poolIds.length > 0) {
+      const p = (async () => {
+        const { data: activeParticipants } = await supabase
+          .from('pool_participants')
+          .select('pool_id, status')
+          .in('pool_id', poolIds)
+          .eq('status', 'active');
+        (activeParticipants || []).forEach(p => {
+          activeCountMap.set(p.pool_id, (activeCountMap.get(p.pool_id) || 0) + 1);
+        });
+      })();
+      promises.push(p);
+    }
+
+    await Promise.all(promises);
 
     const poolsWithCount = data?.map(pool => {
       const creator = creators.find(c => c.id === pool.created_by);
       return {
         ...pool,
-        participant_count: pool.pool_participants?.[0]?.count || 0,
+        participant_count: activeCountMap.get(pool.id) || 0,
         creator_public_id: creator?.public_id || null,
         creator_avatar_url: creator?.avatar_url || null,
         is_participating: userParticipations.includes(pool.id),
