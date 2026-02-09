@@ -74,6 +74,7 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatDateTimeBR, formatDateShortBR, formatTimeBR, isBeforeDeadline } from '@/lib/date-utils';
 import { requiresApproval } from '@/lib/prize-utils';
+import { getPointsDescription } from '@/lib/points-utils';
 import type { Database } from '@/integrations/supabase/types';
 
 type ParticipantStatus = Database['public']['Enums']['participant_status'];
@@ -651,6 +652,7 @@ export default function PoolManage() {
 
     setSavingResult(true);
     try {
+      // 1. Update the match score
       const { error } = await supabase
         .from('matches')
         .update({
@@ -662,9 +664,56 @@ export default function PoolManage() {
 
       if (error) throw error;
 
+      // 2. Fetch all predictions for this match (each ticket is a separate prediction)
+      const { data: predictionsData, error: predError } = await supabase
+        .from('predictions')
+        .select('id, home_score, away_score, user_id, participant_id')
+        .eq('match_id', selectedMatch.id);
+      
+      if (predError) throw predError;
+      
+      // 3. Calculate and update points for each prediction (per ticket)
+      if (predictionsData && predictionsData.length > 0) {
+        for (const prediction of predictionsData) {
+          const result = getPointsDescription(
+            prediction.home_score,
+            prediction.away_score,
+            home,
+            away
+          );
+          
+          // Update points_earned for this specific prediction
+          await supabase
+            .from('predictions')
+            .update({ points_earned: result.points })
+            .eq('id', prediction.id);
+        }
+        
+        // 4. Update total_points for each participant (ticket) individually
+        const participantIds = [...new Set(predictionsData.map(p => p.participant_id).filter(Boolean))];
+        
+        for (const participantId of participantIds) {
+          // Sum all points_earned for this participant across all finished matches
+          const { data: participantPredictions } = await supabase
+            .from('predictions')
+            .select('points_earned')
+            .eq('participant_id', participantId);
+          
+          const totalPoints = participantPredictions?.reduce(
+            (sum, p) => sum + (p.points_earned || 0), 
+            0
+          ) || 0;
+          
+          await supabase
+            .from('pool_participants')
+            .update({ total_points: totalPoints })
+            .eq('id', participantId);
+        }
+      }
+
       toast({
         title: 'Resultado salvo!',
-        description: 'Os pontos foram calculados e o ranking atualizado automaticamente.',
+        description: 'Os pontos foram calculados e o ranking atualizado.',
       });
 
       setResultDialogOpen(false);
