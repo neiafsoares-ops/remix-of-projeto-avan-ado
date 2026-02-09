@@ -25,6 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { QuizCarouselView } from '@/components/quiz/QuizCarouselView';
+import { QuizRoundSummary } from '@/components/quiz/QuizRoundSummary';
 import { JoinWithTicketsDialog } from '@/components/JoinWithTicketsDialog';
 import { TicketStatusPanel, TicketStatus } from '@/components/TicketStatusPanel';
 import { 
@@ -692,6 +693,16 @@ export default function QuizDetail() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Round Summary - shows when round is finished */}
+                {currentRound.is_finished && (
+                  <QuizRoundSummary
+                    quizId={quiz.id}
+                    roundId={currentRound.id}
+                    roundName={currentRound.name}
+                    roundNumber={currentRound.round_number}
+                  />
+                )}
 
                 {!isParticipating ? (
                   <div className="space-y-4">
