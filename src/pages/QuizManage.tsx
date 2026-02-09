@@ -518,55 +518,57 @@ export default function QuizManage() {
           .eq('id', question.id);
       }
 
-      // Calcular pontos dos participantes
-      const { data: answers } = await supabase
+      // Calcular pontos dos participantes por ticket (participant_id)
+      const { data: answersData } = await supabase
         .from('quiz_answers')
-        .select('user_id, question_id, selected_answer')
+        .select('user_id, question_id, selected_answer, participant_id')
         .eq('round_id', selectedRound.id);
 
-      // Agrupar por usuário
-      const pointsByUser: Record<string, number> = {};
-      answers?.forEach(answer => {
+      // Agrupar por participant_id (ticket) em vez de user_id
+      const pointsByParticipant: Record<string, number> = {};
+      
+      // Primeiro, atualizar cada resposta individualmente com is_correct e points_earned
+      for (const answer of answersData || []) {
         const question = questions.find(q => q.id === answer.question_id);
-        if (question && correctAnswers[question.id] === answer.selected_answer) {
-          pointsByUser[answer.user_id] = (pointsByUser[answer.user_id] || 0) + 1;
-
-          // Atualizar a resposta como correta
-          supabase
-            .from('quiz_answers')
-            .update({ is_correct: true, points_earned: 1 })
-            .eq('question_id', answer.question_id)
-            .eq('user_id', answer.user_id);
-        } else {
-          // Atualizar a resposta como incorreta
-          supabase
-            .from('quiz_answers')
-            .update({ is_correct: false, points_earned: 0 })
-            .eq('question_id', answer.question_id)
-            .eq('user_id', answer.user_id);
+        const isCorrect = question && correctAnswers[question.id] === answer.selected_answer;
+        const participantId = answer.participant_id || answer.user_id; // fallback for legacy answers
+        
+        if (isCorrect) {
+          pointsByParticipant[participantId] = (pointsByParticipant[participantId] || 0) + 1;
         }
-      });
+        
+        // Atualizar a resposta usando participant_id para garantir isolamento
+        await supabase
+          .from('quiz_answers')
+          .update({ 
+            is_correct: isCorrect, 
+            points_earned: isCorrect ? 1 : 0 
+          })
+          .eq('question_id', answer.question_id)
+          .eq('participant_id', answer.participant_id);
+      }
 
-      // Atualizar pontos totais dos participantes
+      // Atualizar pontos totais de cada ticket individualmente
       let hasWinner = false;
-      for (const [userId, points] of Object.entries(pointsByUser)) {
+      for (const [participantId, points] of Object.entries(pointsByParticipant)) {
+        // Buscar o participant específico pelo ID
         const { data: participant } = await supabase
           .from('quiz_participants')
-          .select('total_points')
-          .eq('quiz_id', id)
-          .eq('user_id', userId)
+          .select('id, total_points')
+          .eq('id', participantId)
           .maybeSingle();
 
-        const newTotal = (participant?.total_points || 0) + points;
+        if (participant) {
+          const newTotal = (participant.total_points || 0) + points;
 
-        await supabase
-          .from('quiz_participants')
-          .update({ total_points: newTotal })
-          .eq('quiz_id', id)
-          .eq('user_id', userId);
+          await supabase
+            .from('quiz_participants')
+            .update({ total_points: newTotal })
+            .eq('id', participantId);
 
-        if (newTotal >= 10) {
-          hasWinner = true;
+          if (newTotal >= 10) {
+            hasWinner = true;
+          }
         }
       }
 
