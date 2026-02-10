@@ -223,6 +223,7 @@ export function AddGamesScreen({
   const lastSavedSlots = useRef<Record<number, SavedSlotData>>({});
   const lastSavedGroupSlots = useRef<Record<string, SavedSlotData>>({});
   const autoSaveTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
+  const savingInProgress = useRef<Record<string, boolean>>({});
   const [slotSaveStatus, setSlotSaveStatus] = useState<Record<string, SlotSaveStatus>>({});
   
   const currentRound = nonGroupRounds[currentRoundIndex];
@@ -460,6 +461,11 @@ export function AddGamesScreen({
     if (!user || !currentRound) return;
     
     const slotKey = `standard-${index}`;
+    
+    // Guard: prevent concurrent saves for the same slot
+    if (savingInProgress.current[slotKey]) return;
+    savingInProgress.current[slotKey] = true;
+    
     setSlotSaveStatus(prev => ({ ...prev, [slotKey]: 'saving' }));
     
     try {
@@ -530,6 +536,8 @@ export function AddGamesScreen({
         description: error.message || 'Não foi possível salvar o jogo.',
         variant: 'destructive',
       });
+    } finally {
+      savingInProgress.current[slotKey] = false;
     }
   }, [user, currentRound, poolId, onMatchesUpdate, toast]);
 
@@ -538,6 +546,11 @@ export function AddGamesScreen({
     if (!user) return;
     
     const slotKey = `${groupName}-${roundId}-${index}`;
+    
+    // Guard: prevent concurrent saves for the same slot
+    if (savingInProgress.current[slotKey]) return;
+    savingInProgress.current[slotKey] = true;
+    
     setSlotSaveStatus(prev => ({ ...prev, [slotKey]: 'saving' }));
     
     try {
@@ -616,6 +629,8 @@ export function AddGamesScreen({
         description: error.message || 'Não foi possível salvar o jogo.',
         variant: 'destructive',
       });
+    } finally {
+      savingInProgress.current[slotKey] = false;
     }
   }, [user, poolId, onMatchesUpdate, toast]);
 
@@ -832,6 +847,11 @@ export function AddGamesScreen({
   const saveSlot = async (index: number) => {
     if (!user || !currentRound) return;
     
+    const slotKey = `standard-${index}`;
+    
+    // Guard: prevent concurrent saves for the same slot
+    if (savingInProgress.current[slotKey]) return;
+    
     const slot = matchSlots[index];
     const error = validateSlot(slot);
     
@@ -844,6 +864,13 @@ export function AddGamesScreen({
       return;
     }
     
+    // Cancel any pending auto-save for this slot
+    if (autoSaveTimeouts.current[slotKey]) {
+      clearTimeout(autoSaveTimeouts.current[slotKey]);
+      delete autoSaveTimeouts.current[slotKey];
+    }
+    
+    savingInProgress.current[slotKey] = true;
     setSavingIndex(index);
     
     try {
@@ -916,6 +943,7 @@ export function AddGamesScreen({
       });
     } finally {
       setSavingIndex(null);
+      savingInProgress.current[slotKey] = false;
     }
   };
 
