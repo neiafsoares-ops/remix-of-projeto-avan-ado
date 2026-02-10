@@ -41,7 +41,7 @@ interface CupFormatViewProps {
   selectedRoundIndex: number;
   onRoundChange: (index: number) => void;
   isParticipant: boolean;
-  onPredictionChange: (matchId: string, homeScore: number, awayScore: number) => void;
+  onPredictionChange: (matchId: string, homeScore: number, awayScore: number) => Promise<void> | void;
   onGroupComplete?: (groupName: string, matchCount: number) => void;
 }
 
@@ -217,18 +217,23 @@ export function CupFormatView({
 
     setSaveStatuses(s => ({ ...s, [matchId]: 'saving' }));
 
-    debounceTimers.current[matchId] = setTimeout(() => {
-      onPredictionChange(matchId, homeNum, awayNum);
-      savedScores.current[matchId] = { home, away };
-      setSaveStatuses(s => ({ ...s, [matchId]: 'saved' }));
-      setTimeout(() => setSaveStatuses(s => ({ ...s, [matchId]: 'idle' })), 2000);
+    debounceTimers.current[matchId] = setTimeout(async () => {
+      try {
+        await onPredictionChange(matchId, homeNum, awayNum);
+        savedScores.current[matchId] = { home, away };
+        setSaveStatuses(s => ({ ...s, [matchId]: 'saved' }));
+        setTimeout(() => setSaveStatuses(s => ({ ...s, [matchId]: 'idle' })), 2000);
 
-      if (groupName) {
-        const updatedPredictions = {
-          ...predictions,
-          [matchId]: { match_id: matchId, home_score: homeNum, away_score: awayNum, points_earned: null }
-        };
-        checkGroupCompletion(groupName, matchId, updatedPredictions);
+        if (groupName) {
+          const updatedPredictions = {
+            ...predictions,
+            [matchId]: { match_id: matchId, home_score: homeNum, away_score: awayNum, points_earned: null }
+          };
+          checkGroupCompletion(groupName, matchId, updatedPredictions);
+        }
+      } catch (err) {
+        console.error('Error saving prediction:', err);
+        setSaveStatuses(s => ({ ...s, [matchId]: 'error' }));
       }
     }, 800);
   }, [onPredictionChange, predictions]);
