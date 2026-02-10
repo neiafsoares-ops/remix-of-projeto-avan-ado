@@ -612,9 +612,9 @@ export default function PoolDetail() {
       };
       setPredictions(updatedPredictions);
 
-      // Check round completion for current ticket
+      // Check round completion for current ticket and auto-advance
       const match = matches.find(m => m.id === matchId);
-      if (match && pool?.allow_multiple_tickets && ticketStatusList.length > 1) {
+      if (match && pool?.allow_multiple_tickets && userTickets.length > 1) {
         const roundId = (match as any).round_id;
         const roundMatches = matches.filter(m => (m as any).round_id === roundId);
         
@@ -625,31 +625,39 @@ export default function PoolDetail() {
         
         if (allFilledForCurrentTicket) {
           // Update allTicketPredictionCounts for current ticket
-          setAllTicketPredictionCounts(prev => ({
-            ...prev,
+          const updatedCounts = {
+            ...allTicketPredictionCounts,
             [activeTicketId!]: roundMatches.length,
-          }));
+          };
+          setAllTicketPredictionCounts(updatedCounts);
           
-          // Find next empty ticket (check all tickets after current, then wrap around)
-          const currentTicketIndex = ticketStatusList.findIndex(t => t.id === activeTicketId);
-          const allOtherTickets = [
-            ...ticketStatusList.slice(currentTicketIndex + 1),
-            ...ticketStatusList.slice(0, currentTicketIndex),
+          // Find next empty ticket using updated counts (not stale ticketStatusList)
+          const totalMatches = roundMatches.length;
+          const currentTicketIndex = userTickets.findIndex(t => t.id === activeTicketId);
+          const orderedTickets = [
+            ...userTickets.slice(currentTicketIndex + 1),
+            ...userTickets.slice(0, currentTicketIndex),
           ];
-          const nextEmptyTicket = allOtherTickets.find(t => t.status === 'empty');
+          
+          const nextEmptyTicket = orderedTickets.find(ticket => {
+            const count = updatedCounts[ticket.id] || 0;
+            return count < totalMatches;
+          });
+          
+          const currentTicketNumber = userTickets[currentTicketIndex]?.ticket_number;
           
           if (nextEmptyTicket) {
             // Auto-advance to next empty ticket
             setActiveTicketId(nextEmptyTicket.id);
             toast({
-              title: `✅ Ticket #${ticketStatusList[currentTicketIndex]?.ticket_number} completo!`,
+              title: `✅ Ticket #${currentTicketNumber} completo!`,
               description: `Avançando para Ticket #${nextEmptyTicket.ticket_number}...`,
             });
           } else {
             // All tickets are filled
             toast({
               title: '🎉 Todos os tickets preenchidos!',
-              description: `Você completou todos os ${ticketStatusList.length} palpites para esta rodada.`,
+              description: `Você completou todos os ${userTickets.length} palpites para esta rodada.`,
             });
           }
         }
