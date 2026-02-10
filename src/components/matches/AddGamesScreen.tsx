@@ -312,6 +312,15 @@ export function AddGamesScreen({
     return nonGroupRounds.find(r => r.name === idaName);
   };
 
+  // Track last round ID to detect actual round changes vs just data refreshes
+  const lastInitializedRoundId = useRef<string | null>(null);
+  const hasUnsavedChanges = useRef(false);
+
+  // Track unsaved changes
+  useEffect(() => {
+    hasUnsavedChanges.current = matchSlots.some(s => s.isModified || (!s.isSaved && (s.home_team || s.away_team)));
+  }, [matchSlots]);
+
   // Initialize slots when round changes (for non-group rounds)
   useEffect(() => {
     if (!currentRound || isCupFormat) return;
@@ -319,6 +328,50 @@ export function AddGamesScreen({
     const roundMatches = matches.filter(m => m.round_id === currentRound.id);
     const maxMatches = currentRound.match_limit + (currentRound.extra_matches_allowed || 0);
     const totalSlots = maxMatches;
+    
+    // If same round and there are unsaved changes, only update saved slots (don't overwrite user edits)
+    const isSameRound = lastInitializedRoundId.current === currentRound.id;
+    if (isSameRound && hasUnsavedChanges.current) {
+      // Only update slots that have corresponding matches in DB (newly saved)
+      setMatchSlots(prev => {
+        const updated = [...prev];
+        roundMatches.forEach(match => {
+          const existingIdx = updated.findIndex(s => s.match?.id === match.id);
+          if (existingIdx >= 0) {
+            // Update existing saved slot with latest DB data
+            updated[existingIdx] = {
+              ...updated[existingIdx],
+              match,
+              home_team: match.home_team,
+              away_team: match.away_team,
+              home_team_image: match.home_team_image || '',
+              away_team_image: match.away_team_image || '',
+              match_date: formatDateTimeLocalFromISO(match.match_date),
+              prediction_deadline: formatDateTimeLocalFromISO(match.prediction_deadline),
+              isSaved: true,
+              isModified: false,
+            };
+          } else {
+            // Find first unsaved slot without match ID to assign the newly saved match
+            const emptyIdx = updated.findIndex(s => !s.match?.id && s.home_team === match.home_team && s.away_team === match.away_team);
+            if (emptyIdx >= 0) {
+              updated[emptyIdx] = {
+                ...updated[emptyIdx],
+                match,
+                home_team_image: match.home_team_image || updated[emptyIdx].home_team_image,
+                away_team_image: match.away_team_image || updated[emptyIdx].away_team_image,
+                isSaved: true,
+                isModified: false,
+              };
+            }
+          }
+        });
+        return updated;
+      });
+      return;
+    }
+    
+    lastInitializedRoundId.current = currentRound.id;
     
     // Check if this is a "Volta" round with no matches yet, and if corresponding "Ida" has matches
     const idaRound = findIdaRoundForVolta(currentRound);
@@ -436,11 +489,20 @@ export function AddGamesScreen({
           
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        const { data: insertedData, error } = await supabase
           .from('matches')
-          .insert(matchData);
+          .insert(matchData)
+          .select()
+          .single();
           
         if (error) throw error;
+        
+        // Store the match object with ID so future saves do UPDATE instead of INSERT
+        if (insertedData) {
+          setMatchSlots(prev => prev.map((s, i) => 
+            i === index ? { ...s, match: insertedData as unknown as Match } : s
+          ));
+        }
       }
       
       // Update last saved values
@@ -505,11 +567,24 @@ export function AddGamesScreen({
           
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        const { data: insertedData, error } = await supabase
           .from('matches')
-          .insert(matchData);
+          .insert(matchData)
+          .select()
+          .single();
           
         if (error) throw error;
+        
+        // Store match object with ID for future updates
+        if (insertedData) {
+          const key = `${groupName}-${roundId}`;
+          setGroupMatchSlots(prev => ({
+            ...prev,
+            [key]: (prev[key] || []).map((s, i) => 
+              i === index ? { ...s, match: insertedData as unknown as Match } : s
+            )
+          }));
+        }
       }
       
       // Update last saved values
@@ -805,11 +880,20 @@ export function AddGamesScreen({
         });
       } else {
         // Insert new match
-        const { error } = await supabase
+        const { data: insertedData, error } = await supabase
           .from('matches')
-          .insert(matchData);
+          .insert(matchData)
+          .select()
+          .single();
           
         if (error) throw error;
+        
+        // Store match object with ID for future updates
+        if (insertedData) {
+          setMatchSlots(prev => prev.map((s, i) => 
+            i === index ? { ...s, match: insertedData as unknown as Match, isSaved: true, isModified: false } : s
+          ));
+        }
         
         toast({
           title: 'Jogo adicionado!',
@@ -817,9 +901,11 @@ export function AddGamesScreen({
         });
       }
       
-      setMatchSlots(prev => prev.map((s, i) => 
-        i === index ? { ...s, isSaved: true, isModified: false } : s
-      ));
+      if (slot.match?.id) {
+        setMatchSlots(prev => prev.map((s, i) => 
+          i === index ? { ...s, isSaved: true, isModified: false } : s
+        ));
+      }
       
       onMatchesUpdate();
     } catch (error: any) {
@@ -887,11 +973,23 @@ export function AddGamesScreen({
           description: `${slot.home_team} x ${slot.away_team}`,
         });
       } else {
-        const { error } = await supabase
+        const { data: insertedData, error } = await supabase
           .from('matches')
-          .insert(matchData);
+          .insert(matchData)
+          .select()
+          .single();
           
         if (error) throw error;
+        
+        // Store match with ID for future updates
+        if (insertedData) {
+          setGroupMatchSlots(prev => ({
+            ...prev,
+            [key]: (prev[key] || []).map((s, i) => 
+              i === index ? { ...s, match: insertedData as unknown as Match, isSaved: true, isModified: false } : s
+            )
+          }));
+        }
         
         toast({
           title: 'Jogo adicionado!',
