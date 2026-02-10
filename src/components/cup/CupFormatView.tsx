@@ -1,10 +1,10 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { GroupStandingsTable } from './GroupStandingsTable';
-import { ChevronLeft, ChevronRight, Target, Shield, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Target, Shield, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface Match {
@@ -186,11 +186,89 @@ export function CupFormatView({
   const [localPredictions, setLocalPredictions] = useState<Record<string, { home: string; away: string }>>({});
   const [groupRoundSelection, setGroupRoundSelection] = useState<Record<string, number>>({});
   const [notifiedGroups, setNotifiedGroups] = useState<Set<string>>(new Set());
+  const [saveStatuses, setSaveStatuses] = useState<Record<string, 'idle' | 'saving' | 'saved' | 'error'>>({});
+  const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
+  const savedScores = useRef<Record<string, { home: string; away: string }>>({});
 
   // Reset local predictions when the predictions prop changes (e.g., ticket switch)
   useEffect(() => {
     setLocalPredictions({});
+    setSaveStatuses({});
+    // Rebuild savedScores from current predictions
+    const newSaved: Record<string, { home: string; away: string }> = {};
+    Object.entries(predictions).forEach(([matchId, pred]) => {
+      newSaved[matchId] = { home: pred.home_score.toString(), away: pred.away_score.toString() };
+    });
+    savedScores.current = newSaved;
   }, [predictions]);
+
+  // Debounced auto-save function
+  const debouncedSave = useCallback((matchId: string, home: string, away: string, groupName?: string) => {
+    if (debounceTimers.current[matchId]) {
+      clearTimeout(debounceTimers.current[matchId]);
+    }
+
+    const homeNum = parseInt(home);
+    const awayNum = parseInt(away);
+    if (isNaN(homeNum) || isNaN(awayNum) || homeNum < 0 || awayNum < 0 || homeNum > 99 || awayNum > 99) return;
+
+    const prev = savedScores.current[matchId];
+    if (prev && prev.home === home && prev.away === away) return;
+
+    setSaveStatuses(s => ({ ...s, [matchId]: 'saving' }));
+
+    debounceTimers.current[matchId] = setTimeout(() => {
+      onPredictionChange(matchId, homeNum, awayNum);
+      savedScores.current[matchId] = { home, away };
+      setSaveStatuses(s => ({ ...s, [matchId]: 'saved' }));
+      setTimeout(() => setSaveStatuses(s => ({ ...s, [matchId]: 'idle' })), 2000);
+
+      if (groupName) {
+        const updatedPredictions = {
+          ...predictions,
+          [matchId]: { match_id: matchId, home_score: homeNum, away_score: awayNum, points_earned: null }
+        };
+        checkGroupCompletion(groupName, matchId, updatedPredictions);
+      }
+    }, 800);
+  }, [onPredictionChange, predictions]);
+
+  // Cleanup timers
+  useEffect(() => {
+    return () => {
+      Object.values(debounceTimers.current).forEach(clearTimeout);
+    };
+  }, []);
+
+  const renderSaveStatus = (matchId: string) => {
+    const status = saveStatuses[matchId];
+    if (!status || status === 'idle') return null;
+    if (status === 'saving') {
+      return (
+        <div className="flex items-center gap-1 text-muted-foreground mt-1 justify-center">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          <span className="text-xs">Salvando...</span>
+        </div>
+      );
+    }
+    if (status === 'saved') {
+      return (
+        <div className="flex items-center gap-1 text-green-600 mt-1 justify-center">
+          <CheckCircle2 className="w-3 h-3" />
+          <span className="text-xs">Salvo</span>
+        </div>
+      );
+    }
+    if (status === 'error') {
+      return (
+        <div className="flex items-center gap-1 text-destructive mt-1 justify-center">
+          <AlertCircle className="w-3 h-3" />
+          <span className="text-xs">Erro</span>
+        </div>
+      );
+    }
+    return null;
+  };
 
   const getSelectedRound = (groupName: string) => groupRoundSelection[groupName] || 1;
   const setSelectedRound = (groupName: string, round: number) => {
@@ -285,18 +363,26 @@ export function CupFormatView({
     return max;
   }, [matchesByGroup]);
 
-  // Handle prediction input
-  const handlePredictionInput = (matchId: string, type: 'home' | 'away', value: string) => {
+  // Handle prediction input with auto-save
+  const handlePredictionInput = (matchId: string, type: 'home' | 'away', value: string, groupName?: string) => {
     const numValue = value === '' ? '' : value;
-    setLocalPredictions(prev => ({
-      ...prev,
+    const newLocal = {
+      ...localPredictions,
       [matchId]: {
-        ...prev[matchId],
+        ...localPredictions[matchId],
         [type]: numValue,
-        home: type === 'home' ? numValue : (prev[matchId]?.home ?? predictions[matchId]?.home_score?.toString() ?? ''),
-        away: type === 'away' ? numValue : (prev[matchId]?.away ?? predictions[matchId]?.away_score?.toString() ?? ''),
+        home: type === 'home' ? numValue : (localPredictions[matchId]?.home ?? predictions[matchId]?.home_score?.toString() ?? ''),
+        away: type === 'away' ? numValue : (localPredictions[matchId]?.away ?? predictions[matchId]?.away_score?.toString() ?? ''),
       }
-    }));
+    };
+    setLocalPredictions(newLocal);
+
+    // Trigger debounced auto-save if both values are present
+    const home = newLocal[matchId].home;
+    const away = newLocal[matchId].away;
+    if (home !== '' && away !== '') {
+      debouncedSave(matchId, home, away, groupName);
+    }
   };
 
   // Get prediction value for display
@@ -374,21 +460,6 @@ export function CupFormatView({
     const canPred = canPredict(match);
     const prediction = predictions[match.id];
     
-    // Handler to check completion after save
-    const handlePredictionBlur = () => {
-      const home = parseInt(localPredictions[match.id]?.home || '');
-      const away = parseInt(localPredictions[match.id]?.away || '');
-      if (!isNaN(home) && !isNaN(away)) {
-        onPredictionChange(match.id, home, away);
-        // Check group completion after saving
-        const updatedPredictions = {
-          ...predictions,
-          [match.id]: { match_id: match.id, home_score: home, away_score: away, points_earned: null }
-        };
-        checkGroupCompletion(groupName, match.id, updatedPredictions);
-      }
-    };
-    
     return (
       <div 
         key={match.id}
@@ -425,26 +496,27 @@ export function CupFormatView({
                 }`}>{match.away_score}</span>
               </div>
             ) : canPred ? (
-              <div className="flex items-center gap-2 bg-primary/10 dark:bg-primary/20 rounded-lg px-3 py-1.5">
-                <Input
-                  type="number"
-                  min={0}
-                  max={99}
-                  value={getPredictionValue(match.id, 'home')}
-                  onChange={(e) => handlePredictionInput(match.id, 'home', e.target.value)}
-                  onBlur={handlePredictionBlur}
-                  className="w-12 h-9 text-center p-0 text-lg font-bold bg-background"
-                />
-                <span className="text-muted-foreground font-medium">x</span>
-                <Input
-                  type="number"
-                  min={0}
-                  max={99}
-                  value={getPredictionValue(match.id, 'away')}
-                  onChange={(e) => handlePredictionInput(match.id, 'away', e.target.value)}
-                  onBlur={handlePredictionBlur}
-                  className="w-12 h-9 text-center p-0 text-lg font-bold bg-background"
-                />
+              <div className="flex flex-col items-center">
+                <div className="flex items-center gap-2 bg-primary/10 dark:bg-primary/20 rounded-lg px-3 py-1.5">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={99}
+                    value={getPredictionValue(match.id, 'home')}
+                    onChange={(e) => handlePredictionInput(match.id, 'home', e.target.value, groupName)}
+                    className="w-12 h-9 text-center p-0 text-lg font-bold bg-background"
+                  />
+                  <span className="text-muted-foreground font-medium">x</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={99}
+                    value={getPredictionValue(match.id, 'away')}
+                    onChange={(e) => handlePredictionInput(match.id, 'away', e.target.value, groupName)}
+                    className="w-12 h-9 text-center p-0 text-lg font-bold bg-background"
+                  />
+                </div>
+                {renderSaveStatus(match.id)}
               </div>
             ) : (
               <div className="flex items-center gap-2 bg-primary/10 dark:bg-primary/20 rounded-lg px-4 py-2 min-w-[100px] justify-center">
@@ -665,38 +737,27 @@ export function CupFormatView({
                               <span className="text-xl font-bold">{match.away_score}</span>
                             </div>
                           ) : canPred ? (
-                            <div className="flex items-center gap-1">
-                              <Input
-                                type="number"
-                                min={0}
-                                max={99}
-                                value={getPredictionValue(match.id, 'home')}
-                                onChange={(e) => handlePredictionInput(match.id, 'home', e.target.value)}
-                                onBlur={() => {
-                                  const home = parseInt(localPredictions[match.id]?.home || '');
-                                  const away = parseInt(localPredictions[match.id]?.away || '');
-                                  if (!isNaN(home) && !isNaN(away)) {
-                                    onPredictionChange(match.id, home, away);
-                                  }
-                                }}
-                                className="w-12 h-10 text-center p-0 text-lg font-medium"
-                              />
-                              <span className="text-muted-foreground">x</span>
-                              <Input
-                                type="number"
-                                min={0}
-                                max={99}
-                                value={getPredictionValue(match.id, 'away')}
-                                onChange={(e) => handlePredictionInput(match.id, 'away', e.target.value)}
-                                onBlur={() => {
-                                  const home = parseInt(localPredictions[match.id]?.home || '');
-                                  const away = parseInt(localPredictions[match.id]?.away || '');
-                                  if (!isNaN(home) && !isNaN(away)) {
-                                    onPredictionChange(match.id, home, away);
-                                  }
-                                }}
-                                className="w-12 h-10 text-center p-0 text-lg font-medium"
-                              />
+                            <div className="flex flex-col items-center">
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={99}
+                                  value={getPredictionValue(match.id, 'home')}
+                                  onChange={(e) => handlePredictionInput(match.id, 'home', e.target.value)}
+                                  className="w-12 h-10 text-center p-0 text-lg font-medium"
+                                />
+                                <span className="text-muted-foreground">x</span>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={99}
+                                  value={getPredictionValue(match.id, 'away')}
+                                  onChange={(e) => handlePredictionInput(match.id, 'away', e.target.value)}
+                                  className="w-12 h-10 text-center p-0 text-lg font-medium"
+                                />
+                              </div>
+                              {renderSaveStatus(match.id)}
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
