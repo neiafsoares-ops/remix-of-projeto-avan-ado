@@ -405,30 +405,52 @@ export default function PoolDetail() {
         .from('pool_participants')
         .select('id, user_id, status, total_points, ticket_number')
         .eq('pool_id', id)
-        .eq('status', 'active')
-        .order('total_points', { ascending: false });
+        .eq('status', 'active');
 
       if (participantsError) throw participantsError;
 
-      // Buscar perfis separadamente
+      // Buscar perfis e pontuações reais dos palpites
       if (participantsData && participantsData.length > 0) {
         const userIds = participantsData.map(p => p.user_id);
-        const { data: profilesData } = await supabase
-          .from('profiles')
-          .select('id, public_id, full_name, numeric_id')
-          .in('id', userIds);
+        const participantIds = participantsData.map(p => p.id);
+        
+        // Fetch profiles and real predictions points in parallel
+        const [profilesResult, predictionsResult] = await Promise.all([
+          supabase
+            .from('profiles')
+            .select('id, public_id, full_name, numeric_id')
+            .in('id', userIds),
+          supabase
+            .from('predictions')
+            .select('participant_id, points_earned')
+            .in('participant_id', participantIds)
+        ]);
 
-        // Mapear participantes com perfis
+        const profilesData = profilesResult.data;
+        
+        // Calculate real total points per participant from predictions
+        const realPoints: Record<string, number> = {};
+        predictionsResult.data?.forEach(pred => {
+          if (pred.participant_id) {
+            realPoints[pred.participant_id] = (realPoints[pred.participant_id] || 0) + (pred.points_earned || 0);
+          }
+        });
+
+        // Mapear participantes com perfis e pontos reais
         const participantsWithProfiles = participantsData.map(p => {
           const profile = profilesData?.find(prof => prof.id === p.user_id);
           return {
             ...p,
+            total_points: realPoints[p.id] ?? p.total_points ?? 0,
             public_id: profile?.public_id || 'Anônimo',
             full_name: profile?.full_name || null,
             numeric_id: profile?.numeric_id || 0,
             ticket_number: p.ticket_number || 1,
           };
         });
+        
+        // Sort by real points descending
+        participantsWithProfiles.sort((a, b) => b.total_points - a.total_points);
         setParticipants(participantsWithProfiles);
       } else {
         setParticipants([]);
