@@ -580,30 +580,21 @@ export default function PoolDetail() {
     const participantIdToUse = pool?.allow_multiple_tickets ? activeTicketId : userTickets[0]?.id;
 
     try {
-      const existing = predictions[matchId];
-      
-      if (existing) {
-        const { error } = await supabase
-          .from('predictions')
-          .update({ home_score: homeScore, away_score: awayScore })
-          .eq('match_id', matchId)
-          .eq('user_id', user.id)
-          .eq('participant_id', participantIdToUse || null);
-
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('predictions')
-          .insert({
+      // Use upsert to avoid INSERT/UPDATE race conditions
+      const { error } = await supabase
+        .from('predictions')
+        .upsert(
+          {
             match_id: matchId,
             user_id: user.id,
             participant_id: participantIdToUse,
             home_score: homeScore,
             away_score: awayScore,
-          });
+          },
+          { onConflict: 'match_id,user_id,participant_id' }
+        );
 
-        if (error) throw error;
-      }
+      if (error) throw error;
 
       // Update local state with new prediction
       const updatedPredictions = {
