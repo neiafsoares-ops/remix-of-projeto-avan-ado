@@ -298,6 +298,20 @@ export function AddGamesScreen({
     setGroupMatchSlots(newGroupSlots);
   }, [isCupFormat, uniqueGroups, matchesByGroup, groupRoundSelection, matches]);
   
+  // Helper: find the corresponding "Ida" round for a "Volta" round
+  const findIdaRoundForVolta = (voltaRound: Round): Round | undefined => {
+    if (!voltaRound.name) return undefined;
+    const voltaName = voltaRound.name.toLowerCase();
+    if (!voltaName.includes('volta')) return undefined;
+    
+    // Map volta names to ida names
+    const idaName = voltaRound.name
+      .replace(/- Volta$/i, '- Ida')
+      .replace(/Jogo de Volta$/i, 'Jogo de Ida');
+    
+    return nonGroupRounds.find(r => r.name === idaName);
+  };
+
   // Initialize slots when round changes (for non-group rounds)
   useEffect(() => {
     if (!currentRound || isCupFormat) return;
@@ -305,6 +319,11 @@ export function AddGamesScreen({
     const roundMatches = matches.filter(m => m.round_id === currentRound.id);
     const maxMatches = currentRound.match_limit + (currentRound.extra_matches_allowed || 0);
     const totalSlots = maxMatches;
+    
+    // Check if this is a "Volta" round with no matches yet, and if corresponding "Ida" has matches
+    const idaRound = findIdaRoundForVolta(currentRound);
+    const idaMatches = idaRound ? matches.filter(m => m.round_id === idaRound.id) : [];
+    const shouldAutoPopulateFromIda = roundMatches.length === 0 && idaMatches.length > 0;
     
     const slots: MatchSlot[] = [];
     
@@ -324,6 +343,22 @@ export function AddGamesScreen({
           match_date: formatDateTimeLocalFromISO(existingMatch.match_date),
           prediction_deadline: formatDateTimeLocalFromISO(existingMatch.prediction_deadline),
           isSaved: true,
+          isModified: false,
+        });
+      } else if (shouldAutoPopulateFromIda && idaMatches[i]) {
+        // Pre-populate from Ida match with teams INVERTED (home becomes away, away becomes home)
+        const idaMatch = idaMatches[i];
+        slots.push({
+          index: i,
+          home_team: idaMatch.away_team,        // Invert: away becomes home
+          away_team: idaMatch.home_team,        // Invert: home becomes away
+          home_team_image: idaMatch.away_team_image || '',
+          away_team_image: idaMatch.home_team_image || '',
+          home_club_id: '',
+          away_club_id: '',
+          match_date: '',              // Leave blank for admin to fill
+          prediction_deadline: '',     // Leave blank for admin to fill
+          isSaved: false,
           isModified: false,
         });
       } else {
@@ -358,7 +393,7 @@ export function AddGamesScreen({
       }
     });
     lastSavedSlots.current = initialSavedValues;
-  }, [currentRound?.id, matches, matchesPerRound, isCupFormat]);
+  }, [currentRound?.id, matches, matchesPerRound, isCupFormat, nonGroupRounds]);
   
   // Cleanup auto-save timeouts on unmount
   useEffect(() => {
