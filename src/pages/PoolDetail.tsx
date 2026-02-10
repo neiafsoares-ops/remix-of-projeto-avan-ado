@@ -1120,10 +1120,15 @@ export default function PoolDetail() {
                         }`}>
                           {index + 1}
                         </div>
-                        <div className="flex-1">
-                          <p className="font-medium">@{participant.public_id}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">
+                            @{participant.public_id}
+                            {pool?.allow_multiple_tickets && (
+                              <span className="text-xs text-muted-foreground ml-1">#{participant.ticket_number}</span>
+                            )}
+                          </p>
                           {participant.full_name && (
-                            <p className="text-xs text-muted-foreground">{participant.full_name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{participant.full_name}</p>
                           )}
                         </div>
                         <div className="text-right flex items-center gap-2">
