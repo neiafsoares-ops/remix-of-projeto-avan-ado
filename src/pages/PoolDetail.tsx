@@ -136,6 +136,8 @@ export default function PoolDetail() {
   
   // Ticket management
   const [activeTicketId, setActiveTicketId] = useState<string | undefined>();
+  // Track prediction counts for ALL user tickets (not just active)
+  const [allTicketPredictionCounts, setAllTicketPredictionCounts] = useState<Record<string, number>>({});
 
   // Get user tickets from participants
   const userTickets = useMemo(() => {
@@ -145,7 +147,42 @@ export default function PoolDetail() {
       .sort((a, b) => a.ticket_number - b.ticket_number);
   }, [participants, user]);
 
-  // Calculate ticket progress for status panel
+  // Fetch prediction counts for ALL user tickets in current round
+  useEffect(() => {
+    const fetchAllTicketCounts = async () => {
+      if (!userTickets.length || !rounds.length || selectedRoundIndex === null) {
+        setAllTicketPredictionCounts({});
+        return;
+      }
+      
+      const selectedRound = rounds[selectedRoundIndex];
+      if (!selectedRound) return;
+      
+      const roundMatches = matches.filter(m => (m as any).round_id === selectedRound.id);
+      if (!roundMatches.length) return;
+      
+      const ticketIds = userTickets.map(t => t.id);
+      
+      const { data } = await supabase
+        .from('predictions')
+        .select('participant_id, match_id')
+        .in('participant_id', ticketIds)
+        .in('match_id', roundMatches.map(m => m.id));
+      
+      const counts: Record<string, number> = {};
+      ticketIds.forEach(id => { counts[id] = 0; });
+      data?.forEach(p => {
+        if (p.participant_id) {
+          counts[p.participant_id] = (counts[p.participant_id] || 0) + 1;
+        }
+      });
+      setAllTicketPredictionCounts(counts);
+    };
+    
+    fetchAllTicketCounts();
+  }, [userTickets, rounds, selectedRoundIndex, matches]);
+
+  // Calculate ticket progress for status panel using real counts
   const ticketStatusList = useMemo<TicketCarouselItem[]>(() => {
     if (!userTickets.length || !rounds.length || selectedRoundIndex === null) return [];
     
@@ -156,13 +193,11 @@ export default function PoolDetail() {
     const totalMatches = roundMatches.length;
     
     return userTickets.map(ticket => {
-      // Count predictions for this ticket in the current round
-      const ticketPredictions = Object.keys(predictions).filter(matchId => {
-        const match = roundMatches.find(m => m.id === matchId);
-        return match && predictions[matchId];
-      });
-      
-      const filledCount = ticketPredictions.length;
+      // For active ticket, use local predictions state (most up-to-date)
+      // For other tickets, use fetched counts
+      const filledCount = ticket.id === activeTicketId
+        ? Object.keys(predictions).filter(matchId => roundMatches.some(m => m.id === matchId)).length
+        : (allTicketPredictionCounts[ticket.id] || 0);
       
       return {
         id: ticket.id,
@@ -171,18 +206,19 @@ export default function PoolDetail() {
         progress: { filled: filledCount, total: totalMatches },
       } as TicketCarouselItem;
     });
-  }, [userTickets, rounds, selectedRoundIndex, matches, predictions]);
+  }, [userTickets, rounds, selectedRoundIndex, matches, predictions, activeTicketId, allTicketPredictionCounts]);
 
-  // Set active ticket when userTickets changes
+  // Set active ticket when userTickets changes - prioritize first empty ticket
   useEffect(() => {
     if (userTickets.length > 0) {
-      // If no active ticket, or active ticket is not in the list, select first
       const activeTicketExists = userTickets.some(t => t.id === activeTicketId);
       if (!activeTicketId || !activeTicketExists) {
-        setActiveTicketId(userTickets[0].id);
+        // Try to find first empty ticket
+        const firstEmpty = ticketStatusList.find(t => t.status === 'empty');
+        setActiveTicketId(firstEmpty?.id || userTickets[0].id);
       }
     }
-  }, [userTickets]);
+  }, [userTickets, ticketStatusList]);
 
   // Fetch predictions for the active ticket
   useEffect(() => {
@@ -581,42 +617,40 @@ export default function PoolDetail() {
       if (match && pool?.allow_multiple_tickets && ticketStatusList.length > 1) {
         const roundId = (match as any).round_id;
         const roundMatches = matches.filter(m => (m as any).round_id === roundId);
-        const now = new Date();
         
-        // Filter open matches (deadline not passed, not finished)
-        const openMatches = roundMatches.filter(m => {
-          const deadline = new Date(m.prediction_deadline);
-          return deadline > now && !m.is_finished;
-        });
-        
-        // Check if all open matches have predictions for current ticket
-        const allFilledForCurrentTicket = openMatches.length > 0 && openMatches.every(m => 
+        // Check if all round matches have predictions for current ticket
+        const allFilledForCurrentTicket = roundMatches.length > 0 && roundMatches.every(m => 
           updatedPredictions[m.id] !== undefined
         );
         
         if (allFilledForCurrentTicket) {
-          // Find next empty ticket
+          // Update allTicketPredictionCounts for current ticket
+          setAllTicketPredictionCounts(prev => ({
+            ...prev,
+            [activeTicketId!]: roundMatches.length,
+          }));
+          
+          // Find next empty ticket (check all tickets after current, then wrap around)
           const currentTicketIndex = ticketStatusList.findIndex(t => t.id === activeTicketId);
-          const nextEmptyTicket = ticketStatusList.slice(currentTicketIndex + 1).find(t => t.status === 'empty');
+          const allOtherTickets = [
+            ...ticketStatusList.slice(currentTicketIndex + 1),
+            ...ticketStatusList.slice(0, currentTicketIndex),
+          ];
+          const nextEmptyTicket = allOtherTickets.find(t => t.status === 'empty');
           
           if (nextEmptyTicket) {
-            // Auto-advance to next ticket
+            // Auto-advance to next empty ticket
             setActiveTicketId(nextEmptyTicket.id);
             toast({
-              title: `✅ Ticket #${currentTicketIndex + 1} completo!`,
+              title: `✅ Ticket #${ticketStatusList[currentTicketIndex]?.ticket_number} completo!`,
               description: `Avançando para Ticket #${nextEmptyTicket.ticket_number}...`,
             });
           } else {
-            // Check if all tickets are filled
-            const allTicketsFilled = ticketStatusList.every(t => 
-              t.id === activeTicketId || t.status === 'filled'
-            );
-            if (allTicketsFilled) {
-              toast({
-                title: '🎉 Todos os tickets preenchidos!',
-                description: `Você completou todos os ${ticketStatusList.length} palpites para esta rodada.`,
-              });
-            }
+            // All tickets are filled
+            toast({
+              title: '🎉 Todos os tickets preenchidos!',
+              description: `Você completou todos os ${ticketStatusList.length} palpites para esta rodada.`,
+            });
           }
         }
       }
@@ -850,12 +884,42 @@ export default function PoolDetail() {
                     
                     {/* Ticket Carousel for multiple guesses */}
                     {pool.allow_multiple_tickets && ticketStatusList.length > 1 && (
-                      <TicketCarousel
-                        tickets={ticketStatusList}
-                        activeTicketId={activeTicketId || ''}
-                        onTicketSelect={setActiveTicketId}
-                        variant="pool"
-                      />
+                      <>
+                        <TicketCarousel
+                          tickets={ticketStatusList}
+                          activeTicketId={activeTicketId || ''}
+                          onTicketSelect={setActiveTicketId}
+                          variant="pool"
+                        />
+                        
+                        {/* Ticket completion messages */}
+                        {(() => {
+                          const emptyCount = ticketStatusList.filter(t => t.status === 'empty').length;
+                          const allFilled = emptyCount === 0 && ticketStatusList.length > 0;
+                          
+                          if (allFilled) {
+                            return (
+                              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-center">
+                                <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                                  🎉 Todos os seus tickets desta rodada já foram preenchidos.
+                                </p>
+                              </div>
+                            );
+                          }
+                          
+                          if (emptyCount > 0) {
+                            return (
+                              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-center">
+                                <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                                  ⚠️ Você ainda possui {emptyCount} ticket{emptyCount > 1 ? 's' : ''} sem palpitar nesta rodada.
+                                </p>
+                              </div>
+                            );
+                          }
+                          
+                          return null;
+                        })()}
+                      </>
                     )}
                     
                     {/* Legacy Ticket Selector for single ticket operations */}
