@@ -355,6 +355,80 @@ export default function Pools() {
           </Card>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Banner Inline - Brasileirão Zapions */}
+            <a 
+              href="https://bolaozapions.lovable.app/pools" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="group"
+            >
+              <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-2 border-accent/50 hover:border-accent">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <img 
+                      src={brasileiraoZapionsBanner}
+                      alt="Brasileirão Zapions"
+                      className="w-12 h-12 rounded-lg object-cover"
+                    />
+                    <div className="flex gap-2 flex-wrap justify-end">
+                      <Badge variant="default" className="bg-accent text-accent-foreground">
+                        Ativo
+                      </Badge>
+                      <Badge variant="outline">
+                        <Globe className="h-3 w-3 mr-1" />
+                        Público
+                      </Badge>
+                    </div>
+                  </div>
+                  <CardTitle className="text-xl mt-4">teste go mata mata</CardTitle>
+                  <CardDescription className="line-clamp-2">
+                    Sem descrição
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Criador do bolão */}
+                  <div className="flex items-center gap-2 pb-3 border-b">
+                    <Avatar className="h-7 w-7">
+                      <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                        ZA
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col">
+                      <span className="text-xs text-muted-foreground">Criado por</span>
+                      <span className="text-sm font-medium text-primary">@zapions</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Users className="h-4 w-4" />
+                      <span>0 participantes</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-4 w-4" />
+                      <span>24/02/2026</span>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-r from-accent/10 to-primary/10 rounded-lg p-3 border border-accent/20">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">TAXA DE INSCRIÇÃO</span>
+                      <span className="text-lg font-bold text-accent">R$ 2,00</span>
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    variant="hero" 
+                    className="w-full"
+                    tabIndex={-1}
+                  >
+                    Ver Detalhes
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </CardContent>
+              </Card>
+            </a>
+
             {pools.map((pool) => (
               <Card 
                 key={pool.id} 
