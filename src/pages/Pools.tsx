@@ -375,14 +375,14 @@ export default function Pools() {
                     <Badge variant="default" className="bg-accent text-accent-foreground">
                       Ativo
                     </Badge>
-                    <Badge variant="outline">
-                      <Globe className="h-3 w-3 mr-1" />
-                      Público
+                    <Badge variant="secondary">
+                      <Lock className="h-3 w-3 mr-1" />
+                      Privado
                     </Badge>
                   </div>
                   <CardTitle className="text-xl mt-2">BRASILEIRÃO ZAPIONS</CardTitle>
                   <CardDescription className="line-clamp-2">
-                    Sem descrição
+                    Ambiente teste
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4 flex-1 flex flex-col justify-end">
