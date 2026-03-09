@@ -362,31 +362,30 @@ export default function Pools() {
               rel="noopener noreferrer"
               className="group"
             >
-              <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-2 border-accent/50 hover:border-accent">
+              <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-2 border-accent/50 hover:border-accent h-full flex flex-col">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <img 
                       src={brasileiraoZapionsBanner}
                       alt="Brasileirão Zapions"
-                      className="w-12 h-12 rounded-lg object-cover"
+                      className="w-full max-h-40 rounded-lg object-contain"
                     />
-                    <div className="flex gap-2 flex-wrap justify-end">
-                      <Badge variant="default" className="bg-accent text-accent-foreground">
-                        Ativo
-                      </Badge>
-                      <Badge variant="outline">
-                        <Globe className="h-3 w-3 mr-1" />
-                        Público
-                      </Badge>
-                    </div>
                   </div>
-                  <CardTitle className="text-xl mt-4">teste go mata mata</CardTitle>
+                  <div className="flex gap-2 flex-wrap mt-3">
+                    <Badge variant="default" className="bg-accent text-accent-foreground">
+                      Ativo
+                    </Badge>
+                    <Badge variant="outline">
+                      <Globe className="h-3 w-3 mr-1" />
+                      Público
+                    </Badge>
+                  </div>
+                  <CardTitle className="text-xl mt-2">BRASILEIRÃO ZAPIONS</CardTitle>
                   <CardDescription className="line-clamp-2">
                     Sem descrição
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Criador do bolão */}
+                <CardContent className="space-y-4 flex-1 flex flex-col justify-end">
                   <div className="flex items-center gap-2 pb-3 border-b">
                     <Avatar className="h-7 w-7">
                       <AvatarFallback className="bg-primary/10 text-primary text-xs">
@@ -402,18 +401,11 @@ export default function Pools() {
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Users className="h-4 w-4" />
-                      <span>0 participantes</span>
+                      <span>16 participantes</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
                       <span>24/02/2026</span>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-gradient-to-r from-accent/10 to-primary/10 rounded-lg p-3 border border-accent/20">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-muted-foreground">TAXA DE INSCRIÇÃO</span>
-                      <span className="text-lg font-bold text-accent">R$ 2,00</span>
                     </div>
                   </div>
                   
