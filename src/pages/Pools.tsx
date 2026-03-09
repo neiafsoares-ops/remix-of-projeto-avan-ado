@@ -321,57 +321,6 @@ export default function Pools() {
           )}
         </div>
 
-        {/* Banner Inline - Brasileirão Zapions */}
-        <a 
-          href="https://bolaozapions.lovable.app/pools" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="block mb-8 group"
-        >
-          <Card className="overflow-hidden border-2 border-accent/50 hover:border-accent hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-gradient-to-r from-accent/5 to-primary/5">
-            <div className="flex flex-col md:flex-row items-center gap-4 p-4 md:p-6">
-              <img 
-                src={brasileiraoZapionsBanner}
-                alt="Brasileirão Zapions"
-                className="w-20 h-20 md:w-24 md:h-24 rounded-xl object-cover shadow-md"
-              />
-              <div className="flex-1 text-center md:text-left">
-                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-2">
-                  <h3 className="text-xl md:text-2xl font-bold text-foreground">BRASILEIRÃO ZAPIONS</h3>
-                  <Badge variant="default" className="bg-accent text-accent-foreground">
-                    Ativo
-                  </Badge>
-                  <Badge variant="outline">
-                    <Globe className="h-3 w-3 mr-1" />
-                    Público
-                  </Badge>
-                </div>
-                <p className="text-muted-foreground text-sm mb-3">
-                  O maior bolão do Brasileirão! Participe e concorra a prêmios incríveis.
-                </p>
-                <div className="flex items-center justify-center md:justify-start gap-4 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Users className="h-4 w-4" />
-                    <span>Vagas ilimitadas</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Trophy className="h-4 w-4 text-accent" />
-                    <span>Prêmios semanais</span>
-                  </div>
-                </div>
-              </div>
-              <Button 
-                variant="hero" 
-                className="shrink-0"
-                tabIndex={-1}
-              >
-                Ver Detalhes
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
-            </div>
-          </Card>
-        </a>
-
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
