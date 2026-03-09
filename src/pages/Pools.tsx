@@ -330,7 +330,7 @@ export default function Pools() {
           <Card className="overflow-hidden border-2 border-accent/50 hover:border-accent hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-gradient-to-r from-accent/5 to-primary/5">
             <div className="flex flex-col md:flex-row items-center gap-4 p-4 md:p-6">
               <img 
-                src="/lovable-uploads/a6d1ecd3-3e76-4618-a8f9-97f6e925e0af.png"
+                src={brasileiraoZapionsBanner}
                 alt="Brasileirão Zapions"
                 className="w-20 h-20 md:w-24 md:h-24 rounded-xl object-cover shadow-md"
               />
