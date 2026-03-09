@@ -12,6 +12,7 @@ import { useAuth } from '@/lib/auth-context';
 import { Trophy, Users, Calendar, Plus, Loader2, ChevronRight, Globe, Lock, Search, Clock, ArrowLeft, Target, Zap } from 'lucide-react';
 import { calculateEstimatedPrize } from '@/lib/prize-utils';
 import { PrizeDisplayCard } from '@/components/PrizeDisplayCard';
+import brasileiraoZapionsBanner from '@/assets/brasileirao-zapions-banner.png';
 
 interface Pool {
   id: string;
